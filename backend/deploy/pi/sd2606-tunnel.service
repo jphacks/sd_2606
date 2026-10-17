@@ -1,0 +1,20 @@
+# Cloudflare Quick Tunnel（無料・アカウント不要）で API を https://<ランダム>.trycloudflare.com として公開する。
+# 起動し直すたびに URL が変わる。現在の URL は tunnel-url.sh で確認する。
+# install-tunnel.sh が __USER__ を置き換えて /etc/systemd/system/ に配置する
+[Unit]
+Description=sd_2606 API Cloudflare Quick Tunnel
+After=network-online.target sd2606-api.service
+Wants=network-online.target
+
+[Service]
+User=__USER__
+ExecStart=/usr/bin/cloudflared tunnel --no-autoupdate --url http://127.0.0.1:8606
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

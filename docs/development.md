@@ -44,10 +44,12 @@ cp .env.example .env                                   # Claude を使うなら 
 
 ### アクセス方法
 
-- **URL はチームのチャットで共有している**（`https://<ホスト名>:8443/` の形）。リポジトリが public なので、ここには書かない
+- **URL はチームのチャットで共有している**。リポジトリが public なので、ここには書かない
+  - 現在は臨時で Cloudflare Quick Tunnel（`https://<ランダム>.trycloudflare.com/` の形）を使っている。**サーバーの再起動などで URL が変わる**ことがあるので、繋がらなくなったらチャットで最新の URL を確認する
+  - 本来の公開経路（Tailscale Funnel、`https://<ホスト名>:8443/` の形）は準備中
 - 動作確認: ブラウザで `<URL>/health` を開いて `{"status":"ok", ...}` が出れば動いている（`llm_enabled` が `true` なら AI の補足が付く）
 - API の試し打ち: `<URL>/docs`（Swagger UI）
-- アプリから使う: `android/local.properties` に `api.baseUrl=https://<ホスト名>:8443/` と書き、Sync してからビルドし直す（URL はビルド時に埋め込まれる）
+- アプリから使う: `android/local.properties` に `api.baseUrl=<共有された URL>` と書き（末尾の `/` を忘れない）、Sync してからビルドし直す（URL はビルド時に埋め込まれる）
 
 | やりたいこと | 繋ぐ先 |
 | --- | --- |
@@ -75,7 +77,8 @@ cp .env.example .env                                   # Claude を使うなら 
 | 症状 | 確認すること |
 | --- | --- |
 | アプリで「通信に失敗しました」 | ブラウザで `<URL>/health` が開けるか。開けなければサーバー側の問題なので管理者に連絡 |
-| ブラウザでは開けるがアプリでは失敗 | `local.properties` の URL（`https://`・`:8443`・末尾の `/`）。変更後に Sync とビルドをし直したか |
+| ブラウザでは開けるがアプリでは失敗 | `local.properties` の URL（`https://`・末尾の `/`）。変更後に Sync とビルドをし直したか |
+| 以前は使えた URL が開けない | Quick Tunnel の URL が変わった可能性。チャットで最新の URL を確認する |
 | 結果は出るが AI の補足が付かない | `/health` の `llm_enabled`。`true` なら回数制限に達しただけなので少し待つ |
 | 追加した手続き・項目が出てこない | その変更が main にマージされ、サーバーに反映済みか |
 
@@ -83,7 +86,9 @@ cp .env.example .env                                   # Claude を使うなら 
 
 - 初回: Pi 上で clone して `bash backend/deploy/pi/install.sh`（venv 作成・systemd ユニット配置・起動）。`backend/.env` に `ANTHROPIC_API_KEY` を設定して `sudo systemctl restart sd2606-api`
 - 更新: Pi 上で `bash ~/sd_2606/backend/deploy/pi/deploy.sh`（main を取り込んで再起動）
-- 構成: systemd ユニット `sd2606-api` が 127.0.0.1:8606 で待ち受け、Tailscale Funnel（ポート 8443）で HTTPS 公開。公開をやめるときは `sudo tailscale funnel --https=8443 off`
+- 構成: systemd ユニット `sd2606-api` が 127.0.0.1:8606 で待ち受け、次のどちらかで HTTPS 公開する
+  - Cloudflare Quick Tunnel（臨時）: `cloudflared` を入れて `bash backend/deploy/pi/install-tunnel.sh`。ユニットは `sd2606-tunnel`。**URL は起動のたびに変わる**ので、`bash backend/deploy/pi/tunnel-url.sh` で確認してチャットで共有し直す。止めるときは `sudo systemctl disable --now sd2606-tunnel`
+  - Tailscale Funnel（ポート 8443）: 公開 DNS への登録待ち。止めるときは `sudo tailscale funnel --https=8443 off`
 - ログ: `journalctl -u sd2606-api -f`
 
 ## ブランチと PR
