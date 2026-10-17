@@ -278,13 +278,6 @@ private fun ProcedureCard(
                 AssistChip(onClick = onClick, label = { Text(Labels.category[proc.category] ?: proc.category) })
                 Spacer(Modifier.width(8.dp))
                 Text(proc.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                if (item.status == Status.LIKELY) {
-                    Text(
-                        "関連度 ${"%.1f".format(item.score)}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
             }
             proc.deadline?.let {
                 Row(verticalAlignment = Alignment.CenterVertically) {

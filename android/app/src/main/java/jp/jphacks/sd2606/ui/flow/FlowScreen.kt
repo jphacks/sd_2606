@@ -23,7 +23,10 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -39,6 +42,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -94,6 +98,9 @@ fun FlowScreen(
                         style = MaterialTheme.typography.titleSmall,
                         modifier = Modifier.padding(bottom = 12.dp),
                     )
+                }
+                if (steps.isEmpty()) {
+                    item { Text("あなたに当てはまる手順はありません。", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 16.dp)) }
                 }
                 itemsIndexed(steps) { index, view ->
                     StepRow(index + 1, view, catalog.questions, state.answers, isLast = index == steps.lastIndex)
@@ -188,14 +195,25 @@ private fun Documents(item: Scored) {
     }
 }
 
+/** 手続きの要点を「やること・期限・窓口」の3行にまとめる。 */
 @Composable
 private fun Header(proc: ProcedureDef) {
-    Card(Modifier.padding(bottom = 16.dp)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(proc.summary, style = MaterialTheme.typography.bodyMedium)
-            proc.deadline?.let { Text("期限: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
-            proc.office?.let { Text("窓口: $it", style = MaterialTheme.typography.bodySmall) }
+    Card(Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            HeaderRow(Icons.Default.Info, "やること", proc.summary)
+            proc.deadline?.let { HeaderRow(Icons.Default.Schedule, "期限", it, MaterialTheme.colorScheme.error) }
+            proc.office?.let { HeaderRow(Icons.Default.Place, "窓口", it) }
         }
+    }
+}
+
+@Composable
+private fun HeaderRow(icon: ImageVector, label: String, text: String, color: Color = MaterialTheme.colorScheme.onSurface) {
+    Row(verticalAlignment = Alignment.Top) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp).padding(top = 2.dp), tint = if (color == MaterialTheme.colorScheme.onSurface) MaterialTheme.colorScheme.primary else color)
+        Spacer(Modifier.width(8.dp))
+        Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.width(64.dp).padding(top = 1.dp))
+        Text(text, style = MaterialTheme.typography.bodyMedium, color = color, modifier = Modifier.weight(1f))
     }
 }
 
