@@ -1,0 +1,35 @@
+id: kakutei_shinkoku
+title: 所得税の確定申告
+category: tax
+summary: 1年間（1〜12月）の所得と税額を計算して税務署に申告し、所得税を納めます（還付を受ける場合もあります）。
+priority: 80
+deadline: 翌年2月16日〜3月15日（土日祝の場合は翌平日）
+office: 住所地の税務署（e-Tax で自宅から提出可能）
+match:
+  - reason: 自営業・フリーランスは自分で所得を申告する必要があるため
+    when:
+      - {field: occupation, op: in, value: [self_employed, freelance]}
+  - reason: 副業の所得が年20万円を超える場合は確定申告が必要なため
+    when:
+      - {field: life_events, op: contains, value: side_job}
+  - reason: 年収が2,000万円を超える会社員は年末調整の対象外になるため
+    when:
+      - {field: occupation, op: eq, value: employee}
+      - {field: annual_income, op: gt, value: 20000000}
+  - reason: 年の途中で退職して再就職していない場合、払いすぎた税金が戻る可能性があるため
+    when:
+      - {field: life_events, op: contains, value: resign}
+steps:
+  - title: 収入と経費の資料を集める
+    detail: 源泉徴収票、売上・経費の記録、控除の証明書（社会保険料・生命保険料など）をまとめます。
+    documents: [源泉徴収票, 帳簿・領収書, 控除証明書]
+  - title: 申告書を作る
+    detail: 国税庁「確定申告書等作成コーナー」で画面の案内に沿って入力すると、税額が自動計算されます。
+    where: 確定申告書等作成コーナー（Web）
+  - title: 提出する
+    detail: マイナンバーカードがあれば e-Tax でスマホから提出できます。郵送・税務署への持参も可能です。
+    where: e-Tax・税務署
+  - title: 納税する（または還付を受け取る）
+    detail: 納付は3月15日まで。振替納税なら4月中旬ごろ引き落とし。還付の場合は1か月半ほどで口座に振り込まれます。
+links:
+  - {label: 国税庁 確定申告書等作成コーナー, url: "https://www.keisan.nta.go.jp/"}

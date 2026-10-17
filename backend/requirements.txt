@@ -1,0 +1,5 @@
+fastapi[standard]>=0.115
+pydantic>=2.9
+pyyaml>=6.0
+python-dotenv>=1.0
+anthropic>=1.0

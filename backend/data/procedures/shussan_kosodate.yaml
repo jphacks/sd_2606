@@ -1,0 +1,28 @@
+id: shussan_kosodate
+title: 出産・子育ての給付（出産育児一時金・児童手当）
+category: benefit
+summary: 出産すると健康保険から出産育児一時金（原則50万円）が、市区町村から児童手当が受け取れます。
+priority: 92
+deadline: 児童手当は出生日の翌日から15日以内に申請（遅れると遅れた月の分がもらえない）
+office: 市区町村役所・加入している健康保険
+match:
+  - reason: 出産したため
+    when:
+      - {field: life_events, op: contains, value: childbirth}
+steps:
+  - title: 出生届を出す
+    detail: 生まれた日を含めて14日以内に、市区町村役所に出生届を出します。
+    where: 市区町村役所
+    documents: [出生届（出生証明書つき）, 母子健康手帳]
+  - title: 児童手当を申請する
+    detail: 出生届と同じタイミングで申請するのが確実です。
+    where: 市区町村役所（公務員は勤務先）
+    documents: [請求者の健康保険の資格確認書類, 請求者名義の口座が分かるもの, マイナンバーカード]
+  - title: 子どもの健康保険に加入する
+    detail: 勤務先の健康保険の扶養に入れるか、国民健康保険に加入します。
+    where: 勤務先・市区町村役所
+  - title: 出産育児一時金を受け取る
+    detail: 多くの病院では「直接支払制度」で病院に直接支払われます。差額があれば申請して受け取ります。
+    where: 出産した病院・加入している健康保険
+links:
+  - {label: こども家庭庁 児童手当, url: "https://www.cfa.go.jp/policies/kokoseido/jidouteate"}

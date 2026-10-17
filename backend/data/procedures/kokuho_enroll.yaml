@@ -1,0 +1,34 @@
+id: kokuho_enroll
+title: 国民健康保険への加入
+category: insurance
+summary: 勤務先の健康保険に入っていない人は、住んでいる市区町村の国民健康保険に加入します。
+priority: 95
+deadline: 資格を得た日（退職日の翌日など）から14日以内
+office: 住んでいる市区町村の役所（国民健康保険の窓口）
+match:
+  - reason: 退職して勤務先の健康保険を抜けるため
+    when:
+      - {field: life_events, op: contains, value: resign}
+  - reason: 自営業・フリーランスで、家族の扶養にも入っていないため
+    when:
+      - {field: occupation, op: in, value: [self_employed, freelance]}
+      - {field: health_insurance, op: not_in, value: [national, dependent]}
+  - reason: 開業・独立して勤務先の健康保険から外れるため
+    when:
+      - {field: life_events, op: contains, value: start_business}
+steps:
+  - title: 勤務先から「健康保険資格喪失証明書」をもらう
+    detail: 退職した場合は、前の勤務先（または健康保険組合）に発行を依頼します。
+    where: 前の勤務先
+    documents: [健康保険資格喪失証明書]
+  - title: 任意継続と比べる
+    detail: 退職後20日以内なら、前の健康保険を最長2年続ける「任意継続」も選べます。保険料を比べて安い方を選びましょう。
+    where: 前の勤務先の健康保険組合・協会けんぽ
+  - title: 役所で加入手続きをする
+    detail: 窓口またはマイナポータル（対応している自治体のみ）で届け出ます。
+    where: 市区町村役所
+    documents: [健康保険資格喪失証明書, マイナンバーカード（または通知カード＋本人確認書類）]
+  - title: 保険料を納める
+    detail: 後日届く納付書か口座振替で納めます。収入が大きく減った場合は減免を相談できます。
+links:
+  - {label: 厚生労働省 国民健康保険, url: "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/iryouhoken/koukikourei/index_00002.html"}

@@ -1,0 +1,33 @@
+id: kokumin_nenkin
+title: 国民年金（第1号被保険者）の手続き
+category: pension
+summary: 20〜59歳で厚生年金に入っていない人は、国民年金の第1号被保険者として自分で手続きし、保険料を納めます。
+priority: 90
+deadline: 該当した日から14日以内
+office: 住んでいる市区町村の役所（国民年金の窓口）
+match:
+  - reason: 退職して厚生年金から外れるため
+    when:
+      - {field: life_events, op: contains, value: resign}
+      - {field: age, op: gte, value: 20}
+      - {field: age, op: lt, value: 60}
+  - reason: 自営業・フリーランス・無職の20〜59歳は国民年金に加入するため
+    when:
+      - {field: occupation, op: in, value: [self_employed, freelance, unemployed]}
+      - {field: age, op: gte, value: 20}
+      - {field: age, op: lt, value: 60}
+  - reason: 20歳になると国民年金への加入が必要になるため
+    when:
+      - {field: life_events, op: contains, value: turn_20}
+steps:
+  - title: 届け出に必要なものをそろえる
+    detail: 退職した場合は、退職日が分かる書類（離職票や退職証明書など）を用意します。20歳になった人には日本年金機構から書類が届きます。
+    documents: [基礎年金番号が分かるもの, 退職日が分かる書類, マイナンバーカード]
+  - title: 役所またはマイナポータルで届け出る
+    detail: 第1号被保険者への種別変更（または資格取得）を届け出ます。
+    where: 市区町村役所・マイナポータル
+  - title: 保険料を納める（難しければ免除・猶予を申請）
+    detail: 収入が少ない・失業した場合は、保険料の免除や納付猶予を申請できます。未納のままにすると将来の年金や障害年金に影響します。
+    where: 市区町村役所・年金事務所
+links:
+  - {label: 日本年金機構 国民年金の加入手続き, url: "https://www.nenkin.go.jp/service/kokunen/kanyu/20140710.html"}

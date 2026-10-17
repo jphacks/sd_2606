@@ -1,0 +1,28 @@
+# 秘密情報
+.env
+*.keystore
+*.jks
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Android / Gradle
+.gradle/
+.kotlin/
+build/
+local.properties
+*.iml
+.idea/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
