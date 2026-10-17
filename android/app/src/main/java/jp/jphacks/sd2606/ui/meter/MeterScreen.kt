@@ -67,6 +67,7 @@ import jp.jphacks.sd2606.data.meter.Job
 import jp.jphacks.sd2606.data.meter.incomeWallsFor
 import jp.jphacks.sd2606.ui.BackTopBar
 import jp.jphacks.sd2606.ui.theme.AppTheme
+import androidx.compose.material.icons.outlined.WarningAmber
 
 /** バイト代メーター。今年の給料をビーカーに積み、次の年収の壁までの残りを表示する。 */
 @Composable
@@ -160,6 +161,9 @@ private fun SummaryCard(state: MeterUiState, walls: List<IncomeWall>) {
                 Text("${state.year}年の合計", style = MaterialTheme.typography.labelLarge)
                 Text(yen(total), style = MaterialTheme.typography.headlineMedium)
             }
+            if (next != null) {
+                state.projection(next)?.let { ProjectionNote(it, next) }
+            }
             Beaker(
                 layers = state.layers,
                 walls = walls,
@@ -192,6 +196,43 @@ private fun SummaryCard(state: MeterUiState, walls: List<IncomeWall>) {
                 }
             } else {
                 Text("入れすぎてビーカーが割れました！すべての壁を超えています。必要な手続きを確認しましょう。", color = MaterialTheme.colorScheme.error)
+            }
+        }
+    }
+}
+
+/** このペースで働き続けたときの見込み。超えそうなら警告として目立たせる。 */
+@Composable
+private fun ProjectionNote(projection: Projection, next: IncomeWall) {
+    val month = projection.crossMonth
+    if (month == null) {
+        Text(
+            "このペースなら、今年は「${next.shortTitle}」の壁を超えない見込みです（年末に約${projection.yearEnd / 10_000}万円）",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        return
+    }
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.errorContainer, RoundedCornerShape(12.dp))
+            .padding(12.dp),
+    ) {
+        Icon(Icons.Outlined.WarningAmber, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
+        Column {
+            Text(
+                "このペースだと${month}月に「${next.shortTitle}」の壁を超えそう",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+            )
+            projection.monthlyLimit?.let {
+                Text(
+                    "12月まで月${yen(it)}以内なら超えません",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                )
             }
         }
     }
