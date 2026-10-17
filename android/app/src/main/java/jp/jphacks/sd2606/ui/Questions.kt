@@ -171,11 +171,9 @@ fun AnswersDialog(
     answers: Map<String, Answer>,
     completedCount: Int,
     dismissedCount: Int,
-    reminderCount: Int,
     onAnswer: (String, Answer?) -> Unit,
     onClearCompleted: () -> Unit,
     onClearDismissed: () -> Unit,
-    onClearReminders: () -> Unit,
     onDismiss: () -> Unit,
     onClear: () -> Unit,
 ) {
@@ -214,15 +212,13 @@ fun AnswersDialog(
                 HorizontalDivider()
                 RecordRow("「関係ない」にした手続き", dismissedCount, onClearDismissed)
                 HorizontalDivider()
-                RecordRow("オンにした通知", reminderCount, onClearReminders)
-                HorizontalDivider()
                 Spacer(Modifier.size(4.dp))
                 PrivacyNote("サーバーには送っていません。判定はこの端末の中で行っています。")
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("閉じる") } },
         dismissButton = {
-            TextButton(onClick = onClear, enabled = answers.isNotEmpty() || completedCount > 0 || dismissedCount > 0 || reminderCount > 0) {
+            TextButton(onClick = onClear, enabled = answers.isNotEmpty() || completedCount > 0 || dismissedCount > 0) {
                 Text("すべて消去", color = MaterialTheme.colorScheme.error)
             }
         },

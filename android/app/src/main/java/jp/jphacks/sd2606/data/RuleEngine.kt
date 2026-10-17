@@ -1,11 +1,7 @@
 package jp.jphacks.sd2606.data
 
 import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.LocalTime
 import java.time.Period
-import java.time.ZoneId
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
@@ -27,12 +23,8 @@ enum class SortOrder { RELEVANCE, DEADLINE }
  */
 data class StepView(val step: FlowStep, val unknown: List<String>)
 
-/** 通知1つ分（次に来る期限）。id は手続きと期限の名前から作り、オン・オフの記録に使う。 */
-data class ReminderView(val id: String, val procedure: ProcedureDef, val reminder: Reminder, val due: LocalDate, val notifyOn: LocalDate)
-
-/** 端末に予約する通知1回分（再起動したときに予約し直すため、端末に保存する）。 */
-@Serializable
-data class ScheduledNotification(val key: String, val atMillis: Long, val title: String, val text: String)
+/** これからの期限1つ（通知と履歴の時系列に並べる）。soon は「期限の before_days 日前を過ぎた」（もうすぐ）。 */
+data class ReminderView(val id: String, val procedure: ProcedureDef, val reminder: Reminder, val due: LocalDate, val soon: Boolean)
 
 /** 必要なもの1つ。conditional なら、当てはまるか分からないステップでだけ使う。 */
 data class Document(val name: String, val conditional: Boolean)
@@ -188,41 +180,17 @@ object RuleEngine {
 
     fun reminderId(procedure: ProcedureDef, reminder: Reminder): String = "${procedure.id}:${reminder.label}"
 
-    /** 対象外でない手続きの通知を、次に来る期限で1つずつ、通知日の早い順に並べる（「通知と履歴」の一覧）。 */
-    fun upcomingReminders(evaluation: Evaluation, today: LocalDate = LocalDate.now()): List<ReminderView> =
-        evaluation.items.filter { it.status != Status.UNRELATED }.flatMap { item ->
-            item.reminders.mapNotNull { r ->
-                r.dueDates(today, today.plusYears(1)).firstOrNull()?.let { due ->
-                    ReminderView(reminderId(item.procedure, r), item.procedure, r, due, due.minusDays(r.beforeDays.toLong()))
-                }
-            }
-        }.sortedBy { it.notifyOn }
-
     /**
-     * オンにした通知を、これから1年分（毎月のものは12回ほど）、通知日の朝9時に予約する形にする。
-     * 過ぎた時刻のものは入れない。
+     * これからの期限を、手続きの期限ごとに次の1回だけ、早い順に並べる（通知と履歴の時系列）。
+     * 対象外の手続きと、完了した手続き（completed）の期限は出さない。
      */
-    fun scheduledNotifications(
-        evaluation: Evaluation,
-        enabled: Set<String>,
-        now: LocalDateTime = LocalDateTime.now(),
-        zone: ZoneId = ZoneId.systemDefault(),
-    ): List<ScheduledNotification> =
-        evaluation.items.filter { it.status != Status.UNRELATED }.flatMap { item ->
-            item.reminders.filter { reminderId(item.procedure, it) in enabled }.flatMap { r ->
-                r.dueDates(now.toLocalDate(), now.toLocalDate().plusYears(1)).map { due ->
-                    val at = due.minusDays(r.beforeDays.toLong()).atTime(NOTIFY_AT).atZone(zone).toInstant().toEpochMilli()
-                    ScheduledNotification(
-                        key = "${reminderId(item.procedure, r)}@$due",
-                        atMillis = at,
-                        title = r.label,
-                        text = "期限は${due.monthValue}月${due.dayOfMonth}日です（${item.procedure.title}）",
-                    )
-                }
+    fun upcomingReminders(evaluation: Evaluation, completed: Set<String> = emptySet(), today: LocalDate = LocalDate.now()): List<ReminderView> =
+        evaluation.items.filter { it.status != Status.UNRELATED && it.procedure.id !in completed }.flatMap { item ->
+            item.reminders.map { r ->
+                val due = r.nextDue(today)
+                ReminderView(reminderId(item.procedure, r), item.procedure, r, due, soon = !today.isBefore(due.minusDays(r.beforeDays.toLong())))
             }
-        }.filter { it.atMillis > now.atZone(zone).toInstant().toEpochMilli() }.sortedBy { it.atMillis }
-
-    private val NOTIFY_AT: LocalTime = LocalTime.of(9, 0)
+        }.sortedBy { it.due }
 
     /** 当てはまらない条件のあるステップを除く。未回答の条件だけなら「当てはまる場合のみ」として残す。 */
     private fun visibleSteps(proc: ProcedureDef, answers: Map<String, Answer>): List<StepView> = proc.steps.mapNotNull { step ->

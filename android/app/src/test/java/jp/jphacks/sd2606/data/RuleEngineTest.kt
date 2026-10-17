@@ -251,36 +251,36 @@ class RuleEngineTest {
     }
 
     @Test
-    fun reminderDueDatesFollowMonthEndAndBeforeDays() {
+    fun nextDueFollowsMonthEnd() {
         val monthly = Reminder(label = "納付期限（毎月末）", day = 31)
-        // 10/17 から: 10月末の期限は通知日 10/24 なので入る。11月は30日まで
-        assertEquals(
-            listOf(LocalDate.of(2026, 10, 31), LocalDate.of(2026, 11, 30), LocalDate.of(2026, 12, 31)),
-            monthly.dueDates(today, LocalDate.of(2026, 12, 31)),
-        )
-        // 3/15 の1週間前（3/8）に通知
-        val yearly = Reminder(label = "確定申告", month = 3, day = 15)
-        assertEquals(listOf(LocalDate.of(2027, 3, 15)), yearly.dueDates(today, today.plusYears(1)))
-        // 通知日が過ぎた期限は入れない（10/20 の期限は通知日 10/13）
-        assertEquals(emptyList<LocalDate>(), Reminder(label = "x", month = 10, day = 20).dueDates(today, LocalDate.of(2026, 12, 31)))
+        assertEquals(LocalDate.of(2026, 10, 31), monthly.nextDue(today))
+        assertEquals(LocalDate.of(2026, 11, 30), monthly.nextDue(LocalDate.of(2026, 11, 1)))
+        assertEquals(LocalDate.of(2027, 3, 15), Reminder(label = "確定申告", month = 3, day = 15).nextDue(today))
+        // 今日が期限の日なら今日
+        assertEquals(today, Reminder(label = "x", month = 10, day = 17).nextDue(today))
     }
 
     @Test
-    fun onlyEnabledRemindersOfRelevantProceduresAreScheduled() {
+    fun upcomingDeadlinesSkipUnrelatedAndCompleted() {
         val reminder = Reminder(label = "確定申告の期限", month = 3, day = 15)
-        val procs = catalog.procedures.map { if (it.id == "kakutei") it.copy(reminders = listOf(reminder)) else it }
+        val soonReminder = Reminder(label = "保険料（毎月末）", day = 31)
+        val procs = catalog.procedures.map {
+            when (it.id) {
+                "kakutei" -> it.copy(reminders = listOf(reminder))
+                "kokuho" -> it.copy(reminders = listOf(soonReminder))
+                else -> it
+            }
+        }
         val freelance = RuleEngine.evaluate(procs, mapOf(occupation("freelance")), catalog.threshold, today)
-        val id = RuleEngine.reminderId(procs.first { it.id == "kakutei" }, reminder)
-        assertEquals(listOf(id), RuleEngine.upcomingReminders(freelance, today).map { it.id })
-        val now = today.atTime(10, 0)
-        val zone = java.time.ZoneId.of("Asia/Tokyo")
-        // オンにしていなければ予約しない
-        assertEquals(emptyList<ScheduledNotification>(), RuleEngine.scheduledNotifications(freelance, emptySet(), now, zone))
-        val scheduled = RuleEngine.scheduledNotifications(freelance, setOf(id), now, zone).single()
-        assertEquals(LocalDate.of(2027, 3, 8).atTime(9, 0).atZone(zone).toInstant().toEpochMilli(), scheduled.atMillis)
-        assertEquals("確定申告の期限", scheduled.title)
-        // 「関係ない」にした手続きの通知は予約しない
-        val dismissed = RuleEngine.evaluate(procs, mapOf(occupation("freelance")), catalog.threshold, today, dismissed = setOf("kakutei"))
-        assertEquals(emptyList<ScheduledNotification>(), RuleEngine.scheduledNotifications(dismissed, setOf(id), now, zone))
+        val upcoming = RuleEngine.upcomingReminders(freelance, emptySet(), today)
+        // 期限の早い順。10/31 は1週間前（10/24）を過ぎていないので「もうすぐ」ではない
+        assertEquals(listOf("保険料（毎月末）", "確定申告の期限"), upcoming.map { it.reminder.label })
+        assertEquals(listOf(false, false), upcoming.map { it.soon })
+        assertEquals(true, RuleEngine.upcomingReminders(freelance, emptySet(), LocalDate.of(2026, 10, 25)).first().soon)
+        // 完了した手続きの期限は出さない
+        assertEquals(listOf("保険料（毎月末）"), RuleEngine.upcomingReminders(freelance, setOf("kakutei"), today).map { it.reminder.label })
+        // 対象外（会社員の国保）や「関係ない」にした手続きの期限も出さない
+        val employee = RuleEngine.evaluate(procs, mapOf(occupation("employee", "freelance")), catalog.threshold, today, dismissed = setOf("kakutei"))
+        assertEquals(emptyList<String>(), RuleEngine.upcomingReminders(employee, emptySet(), today).map { it.reminder.label })
     }
 }

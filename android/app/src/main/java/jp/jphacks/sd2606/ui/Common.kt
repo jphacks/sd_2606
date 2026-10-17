@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -17,6 +19,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -91,4 +95,26 @@ private fun categoryColors(category: String): Pair<Color, Color> {
         else -> (Color(0xFFE6E0F5) to Color(0xFF3F2F6B)) to (Color(0xFF3A3352) to Color(0xFFE4DDF9))
     }
     return if (dark) night else light
+}
+
+/** 下部のナビゲーションバーで切り替える画面。 */
+enum class Tab { PROCEDURES, HISTORY }
+
+/** 「手続き」と「通知と履歴」を切り替える下部のナビゲーションバー。 */
+@Composable
+fun AppBottomBar(selected: Tab, onSelect: (Tab) -> Unit) {
+    NavigationBar {
+        NavigationBarItem(
+            selected = selected == Tab.PROCEDURES,
+            onClick = { onSelect(Tab.PROCEDURES) },
+            icon = { Icon(Icons.Default.Checklist, contentDescription = null) },
+            label = { Text("手続き") },
+        )
+        NavigationBarItem(
+            selected = selected == Tab.HISTORY,
+            onClick = { onSelect(Tab.HISTORY) },
+            icon = { Icon(Icons.Default.Notifications, contentDescription = null) },
+            label = { Text("通知と履歴") },
+        )
+    }
 }

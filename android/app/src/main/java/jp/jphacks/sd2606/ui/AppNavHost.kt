@@ -1,11 +1,18 @@
 package jp.jphacks.sd2606.ui
 
+import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -24,6 +31,26 @@ private object Routes {
 
 private const val SLIDE_MS = 300
 
+/** 下部のナビゲーションバーで切り替える画面。切り替えは横スライドではなくフェードにする */
+private val TAB_ROUTES = setOf(Routes.RECOMMEND, Routes.MANAGE)
+
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.isTabSwitch() =
+    initialState.destination.route in TAB_ROUTES && targetState.destination.route in TAB_ROUTES
+
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.enter(direction: SlideDirection): EnterTransition =
+    if (isTabSwitch()) fadeIn(tween(SLIDE_MS)) else slideIntoContainer(direction, tween(SLIDE_MS))
+
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.exit(direction: SlideDirection): ExitTransition =
+    if (isTabSwitch()) fadeOut(tween(SLIDE_MS)) else slideOutOfContainer(direction, tween(SLIDE_MS))
+
+/** ナビゲーションバーの切り替え。通知と履歴は手続きの上に重ね、戻ると手続きに戻る。 */
+private fun NavHostController.switchTab(tab: Tab) {
+    when (tab) {
+        Tab.PROCEDURES -> popBackStack(Routes.RECOMMEND, inclusive = false)
+        Tab.HISTORY -> navigate(Routes.MANAGE) { launchSingleTop = true }
+    }
+}
+
 @Composable
 fun AppNavHost(vm: AppViewModel = viewModel()) {
     val nav = rememberNavController()
@@ -34,12 +61,12 @@ fun AppNavHost(vm: AppViewModel = viewModel()) {
     NavHost(
         navController = nav,
         startDestination = Routes.PROFILE,
-        enterTransition = { slideIntoContainer(SlideDirection.Start, tween(SLIDE_MS)) },
-        exitTransition = { slideOutOfContainer(SlideDirection.Start, tween(SLIDE_MS)) },
-        popEnterTransition = { slideIntoContainer(SlideDirection.End, tween(SLIDE_MS)) },
-        popExitTransition = { slideOutOfContainer(SlideDirection.End, tween(SLIDE_MS)) },
-        predictivePopEnterTransition = { _ -> slideIntoContainer(SlideDirection.End, tween(SLIDE_MS)) },
-        predictivePopExitTransition = { _ -> slideOutOfContainer(SlideDirection.End, tween(SLIDE_MS)) },
+        enterTransition = { enter(SlideDirection.Start) },
+        exitTransition = { exit(SlideDirection.Start) },
+        popEnterTransition = { enter(SlideDirection.End) },
+        popExitTransition = { exit(SlideDirection.End) },
+        predictivePopEnterTransition = { _ -> enter(SlideDirection.End) },
+        predictivePopExitTransition = { _ -> exit(SlideDirection.End) },
     ) {
         composable(Routes.PROFILE) {
             ProfileScreen(
@@ -64,23 +91,20 @@ fun AppNavHost(vm: AppViewModel = viewModel()) {
                 },
                 onClearCompleted = vm::clearCompleted,
                 onClearDismissed = vm::clearDismissed,
-                onClearReminders = vm::clearReminders,
+                onDismiss = vm::setDismissed,
                 onRetry = vm::loadCatalog,
                 onBack = { nav.popBackStack() },
                 onOpen = { id -> nav.navigate(Routes.flow(id)) },
-                onManage = { nav.navigate(Routes.MANAGE) },
+                onTab = nav::switchTab,
             )
         }
         composable(Routes.MANAGE) {
             ManageScreen(
                 state = state,
-                onReminder = vm::setReminder,
-                onTestNotification = vm::sendTestNotification,
                 onComplete = vm::setCompleted,
-                onDismiss = vm::setDismissed,
                 onOpen = { id -> nav.navigate(Routes.flow(id)) },
                 onRetry = vm::loadCatalog,
-                onBack = { nav.popBackStack() },
+                onTab = nav::switchTab,
             )
         }
         composable(Routes.FLOW) { entry ->

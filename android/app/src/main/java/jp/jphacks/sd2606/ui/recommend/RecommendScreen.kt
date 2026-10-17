@@ -19,17 +19,17 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.ManageAccounts
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material3.AssistChip
+import androidx.compose.material.icons.outlined.DoNotDisturbOn
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
@@ -52,12 +52,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 import jp.jphacks.sd2606.data.Answer
-import jp.jphacks.sd2606.data.Labels
 import jp.jphacks.sd2606.data.Question
 import jp.jphacks.sd2606.data.RuleEngine
 import jp.jphacks.sd2606.data.SampleData
@@ -65,12 +63,14 @@ import jp.jphacks.sd2606.data.Scored
 import jp.jphacks.sd2606.data.SortOrder
 import jp.jphacks.sd2606.data.Status
 import jp.jphacks.sd2606.ui.AnswersDialog
+import jp.jphacks.sd2606.ui.AppBottomBar
 import jp.jphacks.sd2606.ui.AppUiState
 import jp.jphacks.sd2606.ui.BackTopBar
 import jp.jphacks.sd2606.ui.CategoryChip
 import jp.jphacks.sd2606.ui.PrivacyNote
 import jp.jphacks.sd2606.ui.QuestionInput
 import jp.jphacks.sd2606.ui.ResultContent
+import jp.jphacks.sd2606.ui.Tab
 import jp.jphacks.sd2606.ui.UiResult
 import jp.jphacks.sd2606.ui.completedLabel
 import jp.jphacks.sd2606.ui.theme.AppTheme
@@ -90,11 +90,11 @@ fun RecommendScreen(
     onClearAll: () -> Unit,
     onClearCompleted: () -> Unit,
     onClearDismissed: () -> Unit,
-    onClearReminders: () -> Unit,
+    onDismiss: (String, Boolean) -> Unit,
     onRetry: () -> Unit,
     onBack: () -> Unit,
     onOpen: (String) -> Unit,
-    onManage: () -> Unit,
+    onTab: (Tab) -> Unit,
 ) {
     var showAnswers by rememberSaveable { mutableStateOf(false) }
     var order by rememberSaveable { mutableStateOf(SortOrder.RELEVANCE) }
@@ -105,15 +105,13 @@ fun RecommendScreen(
     Scaffold(
         topBar = {
             BackTopBar("あなたの手続き", onBack) {
-                IconButton(onClick = onManage) {
-                    Icon(Icons.Default.Notifications, contentDescription = "通知と履歴")
-                }
                 IconButton(onClick = { showAnswers = true }) {
                     Icon(Icons.Default.ManageAccounts, contentDescription = "保存している回答")
                 }
             }
         },
         snackbarHost = { SnackbarHost(snackbar) },
+        bottomBar = { AppBottomBar(Tab.PROCEDURES, onTab) },
     ) { padding ->
         ResultContent(state.catalog, onRetry, Modifier.padding(padding)) { catalog ->
             val evaluation = state.evaluation ?: return@ResultContent
@@ -142,8 +140,28 @@ fun RecommendScreen(
                     if (result == SnackbarResult.ActionPerformed) onComplete(id, false)
                 }
             }
+            val dismiss: (Scored, Boolean) -> Unit = { item, on ->
+                val id = item.procedure.id
+                onDismiss(id, on)
+                if (on) {
+                    scope.launch {
+                        snackbar.currentSnackbarData?.dismiss()
+                        val result = snackbar.showSnackbar("「${item.procedure.title}」を関係ないにしました", actionLabel = "元に戻す", duration = SnackbarDuration.Short)
+                        if (result == SnackbarResult.ActionPerformed) onDismiss(id, false)
+                    }
+                }
+            }
             val card: @Composable (Scored, Modifier) -> Unit = { item, modifier ->
-                ProcedureCard(item, catalog.questions, state.answers, answerInCard, onClick = { onOpen(item.procedure.id) }, onComplete = { complete(item) }, modifier)
+                ProcedureCard(
+                    item,
+                    catalog.questions,
+                    state.answers,
+                    answerInCard,
+                    onClick = { onOpen(item.procedure.id) },
+                    onComplete = { complete(item) },
+                    onDismiss = { dismiss(item, it) },
+                    modifier = modifier,
+                )
             }
 
             LazyColumn(
@@ -212,11 +230,9 @@ fun RecommendScreen(
                     answers = state.answers,
                     completedCount = state.completed.size,
                     dismissedCount = state.dismissed.size,
-                    reminderCount = state.remindersOn.size,
                     onAnswer = onAnswer,
                     onClearCompleted = onClearCompleted,
                     onClearDismissed = onClearDismissed,
-                    onClearReminders = onClearReminders,
                     onDismiss = { showAnswers = false },
                     onClear = {
                         showAnswers = false
@@ -281,6 +297,7 @@ private fun ProcedureCard(
     onAnswer: (Question, Answer?) -> Unit,
     onClick: () -> Unit,
     onComplete: () -> Unit,
+    onDismiss: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val proc = item.procedure
@@ -299,13 +316,20 @@ private fun ProcedureCard(
                     Text(it, style = MaterialTheme.typography.bodyMedium)
                 }
             }
-            DocumentsLine(item)
             missing.forEach { q -> NeedInfo(q, answers[q.field]) { onAnswer(q, it) } }
-            if (item.status != Status.UNRELATED) {
-                TextButton(onClick = onComplete, modifier = Modifier.align(Alignment.End)) {
-                    Icon(Icons.Outlined.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("完了にする")
+            // 手続きの画面の下部と同じ並び: 左「関係ない」、右「完了にする」。ルールで対象外のものには出さない
+            if (item.status != Status.UNRELATED || item.dismissed) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 4.dp)) {
+                    OutlinedButton(onClick = { onDismiss(!item.dismissed) }, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Outlined.DoNotDisturbOn, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(if (item.dismissed) "関係ありに戻す" else "関係ない")
+                    }
+                    Button(onClick = onComplete, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Outlined.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("完了にする")
+                    }
                 }
             }
         }
@@ -316,27 +340,6 @@ private fun ProcedureCard(
         Card(onClick = onClick, modifier = modifier.fillMaxWidth()) { content() }
     }
 }
-
-/** 「必要なもの: 〇〇、〇〇 ほか2点」。全部は手続きの画面で見せる。 */
-@Composable
-private fun DocumentsLine(item: Scored) {
-    val docs = item.documents
-    if (docs.isEmpty()) return
-    val shown = docs.take(MAX_DOCS_IN_CARD).joinToString("、") { it.name.substringBefore("（") }
-    val rest = docs.size - MAX_DOCS_IN_CARD
-    Row(verticalAlignment = Alignment.Top) {
-        Icon(Icons.Default.Inventory2, contentDescription = "必要なもの", modifier = Modifier.size(16.dp).padding(top = 2.dp), tint = MaterialTheme.colorScheme.primary)
-        Spacer(Modifier.width(4.dp))
-        Text(
-            "必要なもの: $shown${if (rest > 0) " ほか${rest}点" else ""}",
-            style = MaterialTheme.typography.bodySmall,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
-}
-
-private const val MAX_DOCS_IN_CARD = 3
 
 /** 「判定には扶養している家族の人数が必要です」の案内。「入力する」でその場に入力欄を開き、入れた値は全体の情報として保存する。 */
 @Composable
@@ -404,11 +407,11 @@ private fun RecommendScreenPreview() {
             onClearAll = {},
             onClearCompleted = {},
             onClearDismissed = {},
-            onClearReminders = {},
+            onDismiss = { _, _ -> },
             onRetry = {},
             onBack = {},
             onOpen = {},
-            onManage = {},
+            onTab = {},
         )
     }
 }

@@ -10,7 +10,6 @@ import jp.jphacks.sd2606.data.Catalog
 import jp.jphacks.sd2606.data.Evaluation
 import jp.jphacks.sd2606.data.LocalStore
 import jp.jphacks.sd2606.data.RuleEngine
-import jp.jphacks.sd2606.notify.Reminders
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,8 +33,6 @@ data class AppUiState(
     val completed: Map<String, String> = emptyMap(),
     /** 本人が「自分には関係ない」にした手続きの id */
     val dismissed: Set<String> = emptySet(),
-    /** オンにした通知の id（RuleEngine.reminderId） */
-    val remindersOn: Set<String> = emptySet(),
     /** catalog と answers から端末内で判定した結果 */
     val evaluation: Evaluation? = null,
 )
@@ -51,7 +48,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             answers = store.loadAnswers(),
             completed = store.loadCompleted(),
             dismissed = store.loadDismissed(),
-            remindersOn = store.loadRemindersOn(),
         ),
     )
     val state: StateFlow<AppUiState> = _state.asStateFlow()
@@ -74,7 +70,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     else -> it.copy(catalog = UiResult.Error(fetched.exceptionOrNull().toMessage()))
                 }
             }
-            syncReminders()
         }
     }
 
@@ -85,7 +80,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             store.saveAnswers(answers)
             it.copy(answers = answers).evaluated()
         }
-        syncReminders()
     }
 
     /** 最初の画面の「調べる」: 何も選ばなかった noneIfEmpty の質問は「該当なし」として確定させる。 */
@@ -117,48 +111,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             store.saveDismissed(ids)
             it.copy(dismissed = ids).evaluated()
         }
-        syncReminders()
     }
 
     fun clearDismissed() {
         store.saveDismissed(emptySet())
         _state.update { it.copy(dismissed = emptySet()).evaluated() }
-        syncReminders()
-    }
-
-    /** 通知をオン・オフする。オンのものだけ、期限の前に端末から通知する。 */
-    fun setReminder(id: String, on: Boolean) {
-        _state.update {
-            val ids = if (on) it.remindersOn + id else it.remindersOn - id
-            store.saveRemindersOn(ids)
-            it.copy(remindersOn = ids)
-        }
-        syncReminders()
-    }
-
-    fun clearReminders() {
-        store.saveRemindersOn(emptySet())
-        _state.update { it.copy(remindersOn = emptySet()) }
-        syncReminders()
-    }
-
-    /** 通知の見え方を確かめるため、いますぐ1つ通知する。 */
-    fun sendTestNotification() {
-        Reminders.show(getApplication(), TEST_NOTIFICATION_ID, "通知のテスト", "期限の1週間前の朝9時に、このように通知します。")
     }
 
     /** 端末に保存している回答・完了の記録・「関係ない」の記録をすべて消す。 */
     fun clearAll() {
         store.clearAll()
-        _state.update { it.copy(answers = emptyMap(), completed = emptyMap(), dismissed = emptySet(), remindersOn = emptySet()).evaluated() }
-        syncReminders()
-    }
-
-    /** オンにした通知を、いまの判定（対象外は除く）で予約し直す。 */
-    private fun syncReminders() {
-        val s = _state.value
-        val evaluation = s.evaluation ?: return
-        Reminders.sync(getApplication(), RuleEngine.scheduledNotifications(evaluation, s.remindersOn))
+        _state.update { it.copy(answers = emptyMap(), completed = emptyMap(), dismissed = emptySet()).evaluated() }
     }
 
     /**
@@ -175,10 +138,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private fun AppUiState.evaluated(): AppUiState {
         val catalog = (catalog as? UiResult.Success)?.data ?: return this
         return copy(evaluation = RuleEngine.evaluate(catalog.procedures, answers, catalog.threshold, dismissed = dismissed))
-    }
-
-    private companion object {
-        const val TEST_NOTIFICATION_ID = 1
     }
 
     private fun Throwable?.toMessage() =
