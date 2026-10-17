@@ -220,7 +220,7 @@ private fun SummaryCard(
                 onPeekEnd = onPeekEnd,
             )
             Text(
-                "長押しすると超えた壁が広がります。指をその方向に動かして離すと詳しく見られます",
+                "長押しすると壁が十字に広がります。指をその方向に動かして離すと詳しく見られます",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
