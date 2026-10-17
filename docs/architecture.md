@@ -20,6 +20,7 @@
 - **働き方は複数選べる**（例: 会社員とフリーランスの副業、学生とアルバイト）。複数選択の項目では、`eq` / `in` は「選んだどれかが当てはまる」、`ne` / `not_in` は「選んだどれも当てはまらない」と判定する
 - **判定はルール**: 「どの手続きが該当するか」は `backend/data/procedures/*.yaml` の条件で決める（毎回同じ結果になり、根拠を説明できる）。制度が変わったらサーバーのデータを直すだけで、アプリを更新せずに反映できる
 - **通信できなくても使える**: アプリは前回受け取った制度データを端末に残し、取得に失敗したときはそれで判定する（画面に注記を出す）
+- **体験談の掲示板**: 下のタブで「手続き」と「体験談」を切り替える。手続きの画面の下に、その手続きの体験談をレビューのように出す。投稿は本人が公開を選んだ内容だけを送り、Pi の SQLite に保存する（→ [board.md](board.md)）
 - **LLM（Claude）の補足**: バックエンドには、プロフィールを受け取って Claude で補足文を付ける `POST /api/recommendations` が残っているが、プロフィールを送ることになるため、いまのアプリからは使っていない。API キーはサーバー側だけに置く
 
 ## ディレクトリ
@@ -72,6 +73,7 @@ sd_2606/
 | GET | `/api/catalog` | **アプリが使うのはこれだけ**。全手続き（判定条件 `relations` つき）、質問の定義（`questions`）、しきい値（`threshold`）を返す |
 | GET | `/api/procedures` | 全手続きの一覧（判定条件なし） |
 | GET | `/api/procedures/{id}` | 手続きの詳細とフロー（`steps`） |
+| GET / POST / PUT / DELETE | `/api/board/...` | 体験談の掲示板（→ [board.md](board.md)） |
 | POST | `/api/recommendations` | プロフィール（`UserProfile`）→ 該当する手続き。LLM が使えれば補足文が付く。**アプリからは使っていない**（プロフィールを送ることになるため） |
 
 スキーマの詳細はバックエンド起動中に `http://localhost:8000/docs`（Swagger UI）で見られる。
@@ -95,16 +97,17 @@ sd_2606/
 
 ```
  Android アプリ / ブラウザ
-        │ HTTPS
+        │ HTTPS（https://<ホスト名>:8443/、固定 URL）
         ▼
- Cloudflare（https://<ランダム>.trycloudflare.com）      ← 現在の公開経路（臨時）
-        │ cloudflared が Pi から外向きに張ったトンネル
+ Tailscale Funnel の中継サーバー
+        │ tailscaled が Pi から外向きに張った接続
         ▼
-┌─ Raspberry Pi ─────────────────────────────────────────┐
-│ sd2606-tunnel  cloudflared tunnel --url 127.0.0.1:8606  │
-│ sd2606-api     uvicorn app.main:app  127.0.0.1:8606      │──▶ Claude API
-│ （tailscaled   Funnel :8443 → 127.0.0.1:8606  ※準備中） │
-└────────────────────────────────────────────────────────┘
+┌─ Raspberry Pi ──────────────────────────────────────────┐
+│ tailscaled     Funnel :8443 → 127.0.0.1:8606              │
+│ sd2606-api     uvicorn app.main:app  127.0.0.1:8606       │──▶ Claude API
+│                └ /var/lib/sd2606/board.db（掲示板）        │
+│ （sd2606-tunnel  cloudflared。以前の臨時の経路、使わない） │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ### 環境
@@ -115,7 +118,8 @@ sd_2606/
 | OS | Debian GNU/Linux 13 (trixie)、aarch64 |
 | Python | 3.13（システムの python3 で venv を作る） |
 | 配置 | 実行ユーザーのホームに clone（`~/sd_2606`）。venv は `backend/.venv` |
-| 公開 | Cloudflare Quick Tunnel（`cloudflared` 2026.10.1、GitHub の公式 .deb）。無料・アカウント不要 |
+| 公開 | Tailscale Funnel（ポート 8443、固定 URL）。2026-10-17 15:00 に外部から届くことを確認。以前は臨時で Cloudflare Quick Tunnel（`cloudflared` 2026.10.1）を使っていた |
+| データ | 掲示板の SQLite を `/var/lib/sd2606/board.db` に置く（systemd の `StateDirectory`。リポジトリの外なので `deploy.sh` で消えない） |
 
 ### systemd サービス
 
@@ -123,7 +127,7 @@ sd_2606/
 
 | ユニット | 内容 | 主な設定 |
 | --- | --- | --- |
-| `sd2606-api` | FastAPI（uvicorn）。**127.0.0.1:8606 だけで待ち受ける**（LAN や外部から直接は繋がらない） | `EnvironmentFile=backend/.env`、`Restart=on-failure`、`MemoryMax=512M`、`ProtectSystem=strict`・`ProtectHome=read-only`・`NoNewPrivileges`（コードやシステムを書き換えられない） |
+| `sd2606-api` | FastAPI（uvicorn）。**127.0.0.1:8606 だけで待ち受ける**（LAN や外部から直接は繋がらない） | `EnvironmentFile=backend/.env`、`StateDirectory=sd2606`（掲示板の DB の置き場。ここだけ書き込める）、`Restart=on-failure`、`MemoryMax=512M`、`ProtectSystem=strict`・`ProtectHome=read-only`・`NoNewPrivileges`（コードやシステムを書き換えられない） |
 | `sd2606-tunnel` | `cloudflared tunnel --no-autoupdate --url http://127.0.0.1:8606`。Cloudflare への外向き接続だけを使うので、ルーターやファイアウォールのポート開放は不要 | `After=sd2606-api`、`Restart=on-failure`、同様のサンドボックス設定 |
 
 Pi 4 では API の起動に約5秒かかる。スクリプトは `/health` が応答するまで最大30秒待つ。
@@ -147,7 +151,8 @@ Pi 4 では API の起動に約5秒かかる。スクリプトは `/health` が�
 | ファイル | 用途 |
 | --- | --- |
 | `install.sh` | 初回: venv 作成・依存のインストール・`.env` 作成・`sd2606-api` の配置と起動 |
-| `deploy.sh` | 更新: `origin/main` に合わせて（ローカルの変更は破棄）依存を入れ直し、API を再起動 |
+| `deploy.sh` | 更新: `origin/main`（引数でブランチを指定可）に合わせて（ローカルの変更は破棄）依存を入れ直し、systemd ユニットが変わっていれば置き直して API を再起動 |
+| `board-admin.sh` | 掲示板の管理（投稿の一覧・非表示・表示に戻す・バックアップ） |
 | `install-tunnel.sh` | `sd2606-tunnel` の配置と起動。最後に URL を表示する |
 | `tunnel-url.sh` | 現在の Quick Tunnel の URL を表示（journal から読む） |
 
@@ -189,7 +194,7 @@ bash ~/sd_2606/backend/deploy/pi/install-tunnel.sh   # 公開 URL が表示さ�
 - **Quick Tunnel の URL は `sd2606-tunnel` が起動するたびに変わる**（Pi の再起動・サービスの再起動・回線の切断後の再接続など）。変わったらチームに共有し直す
 - Quick Tunnel は Cloudflare のテスト用機能で、稼働の保証は無い（同時リクエスト200件まで）
 - 家庭用の回線と電源で動いているので、停電・回線の不調で止まることがある。デモの前には `/health` を確認する
-- 固定 URL の経路として Tailscale Funnel（ポート 8443）も設定済みだが、Tailscale 側で公開 DNS が登録されず、2026-10-17 時点では外部から届かない
+- 掲示板の DB はバックアップしていない。必要なら `board-admin.sh backup <path>` でコピーを取る
 
 ## 質問する項目を増やすとき
 

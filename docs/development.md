@@ -46,8 +46,8 @@ cp .env.example .env                                   # Claude を使うなら 
 ### アクセス方法
 
 - **URL はチームのチャットで共有している**。リポジトリが public なので、ここには書かない
-  - 現在は臨時で Cloudflare Quick Tunnel（`https://<ランダム>.trycloudflare.com/` の形）を使っている。**サーバーの再起動などで URL が変わる**ことがあるので、繋がらなくなったらチャットで最新の URL を確認する
-  - 本来の公開経路（Tailscale Funnel、`https://<ホスト名>:8443/` の形）は準備中
+  - 公開経路は Tailscale Funnel（`https://<ホスト名>:8443/` の形）。**URL は固定**なので、`local.properties` に書いたままでよい
+  - 以前の臨時の経路（Cloudflare Quick Tunnel、`https://<ランダム>.trycloudflare.com/`）は使わない
 - 動作確認: ブラウザで `<URL>/health` を開いて `{"status":"ok", ...}` が出れば動いている
 - API の試し打ち: `<URL>/docs`（Swagger UI）
 - アプリから使う: `android/local.properties` に `api.baseUrl=<共有された URL>` と書き（末尾の `/` を忘れない）、Sync してからビルドし直す（URL はビルド時に埋め込まれる）
@@ -66,7 +66,8 @@ cp .env.example .env                                   # Claude を使うなら 
 ### 注意事項
 
 - **URL を公開の場所（README・Issue・PR・SNS など）に書かない**。知っていれば誰でもアクセスでき、認証も無い
-- **ユーザーの回答をサーバーに送らない設計**。質問を増やすときも、アプリから送るのではなく `questions.yaml` に足して端末内で判定する（→ [architecture.md](architecture.md)）
+- **ユーザーの回答をサーバーに送らない設計**。質問を増やすときも、アプリから送るのではなく `questions.yaml` に足して端末内で判定する（→ [architecture.md](architecture.md)）。掲示板の投稿だけは本人が公開を選んだ内容を送る（→ [board.md](board.md)）
+- 掲示板の投稿は Pi の DB（`/var/lib/sd2606/board.db`）にだけ入る。動作確認の投稿は詳細画面から削除するか、管理者に非表示を頼む
 - アプリからは使っていないが、`/api/recommendations` は呼ぶたびに Claude API の料金がかかる（同じ入力はサーバーでキャッシュ）。使いすぎ防止のため **サーバー全体で1分あたり20回** まで
 - ループや自動テストで大量に叩かない。負荷試験やテストは自分の PC のバックエンドで行う（API キー無しなら Claude は呼ばれない）
 - Claude の API キーはサーバーにだけ置く。メンバーに配らない・コミットしない
@@ -79,7 +80,7 @@ cp .env.example .env                                   # Claude を使うなら 
 | --- | --- |
 | アプリで「通信に失敗しました」 | ブラウザで `<URL>/health` が開けるか。開けなければサーバー側の問題なので管理者に連絡 |
 | ブラウザでは開けるがアプリでは失敗 | `local.properties` の URL（`https://`・末尾の `/`）。変更後に Sync とビルドをし直したか |
-| 以前は使えた URL が開けない | Quick Tunnel の URL が変わった可能性。チャットで最新の URL を確認する |
+| 以前は使えた URL が開けない | `trycloudflare.com` の URL は使わなくなった。チャットで Funnel の URL を確認する |
 | 追加した質問が出てこない | `GET /api/catalog` の `questions` に出ているか。サーバーの再起動か反映が要る（YAML は起動時に読み込む） |
 | 追加した手続き・項目が出てこない | その変更が main にマージされ、サーバーに反映済みか |
 
