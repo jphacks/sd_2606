@@ -11,11 +11,13 @@ import androidx.navigation.compose.rememberNavController
 import jp.jphacks.sd2606.ui.flow.FlowScreen
 import jp.jphacks.sd2606.ui.profile.ProfileScreen
 import jp.jphacks.sd2606.ui.recommend.RecommendScreen
+import jp.jphacks.sd2606.ui.meter.MeterScreen
 
 private object Routes {
     const val PROFILE = "profile"
     const val RECOMMEND = "recommend"
     const val FLOW = "flow/{id}"
+    const val METER = "meter"
     fun flow(id: String) = "flow/$id"
 }
 
@@ -33,6 +35,7 @@ fun AppNavHost(vm: AppViewModel = viewModel()) {
                     vm.loadRecommendations()
                     nav.navigate(Routes.RECOMMEND)
                 },
+                onOpenMeter = { nav.navigate(Routes.METER) },
             )
         }
         composable(Routes.RECOMMEND) {
@@ -51,6 +54,9 @@ fun AppNavHost(vm: AppViewModel = viewModel()) {
                 onRetry = { vm.loadProcedure(id) },
                 onBack = { nav.popBackStack() },
             )
+        }
+        composable(Routes.METER) {
+            MeterScreen(age = state.profile.age, onBack = { nav.popBackStack() })
         }
     }
 }
