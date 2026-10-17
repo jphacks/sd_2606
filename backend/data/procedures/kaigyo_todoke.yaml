@@ -3,16 +3,22 @@ title: 開業届と青色申告承認申請
 category: registration
 summary: 個人で事業を始めたら税務署に開業届を出します。同時に青色申告の承認申請をすると最大65万円の控除が受けられます。
 deadline: 開業届は開業日から1か月以内。青色申告承認申請は開業日から2か月以内
+due: {days: 30}
 office: 住所地の税務署（e-Tax で提出可能）
 relations:
-  - {field: life_events, value: start_business, flag: required, score: 0.6, reason: 開業・独立したため}
-  - {field: occupation, op: in, value: [self_employed, freelance], flag: conditional, score: 0.5, reason: 継続して事業をしているなら開業届が必要なため（未提出の場合）}
+  - {field: occupation, op: in, value: [self_employed, freelance], flag: required, score: 0.8, reason: 個人で事業をする人は、開業から1か月以内に開業届を出すため（出していなければ）}
+  - {field: occupation, op: not_in, value: [self_employed, freelance], flag: unrelated, score: -1.0, reason: 個人で事業をしていないため}
 steps:
+  - title: 会社員の副業なら、勤務先の決まりも確かめる
+    detail: 会社員の副業でも、事業として続けるなら開業届を出せます。勤務先の就業規則で副業が認められているかも確かめます。
+    when:
+      - {field: occupation, value: employee}
   - title: 開業届（個人事業の開業・廃業等届出書）を作る
     detail: 屋号・事業内容・開業日を記入します。国税庁の作成コーナーなど無料ツールでも作れます。
-    documents: [マイナンバーカード]
+    documents: [個人事業の開業・廃業等届出書, マイナンバーカード（ない場合はマイナンバーが分かる書類と本人確認書類）]
   - title: 青色申告承認申請書も一緒に作る
     detail: 帳簿を複式簿記でつけ e-Tax で申告すると、所得から最大65万円を差し引けます。
+    documents: [所得税の青色申告承認申請書]
   - title: 税務署に提出する
     detail: e-Tax・郵送・持参のいずれか。控えをもらっておくと、口座開設や融資の際に使えます。
     where: e-Tax・税務署

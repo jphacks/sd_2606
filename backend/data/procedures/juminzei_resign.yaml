@@ -5,20 +5,21 @@ summary: 住民税は前年の所得に対してかかるため、退職後も�
 deadline: 退職後に届く納付書の期限まで
 office: 住んでいる市区町村の役所（住民税の窓口）
 relations:
-  - field: life_events
-    value: resign
-    flag: conditional
-    score: 0.7
-    reason: 退職すると住民税が給与から天引きされなくなるため
-    when:
-      - {field: occupation, op: ne, value: employee}  # 再就職先で天引きを続けられることがある
+  - {field: occupation, value: unemployed, flag: conditional, score: 0.7, reason: 会社を辞めると、住民税が給与から天引きされなくなり、自分で納めるため}
+  - {field: occupation, value: retired, flag: conditional, score: 0.5, reason: 退職した翌年も、前の年の所得にかかる住民税を納めるため}
+  - {field: occupation, op: in, value: [self_employed, freelance], flag: conditional, score: 0.4, reason: 会社を辞めて独立した人は、住民税を自分で納める方式に変わるため}
+  - {field: occupation, value: student, flag: conditional, score: -0.3}   # 会社を辞めた学生は少ない
+  - {field: occupation, value: employee, flag: unrelated, score: -1.0, reason: 会社員・公務員は住民税が給与から天引きされるため}
 steps:
   - title: 退職時の住民税の扱いを確認する
     detail: 1〜5月の退職では残りを最後の給与からまとめて天引きすることが多く、6〜12月の退職では自分で納める（普通徴収）方式に切り替わるのが一般的です。
     where: 前の勤務先
   - title: 届いた納付書で納める
     detail: 年4回（6・8・10・翌1月）に分けて納めるのが一般的です。
+    documents: [住民税の納付書（市区町村から届く）]
   - title: 払えない場合は早めに相談する
     detail: 失業などで納付が難しい場合、減免や分割の相談ができる自治体があります。
     where: 市区町村役所
+    when:
+      - {field: occupation, op: in, value: [unemployed, part_time, student]}
 links: []

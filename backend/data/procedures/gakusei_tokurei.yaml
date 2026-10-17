@@ -9,23 +9,30 @@ relations:
     value: student
     flag: conditional
     score: 0.9
-    reason: 20歳以上の学生は、国民年金の保険料の納付を猶予できるため
+    reason: 20歳以上の学生は、申請すると在学中の国民年金保険料の納付を猶予できるため
     when:
       - {field: age, op: gte, value: 20}
-  - field: life_events
-    value: turn_20
+  - field: age_at_year_end
+    value: 20
     flag: conditional
-    score: 0.6
-    reason: 20歳になった学生は、国民年金の保険料の納付を猶予できるため
+    score: 0.5
+    reason: 今年20歳になる学生は、20歳になったら申請できるため
     when:
       - {field: occupation, value: student}
+  - {field: occupation, op: ne, value: student, flag: unrelated, score: -1.0, reason: 学生ではないため}
+  - {field: age_at_year_end, op: lt, value: 20, flag: unrelated, score: -1.0, reason: 国民年金に加入するのは20歳からのため}
 steps:
+  - title: 20歳になったら届く書類を待つ
+    detail: 申請できるのは20歳になってからです。20歳になって約2週間で、日本年金機構から加入のお知らせと、学生納付特例の申請書などが届きます。
+    when:
+      - {field: age, op: lt, value: 20}
   - title: 学生証（在学証明書）を用意する
     detail: 学生証のコピー、または在学証明書を用意します。
-    documents: [学生証のコピーまたは在学証明書, 基礎年金番号が分かるもの]
+    documents: [学生証のコピーまたは在学証明書, 基礎年金番号が分かるもの（基礎年金番号通知書など）]
   - title: 申請する
-    detail: マイナポータルから電子申請するか、役所・年金事務所に申請書を出します。
-    where: マイナポータル・市区町村役所
+    detail: マイナポータルから電子申請するか、役所・年金事務所に申請書を出します。在学中の学校が申請を代行していることもあります。
+    where: マイナポータル・市区町村役所・年金事務所
+    documents: [国民年金保険料学生納付特例申請書（窓口・郵送の場合）]
   - title: 承認通知を受け取る
     detail: 承認されると通知が届きます。毎年度の申請が必要です（継続の案内が届く場合あり）。
   - title: 10年以内に追納する（任意）

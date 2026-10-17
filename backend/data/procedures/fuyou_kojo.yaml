@@ -3,19 +3,27 @@ title: 配偶者控除・扶養控除の申告
 category: tax
 summary: 配偶者や扶養している家族がいると、所得税・住民税の控除が受けられます。会社員は年末調整、自営業者は確定申告で申告します。
 deadline: 年末調整（11〜12月ごろ勤務先に提出）または翌年の確定申告
+due: {month: 11, day: 30}
 office: 勤務先・税務署
 relations:
-  - {field: dependents, op: gt, value: 0, flag: required, score: 0.6, reason: 扶養している家族がいるため}
-  - {field: life_events, value: marriage, flag: conditional, score: 0.5, reason: 結婚して配偶者控除・配偶者特別控除の対象になる可能性があるため}
+  - {field: dependents, op: gt, value: 0, flag: required, score: 0.8, reason: 扶養している家族がいるため}
+  - {field: occupation, op: in, value: [employee, self_employed, freelance], flag: conditional, score: 0.3, reason: 所得税を納めている人は、家族を扶養していれば控除を受けられるため}
+  - {field: age, op: gte, value: 30, flag: conditional, score: 0.2, reason: 配偶者や子どもを扶養している人が多い年齢のため}
+  - {field: occupation, value: student, flag: conditional, score: -0.5}   # 家族を扶養している学生は少ない
+  - {field: dependents, value: 0, flag: unrelated, score: -1.0, reason: 扶養している家族がいないため}
 steps:
   - title: 配偶者・家族の年間所得を確認する
-    detail: 配偶者控除・扶養控除は、相手の所得によって受けられるかどうかや金額が変わります。
+    detail: 配偶者控除・扶養控除は、相手の所得によって受けられるかどうかや金額が変わります。扶養控除の対象は16歳以上の家族です。
   - title: 扶養控除等申告書を勤務先に出す
-    detail: 会社員は勤務先から配られる書類に記入して提出します。
+    detail: 勤務先から配られる書類に記入して提出します。年の途中で家族が増えたり減ったりしたら、出し直します。
     where: 勤務先
-    documents: [給与所得者の扶養控除等（異動）申告書, 配偶者控除等申告書]
-  - title: 自営業者は確定申告で申告する
+    documents: [給与所得者の扶養控除等（異動）申告書, 配偶者控除等申告書（配偶者がいる人）]
+    when:
+      - {field: occupation, op: in, value: [employee, part_time]}
+  - title: 確定申告で申告する
     detail: 確定申告書の配偶者控除・扶養控除の欄に記入します。
     where: e-Tax・税務署
+    when:
+      - {field: occupation, op: in, value: [self_employed, freelance, retired, unemployed]}
 links:
   - {label: 国税庁 配偶者控除, url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1191.htm"}

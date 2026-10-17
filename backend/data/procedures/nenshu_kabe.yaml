@@ -3,37 +3,58 @@ title: アルバイトの年収と扶養（年収の壁）
 category: tax
 summary: 家族の扶養に入ったまま働く人は、年収しだいで本人の税金と、親や配偶者の税金・健康保険が変わります。税と健康保険で基準も窓口も違うので、2026年の基準で確かめましょう。
 deadline: 年末調整（11〜12月）の前に、1年の年収の見込みを確かめる
+due: {month: 11, day: 30}
 office: 本人と家族の勤務先（年末調整・健康保険の届出）
 relations:
-  - field: life_events
-    value: part_time_more
-    flag: conditional
-    score: 1.0
-    reason: アルバイトの年収しだいで、本人の税金と家族の扶養が変わるため
-    when:
-      - {field: supported_by, op: in, value: [parent, spouse]}
   - field: occupation
-    op: in
-    value: [part_time, student]
+    value: part_time
     flag: conditional
-    score: 0.6
-    reason: 学生やパート・アルバイトは、年収しだいで家族の扶養から外れることがあるため
+    score: 0.7
+    reason: パート・アルバイトの年収しだいで、本人の税金と家族の扶養が変わるため
     when:
       - {field: supported_by, op: in, value: [parent, spouse]}
-  - {field: supported_by, op: in, value: [parent, spouse], flag: conditional, score: 0.5, reason: 家族の扶養に入っているため}
-  - {field: supported_by, value: none, flag: unrelated, score: -1.0}   # 扶養に入っていない
-  - {field: occupation, value: employee, flag: unrelated, score: -0.5}  # 就職して勤務先の健康保険に入る人は、扶養から外れる手続きのほうを見る
+  - {field: occupation, value: student, flag: conditional, score: 0.4, reason: 学生はアルバイトの年収しだいで、親の扶養から外れることがあるため}
+  - {field: age_at_year_end, op: in, value: [19, 20, 21, 22], flag: conditional, score: 0.3, reason: 19〜22歳（12月31日時点）は、親の健康保険の扶養の基準が150万円になり、親の税金の特別な控除の対象になるため}
+  - {field: supported_by, op: in, value: [parent, spouse], flag: conditional, score: 0.3, reason: 家族の扶養に入っているため}
+  - {field: supported_by, value: none, flag: unrelated, score: -1.0, reason: 家族の扶養に入っていないため}
+  - {field: occupation, value: employee, flag: unrelated, score: -1.0, reason: 会社員・公務員は自分の勤務先の健康保険に入るため（「親の扶養から外れる」を見る）}
 steps:
   - title: 1年（1〜12月）の年収の見込みを出す
     detail: 税金は1〜12月の給与の合計（交通費を除く）で決まります。掛け持ちしているなら合計します。
     documents: [給与明細]
   - title: 本人の税金（所得税・住民税）の基準と比べる
     detail: 2026年の収入では、所得税は178万円以下ならかかりません。住民税は市区町村によって違いますが、2026年の収入なら119万円以下でかからないのが目安です（2025年の収入では110万円）。
-  - title: 親や配偶者の税金の基準と比べる
-    detail: 子の給与収入が136万円以下なら、親は扶養控除を受けられます。19〜22歳（12月31日時点）の子なら、197万円以下までは特定親族特別控除で親の税金が軽くなります（159万円以下なら満額）。配偶者の扶養なら、配偶者控除・配偶者特別控除の基準（136万円・207万円）を見ます。
-  - title: 健康保険の扶養の基準と比べる
-    detail: 家族の健康保険の扶養に入れるのは、これから1年間の収入（交通費を含む）の見込みが130万円未満の人です。19〜22歳（12月31日時点。配偶者を除く）は150万円未満です。税金より基準が低いので、学生はまずここを確かめます。
+  - title: 親の税金の基準と比べる（19〜22歳）
+    detail: 給与収入が136万円以下なら、親は特定扶養控除（63万円）を受けられます。136万円を超えても197万円以下なら、特定親族特別控除で親の税金が軽くなります（159万円以下なら満額の63万円）。
+    when:
+      - {field: supported_by, value: parent}
+      - {field: age_at_year_end, op: in, value: [19, 20, 21, 22]}
+  - title: 親の税金の基準と比べる
+    detail: 子の給与収入が136万円以下なら、親は扶養控除を受けられます。
+    when:
+      - {field: supported_by, value: parent}
+      - {field: age_at_year_end, op: not_in, value: [19, 20, 21, 22]}
+  - title: 配偶者の税金の基準と比べる
+    detail: 給与収入が136万円以下なら配偶者控除、207万円以下なら配偶者特別控除の対象になります（配偶者の収入によって変わります）。
+    when:
+      - {field: supported_by, value: spouse}
+  - title: 健康保険の扶養の基準と比べる（19〜22歳）
+    detail: 親の健康保険の扶養に入れるのは、これから1年間の収入（交通費を含む）の見込みが150万円未満の人です。税金より基準が低いので、まずここを確かめます。
     where: 家族の勤務先・健康保険組合
+    when:
+      - {field: age_at_year_end, op: in, value: [19, 20, 21, 22]}
+      - {field: supported_by, op: ne, value: spouse}
+  - title: 健康保険の扶養の基準と比べる
+    detail: 家族の健康保険の扶養に入れるのは、これから1年間の収入（交通費を含む）の見込みが130万円未満の人です（配偶者の扶養は、19〜22歳でも130万円）。税金より基準が低いので、まずここを確かめます。
+    where: 家族の勤務先・健康保険組合
+    when:
+      - {field: age_at_year_end, op: not_in, value: [19, 20, 21, 22]}
+  - title: 健康保険の扶養の基準と比べる（配偶者の扶養）
+    detail: 配偶者の健康保険の扶養に入れるのは、これから1年間の収入（交通費を含む）の見込みが130万円未満の人です。19〜22歳でも150万円にはなりません。
+    where: 配偶者の勤務先・健康保険組合
+    when:
+      - {field: age_at_year_end, op: in, value: [19, 20, 21, 22]}
+      - {field: supported_by, value: spouse}
   - title: 超えそうなら家族に伝える
     detail: 扶養から外れるときは、家族が勤務先に届け出ます（「親の扶養から外れる」を参照）。届け出が遅れると、あとから家族の税金の追加や医療費の返還を求められることがあります。
 links:

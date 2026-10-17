@@ -3,32 +3,57 @@ title: 所得税の確定申告
 category: tax
 summary: 1年間（1〜12月）の所得と税額を計算して税務署に申告し、所得税を納めます。年の途中でアルバイトや会社を辞めて年末調整を受けていない人は、申告すると引かれすぎた税金が戻ること（還付申告）があります。
 deadline: 翌年2月16日〜3月15日（土日祝の場合は翌平日）。還付申告は翌年1月から5年以内
+due: {month: 3, day: 15}
 office: 住所地の税務署（e-Tax で自宅から提出可能）
 relations:
-  - {field: occupation, op: in, value: [self_employed, freelance], flag: required, score: 0.7, reason: 自営業・フリーランスは自分で所得を申告する必要があるため}
-  - {field: life_events, value: side_job, flag: conditional, score: 0.8, reason: 副業の所得が年20万円を超える場合は確定申告が必要なため}
-  - {field: life_events, value: resign, flag: conditional, score: 0.6, reason: 年の途中で退職（アルバイトを含む）して年末調整を受けていない場合、引かれすぎた税金が戻る可能性があるため}
-  - {field: life_events, value: part_time_more, flag: conditional, score: 0.3, reason: アルバイトを掛け持ちすると、税金が引かれすぎたり申告が必要になったりするため}
-  - {field: life_events, value: start_business, flag: conditional, score: 0.6, reason: 開業した年から、所得があれば確定申告が必要になるため}
+  - {field: occupation, op: in, value: [self_employed, freelance], flag: required, score: 0.9, reason: 自営業・フリーランスは、自分で所得を申告して所得税を納めるため}
+  - {field: occupation, value: unemployed, flag: conditional, score: 0.5, reason: 年の途中で会社を辞めて年末調整を受けていないと、申告で引かれすぎた税金が戻ることがあるため（還付申告）}
+  - {field: occupation, value: retired, flag: conditional, score: 0.4, reason: 公的年金の収入が400万円を超える人や、年金のほかに所得がある人は確定申告が必要なため}
+  - {field: occupation, value: part_time, flag: conditional, score: 0.3, reason: アルバイトを掛け持ちしたり、年の途中で辞めたりすると、申告で税金が戻ることがあるため}
   - field: occupation
     value: employee
     flag: conditional
     score: 0.3
-    reason: 年収が2,000万円を超える会社員は年末調整の対象外になるため
+    reason: 年収が2,000万円を超える会社員は、年末調整の対象外になるため
     when:
       - {field: annual_income, op: gt, value: 20000000}
+  - {field: occupation, value: employee, flag: conditional, score: -0.3}   # 会社員の多くは年末調整で済む
+  - {field: occupation, value: student, flag: conditional, score: -0.3}
 steps:
-  - title: 収入と経費の資料を集める
-    detail: 源泉徴収票、売上・経費の記録、控除の証明書（社会保険料・生命保険料など）をまとめます。アルバイトを辞めた人は、辞めた勤務先から源泉徴収票をもらいます。
-    documents: [源泉徴収票, 帳簿・領収書, 控除証明書]
+  - title: 給与の源泉徴収票を集める
+    detail: 1年間に給与をもらったすべての勤務先から、源泉徴収票をもらいます。年の途中で辞めた勤務先からももらいます。
+    documents: [源泉徴収票（給与をもらった勤務先すべて）]
+    when:
+      - {field: occupation, op: in, value: [employee, part_time, unemployed, student]}
+  - title: 売上と経費の記録をまとめる
+    detail: 1年間の売上と経費を帳簿にまとめ、領収書を保管します。
+    documents: [帳簿・領収書]
+    when:
+      - {field: occupation, op: in, value: [self_employed, freelance]}
+  - title: 年金の源泉徴収票を用意する
+    detail: 日本年金機構などから1月ごろに届く「公的年金等の源泉徴収票」を使います。
+    documents: [公的年金等の源泉徴収票]
+    when:
+      - {field: occupation, value: retired}
+  - title: 控除の証明書を集める
+    detail: 自分で払った国民年金・国民健康保険の保険料や、生命保険料などの控除証明書をまとめます。
+    documents: [控除証明書（国民年金保険料・生命保険料など）]
   - title: 申告書を作る
     detail: 国税庁「確定申告書等作成コーナー」で画面の案内に沿って入力すると、税額が自動計算されます。
     where: 確定申告書等作成コーナー（Web）
   - title: 提出する
-    detail: マイナンバーカードがあれば e-Tax でスマホから提出できます。郵送・税務署への持参も可能です。
+    detail: マイナンバーカードがあれば e-Tax でスマホから提出できます。郵送・税務署への持参も可能です。書面で出すときは、マイナンバーが分かる書類と本人確認書類の写しを付けます。
     where: e-Tax・税務署
-  - title: 納税する（または還付を受け取る）
-    detail: 納付は3月15日まで。振替納税なら4月中旬ごろ引き落とし。還付の場合は1か月半ほどで口座に振り込まれます。
+    documents: [マイナンバーカード（ない場合はマイナンバーが分かる書類と本人確認書類の写し）]
+  - title: 3月15日までに納税する
+    detail: 納付は3月15日まで。振替納税なら4月中旬ごろの引き落としになります。
+    when:
+      - {field: occupation, op: in, value: [self_employed, freelance, retired, employee]}
+  - title: 還付を受け取る
+    detail: 引かれすぎた税金があれば、1か月半ほどで指定した口座に振り込まれます。還付申告は翌年1月から5年以内なら出せます。
+    documents: [還付金を受け取る本人名義の口座]
+    when:
+      - {field: occupation, op: in, value: [unemployed, part_time, student, retired]}
 links:
   - {label: 国税庁 確定申告書等作成コーナー, url: "https://www.keisan.nta.go.jp/"}
   - {label: 国税庁 No.1910 中途退職で年末調整を受けていないとき, url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1910.htm"}

@@ -2,22 +2,32 @@ id: shussan_kosodate
 title: 出産・子育ての給付（出産育児一時金・児童手当）
 category: benefit
 summary: 出産すると健康保険から出産育児一時金（原則50万円）が、市区町村から児童手当が受け取れます。
-deadline: 児童手当は出生日の翌日から15日以内に申請（遅れると遅れた月の分がもらえない）
+deadline: 出生届は生まれた日を含めて14日以内。児童手当は出生日の翌日から15日以内に申請（遅れると遅れた月の分がもらえない）
+due: {days: 14}
 office: 市区町村役所・加入している健康保険
 relations:
-  - {field: life_events, value: childbirth, flag: required, score: 0.6, reason: 出産したため}
+  - {field: age, op: gte, value: 25, flag: conditional, score: 0.3, reason: 子どもが生まれる人が多い年齢のため}
+  - {field: age, op: gte, value: 45, flag: conditional, score: -0.4}   # 25歳以上の加点を打ち消す
+  - {field: occupation, value: student, flag: conditional, score: -0.3}
 steps:
   - title: 出生届を出す
     detail: 生まれた日を含めて14日以内に、市区町村役所に出生届を出します。
     where: 市区町村役所
     documents: [出生届（出生証明書つき）, 母子健康手帳]
   - title: 児童手当を申請する
-    detail: 出生届と同じタイミングで申請するのが確実です。
+    detail: 出生日の翌日から15日以内に申請します。出生届と同じタイミングで申請するのが確実です。公務員は勤務先に申請します。
     where: 市区町村役所（公務員は勤務先）
     documents: [請求者の健康保険の資格確認書類, 請求者名義の口座が分かるもの, マイナンバーカード]
-  - title: 子どもの健康保険に加入する
-    detail: 勤務先の健康保険の扶養に入れるか、国民健康保険に加入します。
-    where: 勤務先・市区町村役所
+  - title: 子どもを勤務先の健康保険の扶養に入れる
+    detail: 勤務先（配偶者の扶養に入っているなら配偶者の勤務先）に、被扶養者の届出をします。
+    where: 勤務先
+    when:
+      - {field: health_insurance, op: in, value: [employer, dependent]}
+  - title: 子どもを国民健康保険に入れる
+    detail: 出生届と一緒に、役所で国民健康保険の加入を届け出ます。
+    where: 市区町村役所
+    when:
+      - {field: health_insurance, value: national}
   - title: 出産育児一時金を受け取る
     detail: 多くの病院では「直接支払制度」で病院に直接支払われます。差額があれば申請して受け取ります。
     where: 出産した病院・加入している健康保険

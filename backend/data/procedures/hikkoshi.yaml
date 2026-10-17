@@ -3,9 +3,11 @@ title: 引越しに伴う住所変更
 category: registration
 summary: 別の市区町村に引越すときは転出届・転入届を出します。国民健康保険や国民年金も住所変更が必要です。
 deadline: 転入届は引越した日から14日以内
+due: {days: 14}
 office: 旧住所と新住所の市区町村役所
 relations:
-  - {field: life_events, value: move, flag: required, score: 1.0, reason: 引越ししたため}
+  - {field: age, op: lt, value: 30, flag: conditional, score: 0.4, reason: 進学・就職で引越すことが多い年齢のため}
+  - {field: occupation, value: student, flag: conditional, score: 0.2, reason: 進学で一人暮らしを始めるときも、転出・転入の届出をするため}
 steps:
   - title: 転出届を出す（別の市区町村へ引越す場合）
     detail: マイナンバーカードがあればマイナポータルからオンラインで転出届を出せます。
@@ -14,7 +16,20 @@ steps:
     detail: 引越してから14日以内に新住所の役所へ。マイナンバーカードの住所変更も同時に行います。
     where: 新住所の役所
     documents: [転出証明書（オンライン転出なら不要）, マイナンバーカード, 本人確認書類]
-  - title: 保険・年金・税の住所変更
-    detail: 国民健康保険は新住所で加入し直し、国民年金は転入届で住所変更されることが多いです。会社員は勤務先に新住所を伝えます。
-    where: 新住所の役所・勤務先
+  - title: 国民健康保険の住所を変える
+    detail: 別の市区町村に引越したら、新住所の役所で国民健康保険に入り直します。
+    where: 新住所の役所
+    when:
+      - {field: health_insurance, value: national}
+  - title: 勤務先に新しい住所を伝える
+    detail: 健康保険・厚生年金・住民税の手続きは、勤務先を通じて住所が変わります。
+    where: 勤務先
+    when:
+      - {field: occupation, value: employee}
+  - title: 国民年金の住所変更を確かめる
+    detail: 国民年金は、マイナンバーと結びついていれば転入届だけで住所が変わります。
+    when:
+      - {field: occupation, op: ne, value: employee}
+      - {field: age, op: gte, value: 20}
+      - {field: age, op: lt, value: 60}
 links: []

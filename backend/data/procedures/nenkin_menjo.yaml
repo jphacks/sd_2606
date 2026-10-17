@@ -5,16 +5,26 @@ summary: 失業したり収入が少なかったりして国民年金の保険�
 deadline: 早めに（納付期限から2年以内なら、さかのぼって申請できる）
 office: 市区町村の国民年金窓口・年金事務所（マイナポータルでも申請できる）
 relations:
-  - {field: life_events, value: resign, flag: conditional, score: 0.7, reason: 失業した人は、前の年の収入が多くても失業の特例で免除を受けられるため}
-  - {field: occupation, value: unemployed, flag: conditional, score: 0.5, reason: 収入が少ないときは、保険料の免除・納付猶予を申請できるため}
-  - {field: occupation, value: student, flag: unrelated, score: -1.0}    # 学生は学生納付特例を使う
-  - {field: occupation, value: employee, flag: unrelated, score: -1.0}   # 厚生年金に入る
-  - {field: age, op: gte, value: 60, flag: unrelated, score: -1.0}       # 国民年金の加入は60歳まで
-  - {field: age, op: lt, value: 20, flag: unrelated, score: -1.0}
+  - {field: occupation, value: unemployed, flag: conditional, score: 0.7, reason: 失業した人は、前の年の収入が多くても失業の特例で免除を受けられるため}
+  - {field: occupation, value: part_time, flag: conditional, score: 0.3, reason: 収入が少ないときは、保険料の免除・納付猶予を申請できるため}
+  - {field: occupation, op: in, value: [self_employed, freelance], flag: conditional, score: 0.2, reason: 事業の収入が少ない年は、保険料の免除を申請できるため}
+  - {field: occupation, value: student, flag: unrelated, score: -1.0, reason: 学生は学生納付特例を使うため}
+  - {field: occupation, value: employee, flag: unrelated, score: -1.0, reason: 会社員・公務員は厚生年金に入るため}
+  - {field: age, op: gte, value: 60, flag: unrelated, score: -1.0, reason: 国民年金に加入するのは60歳になるまでのため}
+  - {field: age, op: lt, value: 20, flag: unrelated, score: -1.0, reason: 国民年金に加入するのは20歳からのため}
 steps:
-  - title: 申請書と添付書類をそろえる
-    detail: 「国民年金保険料免除・納付猶予申請書」を使います。失業した人は、離職票か雇用保険受給資格者証のコピーを付けると、前の年の収入にかかわらず審査されます（失業の特例）。
-    documents: [国民年金保険料免除・納付猶予申請書, 雇用保険被保険者離職票などのコピー（失業した人）, 基礎年金番号が分かるもの]
+  - title: 申請書をそろえる
+    detail: 「国民年金保険料免除・納付猶予申請書」を使います。本人・配偶者・世帯主の前の年の所得で審査されます。
+    documents: [国民年金保険料免除・納付猶予申請書, 基礎年金番号が分かるもの]
+  - title: 納付猶予も一緒に申請する
+    detail: 50歳未満なら、本人と配偶者の所得だけで審査される納付猶予も申請できます。同じ申請書で申し込めます。
+    when:
+      - {field: age, op: lt, value: 50}
+  - title: 失業した人は、離職票などのコピーを付ける
+    detail: 離職票か雇用保険受給資格者証のコピーを付けると、前の年の収入にかかわらず審査されます（失業の特例）。
+    documents: [雇用保険被保険者離職票などのコピー]
+    when:
+      - {field: occupation, value: unemployed}
   - title: 役所か年金事務所に出す
     detail: 窓口に持っていくか、郵送します。マイナポータルから電子申請もできます。
     where: 市区町村の国民年金窓口・年金事務所・マイナポータル

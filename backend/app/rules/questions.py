@@ -4,6 +4,7 @@ range の項目は、手続き YAML の条件の境目から選択肢を作る�
 たとえば年齢の条件が「20歳以上」「60歳未満」だけなら「19歳以下 / 20〜59歳 / 60歳以上」の3択になる。
 """
 
+import math
 from collections.abc import Iterable
 from functools import lru_cache
 from pathlib import Path
@@ -78,6 +79,8 @@ def range_label(lo: int, hi: int | None, q: QuestionDef) -> str:
         return _upto(hi, q)
     if q.scale > 1 and lo % q.scale == 1:
         return f"{_from(lo, q)}〜{_num(hi, q)}{q.unit}以下"
+    if q.scale > 1 and (hi + 1) % q.scale == 0:
+        return f"{_from(lo, q)}{_upto(hi, q)}"
     return f"{_num(lo, q)}〜{_num(hi, q)}{q.unit}"
 
 
@@ -124,4 +127,5 @@ def build_catalog() -> Catalog:
                 provides=q.provides,
             )
         )
-    return Catalog(procedures=procedures, questions=questions, threshold=THRESHOLD)
+    # JSON は -inf を表せないので、下限なしは null で配る
+    return Catalog(procedures=procedures, questions=questions, threshold=None if math.isinf(THRESHOLD) else THRESHOLD)

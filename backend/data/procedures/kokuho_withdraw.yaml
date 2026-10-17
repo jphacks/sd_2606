@@ -3,22 +3,30 @@ title: 就職したら国民健康保険をやめる
 category: insurance
 summary: 国民健康保険に入っていた人が就職して勤務先の健康保険に入ったら、自分で国保をやめる届出をします。届け出ないと、国保の保険料の請求が続きます（二重払い）。
 deadline: 勤務先の健康保険に入った日から14日以内
+due: {days: 14}
 office: 住んでいる市区町村の役所（国民健康保険の窓口）
 relations:
-  - field: life_events
-    value: new_job
+  - field: occupation
+    value: employee
     flag: conditional
-    score: 0.8
-    reason: 国保に入っていた人は、勤務先の健康保険に入ったら国保をやめる届出が必要なため
+    score: 0.6
+    reason: 国保に入っていた人が就職して勤務先の健康保険に入ったら、自分で国保をやめる届出が必要なため
     when:
       - {field: prev_health_insurance, value: national}
-  - {field: prev_health_insurance, op: in, value: [employer, dependent], flag: unrelated, score: -1.0}   # 国保ではなかった
+  - {field: age, op: lt, value: 26, flag: conditional, score: 0.2, reason: 親が自営業などで国保の世帯だった人は、就職したら国保をやめる届出が要るため}
+  - {field: age, op: gte, value: 30, flag: conditional, score: -0.3}   # 就職から年数がたっている人が多い
+  - {field: occupation, op: ne, value: employee, flag: unrelated, score: -1.0, reason: 勤務先の健康保険に入っていないため}
+  - {field: prev_health_insurance, op: in, value: [employer, dependent], flag: unrelated, score: -1.0, reason: 就職する前は国民健康保険ではなかったため}
 steps:
   - title: 勤務先の健康保険に入ったことが分かる書類を受け取る
     detail: 勤務先から、健康保険の資格確認書か「資格情報のお知らせ」を受け取ります。
     where: 勤務先
+  - title: 親の国保に入っていたら、親に伝える
+    detail: 家族（世帯主）の国保に入っていた人が就職した場合は、世帯主である親が届け出ることもあります。就職したことと、勤務先の健康保険に入った日を伝えます。
+    when:
+      - {field: age, op: lt, value: 30}
   - title: 役所で国保をやめる届出をする（14日以内）
-    detail: 国保の資格喪失を届け出ます。郵送やオンラインでできる市区町村もあります。家族（世帯主）の国保に入っていた学生が就職した場合は、世帯主が届け出ることもあります。
+    detail: 国保の資格喪失を届け出ます。郵送やオンラインでできる市区町村もあります。
     where: 市区町村の役所（国民健康保険の窓口）
     documents: [国保の資格確認書（持っている人）, 勤務先の健康保険の資格確認書か資格情報のお知らせ, マイナンバーが分かるもの]
   - title: 保険料の変更の通知を受け取る

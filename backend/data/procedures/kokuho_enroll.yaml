@@ -1,28 +1,35 @@
 id: kokuho_enroll
 title: 国民健康保険への加入
 category: insurance
-summary: 勤務先の健康保険に入っていない人は、住んでいる市区町村の国民健康保険に加入します。
+summary: 勤務先の健康保険にも家族の扶養にも入っていない人は、住んでいる市区町村の国民健康保険に加入します。
 deadline: 資格を得た日（退職日の翌日など）から14日以内
+due: {days: 14}
 office: 住んでいる市区町村の役所（国民健康保険の窓口）
 relations:
-  # 退職後は国保・任意継続・家族の扶養から選ぶので、必須にはしない
-  - {field: life_events, value: resign, flag: conditional, score: 1.0, reason: 退職して勤務先の健康保険を抜けるため（国保・任意継続・家族の扶養から選ぶ）}
-  - {field: life_events, value: start_business, flag: conditional, score: 0.8, reason: 開業・独立して勤務先の健康保険から外れるため}
-  - {field: occupation, op: in, value: [self_employed, freelance], flag: conditional, score: 0.6, reason: 自営業・フリーランスは国民健康保険に入るのが基本のため}
-  - {field: occupation, value: employee, flag: unrelated, score: -1.0}                            # 勤務先の健康保険に入る
-  - {field: health_insurance, op: in, value: [national, dependent], flag: unrelated, score: -1.0}  # すでに国保か家族の扶養
+  # 会社を辞めた後は国保・任意継続・家族の扶養から選ぶので、必須にはしない
+  - {field: occupation, op: in, value: [self_employed, freelance], flag: conditional, score: 0.8, reason: 自営業・フリーランスは、家族の扶養に入っていなければ国民健康保険に入るため}
+  - {field: occupation, value: unemployed, flag: conditional, score: 0.7, reason: 会社を辞めた人は、国保・任意継続・家族の扶養から健康保険を選ぶため}
+  - {field: occupation, value: retired, flag: conditional, score: 0.5, reason: 退職して勤務先の健康保険を抜けたら、75歳になるまでは国保などに入るため}
+  - {field: occupation, value: part_time, flag: conditional, score: 0.3, reason: パート・アルバイトで勤務先の健康保険にも家族の扶養にも入っていない人は、国保に入るため}
+  - {field: occupation, value: employee, flag: unrelated, score: -1.0, reason: 会社員・公務員は勤務先の健康保険に入るため}
+  - {field: health_insurance, op: in, value: [national, dependent], flag: unrelated, score: -1.0, reason: すでに国民健康保険か家族の扶養に入っているため}
+  - {field: age, op: gte, value: 75, flag: unrelated, score: -1.0, reason: 75歳からは後期高齢者医療制度に入るため}
 steps:
   - title: 勤務先から「健康保険資格喪失証明書」をもらう
-    detail: 退職した場合は、前の勤務先（または健康保険組合）に発行を依頼します。
+    detail: 会社を辞めた場合は、前の勤務先（または健康保険組合）に発行を依頼します。
     where: 前の勤務先
     documents: [健康保険資格喪失証明書]
-  - title: 任意継続と比べる
-    detail: 退職後20日以内なら、前の健康保険を最長2年続ける「任意継続」も選べます。保険料を比べて安い方を選びましょう。
+    when:
+      - {field: occupation, op: in, value: [unemployed, retired, self_employed, freelance]}
+  - title: 任意継続・家族の扶養と比べる
+    detail: 退職後20日以内なら、前の健康保険を最長2年続ける「任意継続」も選べます。家族の扶養に入れるなら、保険料はかかりません。保険料を比べて選びましょう。
     where: 前の勤務先の健康保険組合・協会けんぽ
+    when:
+      - {field: occupation, op: in, value: [unemployed, retired, self_employed, freelance]}
   - title: 役所で加入手続きをする
-    detail: 窓口またはマイナポータル（対応している自治体のみ）で届け出ます。
+    detail: 窓口またはマイナポータル（対応している自治体のみ）で届け出ます。会社を辞めた人は、資格喪失証明書も持っていきます。
     where: 市区町村役所
-    documents: [健康保険資格喪失証明書, マイナンバーカード（または通知カード＋本人確認書類）]
+    documents: [マイナンバーカード（または通知カード＋本人確認書類）]
   - title: 保険料を納める
     detail: 後日届く納付書か口座振替で納めます。収入が大きく減った場合は減免を相談できます。
 links:

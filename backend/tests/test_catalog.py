@@ -20,6 +20,7 @@ def literal_values(field: str) -> set[str]:
 
 def test_every_field_used_in_rules_has_a_question():
     used = {c.field for p in load_procedures().values() for r in p.relations for c in (r, *r.when)}
+    used |= {c.field for p in load_procedures().values() for s in p.steps for c in s.when}  # ステップの表示条件
     asked = {f for q in build_catalog().questions for f in [q.field, *q.provides]}
     assert used <= asked
 
@@ -37,13 +38,12 @@ def test_every_question_has_a_short_label():
 
 def test_only_minimal_questions_are_asked_first():
     initial = [q.field for q in build_catalog().questions if q.initial]
-    assert initial == ["life_events", "occupation"]
+    assert initial == ["occupation", "birth_date"]  # 関係の強さは年齢と働き方で決まる
 
 
-def test_occupation_is_multi_and_only_life_events_mean_none_when_empty():
+def test_occupation_is_multi():
     qs = {q.field: q for q in build_catalog().questions}
     assert qs["occupation"].kind == "multi" and not qs["occupation"].none_if_empty
-    assert qs["life_events"].none_if_empty
 
 
 def test_age_is_computed_from_birth_date_on_device():
@@ -60,9 +60,10 @@ def test_income_and_dependents_are_numbers():
 
 
 def test_range_choices_follow_rule_thresholds():
-    # range にすると、手続き YAML の条件の境目（150万円以上・2,000万円超）だけで選択肢を作る
+    # range にすると、手続き YAML の条件の境目（130万円以上・150万円以上・2,000万円超）だけで選択肢を作る
     income = QuestionDef(field="annual_income", kind="range", text="", label="年収", unit="万円", scale=10000)
-    assert [c.label for c in range_choices(income, load_procedures().values())] == ["150万円未満", "150〜2,000万円", "2,000万円超"]
+    labels = [c.label for c in range_choices(income, load_procedures().values())]
+    assert labels == ["130万円未満", "130万円以上150万円未満", "150〜2,000万円", "2,000万円超"]
     deps = QuestionDef(field="dependents", kind="range", text="", label="扶養", unit="人")
     assert [c.label for c in range_choices(deps, load_procedures().values())] == ["0人", "1人以上"]
 
@@ -86,5 +87,6 @@ def test_api_catalog():
     body = res.json()
     assert len(body["procedures"]) == len(load_procedures())
     assert all(p["relations"] and p["steps"] for p in body["procedures"])
-    assert body["threshold"] == 0.5
-    assert {q["field"] for q in body["questions"]} >= {"life_events", "occupation", "birth_date"}
+    assert body["threshold"] is None  # 下限なし（-inf）。対象外でなければすべて出す
+    assert {q["field"] for q in body["questions"]} >= {"occupation", "birth_date"}
+    assert "life_events" not in {q["field"] for q in body["questions"]}

@@ -1,6 +1,6 @@
 # 判定に使う項目を、ユーザーにどう聞くか（書き方は docs/procedures.md）。
 #
-# - initial: true の項目だけを最初の画面で聞く。おすすめが大きく変わる項目に限る
+# - initial: true の項目だけを最初の画面で聞く。おすすめが大きく変わる項目（働き方・生年月日）に限る
 # - label は項目の短い名前。手続きの一覧で「判定には（label）が必要です」と案内するのに使う
 # - それ以外は、手続きの判定にその項目が必要になったときだけアプリが聞く
 # - kind: number は数値を入力してもらう（unit は単位、scale は入力の単位。年収は万円で入れて円で保存）
@@ -8,24 +8,6 @@
 #   判定に必要な細かさでしか聞かない（いまは使っていない）
 # - kind: date は日付を選んでもらう。provides の項目は、アプリがその日付から端末内で計算する
 # - 手続き YAML の条件で使う項目は、すべてここに書くこと（テストで確認している）
-
-- field: life_events
-  kind: multi
-  initial: true
-  none_if_empty: true   # 何も選ばなければ「どれも無かった」として判定する
-  text: 最近あったこと・これからあることは？（複数選択可）
-  label: 最近あったこと
-  choices:   # 対象（20歳前後・家族の扶養に入っている人）に起きやすい順
-    - {value: new_job, label: 就職・転職}
-    - {value: turn_20, label: 20歳になった}
-    - {value: resign, label: 退職}
-    - {value: part_time_more, label: アルバイトを始めた・増やした}
-    - {value: move, label: 引越し}
-    - {value: marriage, label: 結婚}
-    - {value: childbirth, label: 出産}
-    - {value: side_job, label: 副業を始めた}
-    - {value: start_business, label: 開業・独立}
-    - {value: high_medical_expense, label: 医療費が多くかかった}
 
 - field: occupation
   kind: multi           # 何も選ばなければ未回答として、判定に必要なときにもう一度聞く
@@ -43,6 +25,7 @@
 
 - field: birth_date
   kind: date
+  initial: true         # 年齢と働き方で、どの手続きがどれだけ関係するかが大きく変わる
   text: 生年月日は？
   label: 生年月日
   # age: 今日時点の年齢 / age_at_year_end: その年の12月31日時点の年齢（所得税の控除などの判定用）

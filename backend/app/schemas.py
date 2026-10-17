@@ -2,7 +2,7 @@
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 Occupation = Literal[
     "employee",  # 会社員・公務員
@@ -28,22 +28,9 @@ HealthInsurance = Literal[
     "unknown",
 ]
 
-LifeEvent = Literal[
-    "new_job",  # 就職・転職
-    "part_time_more",  # アルバイトを始めた・増やした
-    "resign",  # 退職
-    "marriage",  # 結婚
-    "childbirth",  # 出産
-    "move",  # 引越し
-    "start_business",  # 開業・独立
-    "side_job",  # 副業を始めた
-    "turn_20",  # 20歳になった
-    "high_medical_expense",  # 医療費が多くかかった
-]
-
 Category = Literal["tax", "insurance", "pension", "benefit", "registration"]
 
-# きっかけの回答と手続きの関係: required（必須）/ conditional（条件次第）/ unrelated（無関係）
+# きっかけの回答（年齢・働き方など）と手続きの関係: required（必須）/ conditional（条件次第）/ unrelated（無関係）
 Flag = Literal["required", "conditional", "unrelated"]
 
 
@@ -59,7 +46,6 @@ class UserProfile(BaseModel):
     prev_health_insurance: HealthInsurance | None = Field(default=None, description="就職する前に入っていた健康保険")
     has_spouse: bool = False
     dependents: int = Field(default=0, ge=0, description="扶養している家族の人数")
-    life_events: list[LifeEvent] = Field(default_factory=list)
 
     @field_validator("occupation", mode="before")
     @classmethod
@@ -72,11 +58,35 @@ class Link(BaseModel):
     url: str
 
 
+class Condition(BaseModel):
+    field: str
+    op: str = "eq"
+    value: Any
+
+
 class FlowStep(BaseModel):
     title: str
     detail: str
     where: str | None = None
-    documents: list[str] = Field(default_factory=list)
+    documents: list[str] = Field(default_factory=list, description="このステップで必要なもの。アプリは全ステップ分をまとめて一覧にする")
+    when: list[Condition] = Field(
+        default_factory=list,
+        description="このステップの説明が当てはまる人の条件。満たさない条件があればアプリは表示しない（未回答なら表示する）",
+    )
+
+
+class Due(BaseModel):
+    """期限順に並べるための期限。days（きっかけから何日以内）か、month / day（毎年の期限）のどちらかを書く。"""
+
+    days: int | None = Field(default=None, ge=1, description="きっかけから何日以内（並べ替えでは今日をきっかけの日とみなす）")
+    month: int | None = Field(default=None, ge=1, le=12, description="毎年の期限の月")
+    day: int | None = Field(default=None, ge=1, le=31, description="毎年の期限の日。省くと月末")
+
+    @model_validator(mode="after")
+    def _one_kind(self) -> "Due":
+        if (self.days is None) == (self.month is None) or (self.day is not None and self.month is None):
+            raise ValueError("due には days か month（と day）のどちらか一方を書いてください")
+        return self
 
 
 class Procedure(BaseModel):
@@ -87,6 +97,7 @@ class Procedure(BaseModel):
     category: Category
     summary: str
     deadline: str | None = None
+    due: Due | None = Field(default=None, description="期限順の並べ替えに使う期限。期限が無いものは最後に並ぶ")
     office: str | None = None
     steps: list[FlowStep] = Field(default_factory=list)
     links: list[Link] = Field(default_factory=list)
@@ -113,20 +124,14 @@ class RecommendationResponse(BaseModel):
 # --- 端末内で判定するための配信データ（GET /api/catalog）---
 
 
-class Condition(BaseModel):
-    field: str
-    op: str = "eq"
-    value: Any
-
-
 class Relation(Condition):
-    """きっかけ（field / op / value。例: ライフイベントに退職がある）に当てはまるときの、手続きとの関係。"""
+    """きっかけ（field / op / value。例: 働き方が学生）に当てはまるときの、手続きとの関係。"""
 
     flag: Flag = Field(
-        description="required: 必須 / conditional: when をすべて満たせば必須（条件次第）/ unrelated: 必須にはならない"
+        description="required: 必須 / conditional: when をすべて満たせば必須、無ければ点数だけ（条件次第）/ unrelated: 対象外"
     )
-    score: float = Field(ge=-1, le=1, description="関係の強さ。1: 強く関係する ～ -1: 当てはまると関係が無くなる")
-    reason: str | None = Field(default=None, description="画面に出す理由（required / conditional のとき）")
+    score: float = Field(ge=-1, le=1, description="関係の強さ。1: 強く関係する ～ -1: 関係が薄い")
+    reason: str | None = Field(default=None, description="画面に出す理由（必要・関係がありそう・対象外の理由）")
     when: list[Condition] = Field(
         default_factory=list,
         description="conditional の条件。満たさない条件があればこの行は数えない。未回答があればアプリが聞く",
@@ -167,4 +172,6 @@ class Question(BaseModel):
 class Catalog(BaseModel):
     procedures: list[ProcedureDef]
     questions: list[Question]
-    threshold: float = Field(description="必須でない手続きは、点数の合計がこの値以上なら「関係がありそうな手続き」に出す")
+    threshold: float | None = Field(
+        description="必須でも対象外でもない手続きは、点数の合計がこの値以上なら「関係がありそうな手続き」に出す。null は下限なし（-inf）"
+    )

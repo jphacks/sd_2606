@@ -3,10 +3,15 @@ title: 健康保険の任意継続
 category: insurance
 summary: 退職後も、それまでの勤務先の健康保険に最長2年入り続けられます。会社の負担分がなくなるので保険料はおおむね退職前の2倍になりますが、国保より安くなることもあります。
 deadline: 退職日の翌日から20日以内
+due: {days: 20}
 office: 前の勤務先の健康保険（協会けんぽの支部・健康保険組合）
 relations:
-  - {field: life_events, value: resign, flag: conditional, score: 0.7, reason: 退職後の健康保険の選択肢の1つで、退職日の翌日から20日以内に申し込む必要があるため}
-  - {field: occupation, value: employee, flag: unrelated, score: -1.0}   # 次の勤務先の健康保険に入る
+  - {field: occupation, value: unemployed, flag: conditional, score: 0.6, reason: 会社を辞めて20日以内なら、前の勤務先の健康保険に最長2年入り続けられるため}
+  - {field: occupation, value: retired, flag: conditional, score: 0.4, reason: 定年などで退職したときも、前の勤務先の健康保険を任意継続できるため}
+  - {field: occupation, op: in, value: [self_employed, freelance], flag: conditional, score: 0.3, reason: 会社を辞めて独立したときは、国保と任意継続の保険料を比べて選べるため}
+  - {field: occupation, value: employee, flag: unrelated, score: -1.0, reason: 会社員・公務員は勤務先の健康保険に入るため}
+  - {field: health_insurance, op: in, value: [national, dependent], flag: unrelated, score: -1.0, reason: すでに国民健康保険か家族の扶養に入っているため}
+  - {field: age, op: gte, value: 75, flag: unrelated, score: -1.0, reason: 75歳からは後期高齢者医療制度に入るため}
 steps:
   - title: 加入できるか確かめる
     detail: 退職日まで続けて2か月以上、勤務先の健康保険に入っていたことが条件です（前の勤務先の期間も、空白がなければ合わせられます）。
