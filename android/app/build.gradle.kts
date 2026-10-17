@@ -16,9 +16,8 @@ val apiBaseUrl: String = localProps.getProperty("api.baseUrl") ?: "http://10.0.2
 android {
     namespace = "jp.jphacks.sd2606"
     compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
+        // Compose BOM 2026.09 などが compileSdk 37 以上を要求する
+        version = release(37)
     }
 
     defaultConfig {
