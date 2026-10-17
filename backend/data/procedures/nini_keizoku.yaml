@@ -1,27 +1,27 @@
 id: nini_keizoku
 title: 健康保険の任意継続
 category: insurance
-summary: 退職後も、それまでの勤務先の健康保険に最長2年入り続けられます。会社の負担分がなくなるので保険料はおおむね退職前の2倍になりますが、国保より安くなることもあります。
+summary: 退職後も、前の勤務先の健康保険に最長2年入り続けられます。
 deadline: 退職日の翌日から20日以内
 due: {days: 20}
 office: 前の勤務先の健康保険（協会けんぽの支部・健康保険組合）
 relations:
-  - {field: occupation, value: unemployed, flag: conditional, score: 0.6, reason: 会社を辞めて20日以内なら、前の勤務先の健康保険に最長2年入り続けられるため}
-  - {field: occupation, value: retired, flag: conditional, score: 0.4, reason: 定年などで退職したときも、前の勤務先の健康保険を任意継続できるため}
-  - {field: occupation, op: in, value: [self_employed, freelance], flag: conditional, score: 0.3, reason: 会社を辞めて独立したときは、国保と任意継続の保険料を比べて選べるため}
-  - {field: occupation, value: employee, flag: unrelated, score: -1.0, reason: 会社員・公務員は勤務先の健康保険に入るため}
-  - {field: health_insurance, op: in, value: [national, dependent], flag: unrelated, score: -1.0, reason: すでに国民健康保険か家族の扶養に入っているため}
+  - {field: occupation, value: unemployed, flag: conditional, score: 0.6, reason: 会社を辞めて20日以内なら選べるため}
+  - {field: occupation, value: retired, flag: conditional, score: 0.4, reason: 退職したときに選べるため}
+  - {field: occupation, op: in, value: [self_employed, freelance], flag: conditional, score: 0.3, reason: 独立したときに国保と比べて選べるため}
+  - {field: occupation, value: employee, flag: unrelated, score: -1.0, reason: 勤務先の健康保険に入っているため}
+  - {field: health_insurance, op: in, value: [national, dependent], flag: unrelated, score: -1.0, reason: すでに国保か家族の扶養に入っているため}
   - {field: age, op: gte, value: 75, flag: unrelated, score: -1.0, reason: 75歳からは後期高齢者医療制度に入るため}
 steps:
   - title: 加入できるか確かめる
-    detail: 退職日まで続けて2か月以上、勤務先の健康保険に入っていたことが条件です（前の勤務先の期間も、空白がなければ合わせられます）。
-  - title: 保険料を比べる
-    detail: 任意継続の保険料は、おおむね退職前に引かれていた額の2倍です（上限あり）。国保の保険料は役所で試算できます。家族の扶養に入れるなら、それが最も負担が少なくなります。
+    detail: 退職日まで2か月以上、勤務先の健康保険に入っていれば入れます。
+  - title: 国保・家族の扶養と保険料を比べる
+    detail: 任意継続の保険料は、退職前のおよそ2倍です（上限あり）。
     where: 前の勤務先の健康保険・市区町村の役所
-  - title: 20日以内に申し込む
-    detail: 協会けんぽなら、住所地の支部に「任意継続被保険者資格取得申出書」を郵送などで出します。健康保険組合の場合はその組合に出します。
+  - title: 20日以内に申出書を出す
+    detail: 協会けんぽの支部か健康保険組合に、郵送などで出します。
     documents: [任意継続被保険者資格取得申出書]
   - title: 毎月10日までに保険料を納める
-    detail: 納め忘れると資格を失います。加入できるのは最長2年で、その間に就職して勤務先の健康保険に入ると終わります。
+    detail: 遅れると資格を失います。
 links:
   - {label: 協会けんぽ 任意継続, url: "https://www.kyoukaikenpo.or.jp/benefit/voluntary_continuation/index.html"}

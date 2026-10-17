@@ -1,37 +1,37 @@
 id: nenkin_menjo
 title: 国民年金保険料の免除・納付猶予
 category: pension
-summary: 失業したり収入が少なかったりして国民年金の保険料を払えないときは、申請すると免除や猶予を受けられます。未納のままにすると、将来の年金だけでなく、けがや病気のときの障害年金を受けられないことがあります。
-deadline: 早めに（納付期限から2年以内なら、さかのぼって申請できる）
-office: 市区町村の国民年金窓口・年金事務所（マイナポータルでも申請できる）
+summary: 国民年金の保険料を払えないとき、申請すると免除や納付猶予を受けられます。
+deadline: 早めに（2年前までさかのぼれる）
+office: 市区町村の役所・年金事務所・マイナポータル
 relations:
-  - {field: occupation, value: unemployed, flag: conditional, score: 0.7, reason: 失業した人は、前の年の収入が多くても失業の特例で免除を受けられるため}
-  - {field: annual_income, op: lt, value: 1000000, flag: conditional, score: 0.3, reason: 収入が少ないときは、保険料の免除・納付猶予を受けられることがあるため（審査は前の年の所得で行う）}
-  - {field: occupation, op: in, value: [self_employed, freelance], flag: conditional, score: 0.2, reason: 事業の収入が少ない年は、保険料の免除を申請できるため}
+  - {field: occupation, value: unemployed, flag: conditional, score: 0.7, reason: 失業した人は特例で免除を受けやすいため}
+  - {field: annual_income, op: lt, value: 1000000, flag: conditional, score: 0.3, reason: 収入が少ないため}
+  - {field: occupation, op: in, value: [self_employed, freelance], flag: conditional, score: 0.2, reason: 事業の収入が少ない年は免除を受けられるため}
   - {field: occupation, value: student, flag: unrelated, score: -1.0, reason: 学生は学生納付特例を使うため}
-  - {field: occupation, value: employee, flag: unrelated, score: -1.0, reason: 会社員・公務員は厚生年金に入るため}
-  - {field: age, op: gte, value: 60, flag: unrelated, score: -1.0, reason: 国民年金に加入するのは60歳になるまでのため}
-  - {field: age, op: lt, value: 20, flag: unrelated, score: -1.0, reason: 国民年金に加入するのは20歳からのため}
+  - {field: occupation, value: employee, flag: unrelated, score: -1.0, reason: 厚生年金に入っているため}
+  - {field: age, op: gte, value: 60, flag: unrelated, score: -1.0, reason: 60歳からは国民年金に入らないため}
+  - {field: age, op: lt, value: 20, flag: unrelated, score: -1.0, reason: 20歳になるまでは国民年金に入らないため}
 steps:
-  - title: 申請書をそろえる
-    detail: 「国民年金保険料免除・納付猶予申請書」を使います。本人・配偶者・世帯主の前の年の所得で審査されます。
+  - title: 免除・納付猶予の申請書を用意する
+    detail: 役所・年金事務所でもらうか、日本年金機構のサイトから印刷します。
     documents: [国民年金保険料免除・納付猶予申請書, 基礎年金番号が分かるもの]
-  - title: 納付猶予も一緒に申請する
-    detail: 50歳未満なら、本人と配偶者の所得だけで審査される納付猶予も申請できます。同じ申請書で申し込めます。
+  - title: 同じ申請書で納付猶予も申し込む
+    detail: 免除が通らなくても、猶予を受けられることがあります。
     when:
       - {field: age, op: lt, value: 50}
-  - title: 失業した人は、離職票などのコピーを付ける
-    detail: 離職票か雇用保険受給資格者証のコピーを付けると、前の年の収入にかかわらず審査されます（失業の特例）。
+  - title: 離職票などのコピーを付ける
+    detail: 失業の特例で、前の年の収入にかかわらず審査されます。
     documents: [雇用保険被保険者離職票などのコピー]
     when:
       - {field: occupation, value: unemployed}
   - title: 役所か年金事務所に出す
-    detail: 窓口に持っていくか、郵送します。マイナポータルから電子申請もできます。
-    where: 市区町村の国民年金窓口・年金事務所・マイナポータル
-  - title: 結果を待ち、翌年度も必要なら申請し直す
-    detail: 承認されるのは7月から翌年6月までの1年ごとです。翌年度も払えなければ、改めて申請します。
-  - title: 余裕ができたら追納する
-    detail: 免除・猶予を受けた期間の保険料は、10年以内なら後から納められ、将来の年金が増えます。
+    detail: 窓口・郵送・マイナポータルのどれかで出します。
+    where: 市区町村の役所・年金事務所・マイナポータル
+  - title: 毎年7月に申請し直す
+    detail: 承認は1年ごと（7月〜翌年6月）です。
+  - title: （任意）10年以内に追納する
+    detail: 余裕ができたら、免除・猶予の分を納められます。
 links:
   - {label: 日本年金機構 国民年金保険料の免除制度・納付猶予制度, url: "https://www.nenkin.go.jp/service/kokunen/menjo/20150428.html"}
   - {label: 日本年金機構 転職をご検討中の方へ（加入・免除のご案内）, url: "https://www.nenkin.go.jp/tokusetsu/taishoku_menjo.html"}

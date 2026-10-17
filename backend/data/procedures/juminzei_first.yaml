@@ -1,44 +1,27 @@
 id: juminzei_first
-title: 就職1〜2年目の住民税
+title: 就職2年目からの住民税
 category: tax
-summary: 住民税は前の年の収入にかかります。就職1年目は給与から引かれず、2年目の6月から引かれ始めるので、手取りが減ります。学生のときのアルバイト収入が多いと、就職1年目に納付書が届くことがあります。
-deadline: 2年目の6月から給与天引き（納付書の場合は6月・8月・10月・1月）
+summary: 就職2年目の6月から、住民税が給与から引かれ始めます。
+deadline: 2年目の6月から給与天引き
 due: {month: 6}
 office: 勤務先・住んでいる市区町村
 relations:
-  - {field: occupation, value: employee, flag: conditional, score: 0.5, reason: 就職2年目の6月から、住民税の給与天引きが始まるため}
-  - {field: age, op: lt, value: 26, flag: conditional, score: 0.3, reason: 20代前半は、就職して初めて住民税を納める人が多いため}
-  - {field: occupation, value: student, flag: conditional, score: 0.3, reason: 学生でも、アルバイトの収入しだいで翌年に住民税がかかるため}
-  - {field: occupation, value: part_time, flag: conditional, score: 0.2, reason: アルバイトの収入が増えると、翌年に住民税がかかることがあるため}
+  - {field: occupation, value: employee, flag: conditional, score: 0.5, reason: 就職2年目の6月から天引きが始まるため}
+  - {field: age, op: lt, value: 26, flag: conditional, score: 0.3, reason: 初めて住民税を納める年代のため}
   - {field: age, op: gte, value: 30, flag: conditional, score: -0.5}   # 就職から年数がたっている人が多い
-  - {field: annual_income, op: lte, value: 1190000, flag: conditional, score: -0.3}   # 翌年の住民税がかからない見込み
-  - {field: occupation, op: not_in, value: [employee, part_time, student], flag: unrelated, score: -1.0, reason: 給与を受けていないため（住民税は自分で納める）}
+  - {field: occupation, op: ne, value: employee, flag: unrelated, score: -1.0, reason: 勤務先から給与を受けていないため}
 steps:
-  - title: 翌年の住民税はかからない見込み
-    detail: 住民税は前の年の収入にかかります。2026年の収入なら119万円以下でかからないのが目安です（市区町村で違います。2025年の収入では110万円）。見込みの{annual_income}なら、翌年の住民税はかからない見込みです。
+  - title: 学生のときの住民税の納付書が届いたら納める
+    detail: 前の年のアルバイト収入にかかる分は、1年目に納付書で納めます。
+    documents: [住民税の納付書（届いた人）]
     when:
-      - {field: occupation, op: in, value: [student, part_time]}
-      - {field: annual_income, op: lte, value: 1190000}
-  - title: 翌年に住民税がかかる見込み
-    detail: 住民税は前の年の収入にかかります。見込みの{annual_income}は目安の119万円を超えるので、翌年度に住民税がかかる見込みです（市区町村で違います）。翌年の6月ごろに納付書が届くか、アルバイト先の給与から引かれます。
-    when:
-      - {field: occupation, op: in, value: [student, part_time]}
-      - {field: annual_income, op: gt, value: 1190000}
-  - title: 1年目は給与から引かれない
-    detail: 前の年に収入がなければ、住民税はかかりません。前の年のアルバイト収入で住民税がかかっていれば、市区町村から納付書が届きます（6月・8月・10月・1月の4回）。
-    when:
-      - {field: occupation, value: employee}
+      - {field: age, op: lt, value: 30}
   - title: 2年目の5〜6月に税額の通知を受け取る
-    detail: 1年目の収入にかかる住民税の額が、勤務先から「税額決定通知書」で渡されます。
+    detail: 勤務先から渡されます。
     where: 勤務先
     documents: [特別徴収税額決定通知書]
-    when:
-      - {field: occupation, value: employee}
-  - title: 2年目の6月から給与天引きが始まる
-    detail: 6月から翌年5月までの12回に分けて給与から引かれます。そのぶん手取りが減るので、見込んでおきます。
-    when:
-      - {field: occupation, value: employee}
+  - title: 6月からの手取りを確かめる
+    detail: 6月から翌年5月まで、12回に分けて給与から引かれます。
 links:
   - {label: 仙台市 給与所得者に係る個人市県民税の特別徴収について, url: "https://www.city.sendai.jp/tokubetsuchoshu/kurashi/tetsuzuki/zekin/kojin/kyuyo.html"}
   - {label: 仙台市 個人市県民税の納税について, url: "https://www.city.sendai.jp/shiminze-kikaku/kurashi/tetsuzuki/zekin/kojin/sikenminzeinituite/nouzeihouhou.html"}
-  - {label: 総務省 令和8年度地方税制改正（個人住民税の非課税ライン）, url: "https://www.soumu.go.jp/main_content/001047636.pdf"}

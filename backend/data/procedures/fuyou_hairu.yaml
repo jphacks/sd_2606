@@ -1,38 +1,38 @@
 id: fuyou_hairu
-title: 家族の扶養に入る・戻る（健康保険）
+title: 家族の扶養に入る（健康保険）
 category: insurance
-summary: 退職や結婚で収入が少なくなったら、親や配偶者の健康保険の扶養に入れることがあります。扶養に入ると、自分で健康保険料を払わずに済みます。配偶者の扶養なら、国民年金も保険料のかからない第3号になります。
+summary: 収入が少なくなったら、親や配偶者の健康保険の扶養に入れます。
 deadline: 扶養に入る日から5日以内（家族の勤務先を通じて）
 due: {days: 5}
 office: 家族（親・配偶者）の勤務先
 relations:
-  - {field: occupation, value: unemployed, flag: conditional, score: 0.6, reason: 仕事を辞めて収入が減ったら、家族の健康保険の扶養に入れることがあるため}
-  - {field: occupation, value: part_time, flag: conditional, score: 0.3, reason: パート・アルバイトの収入が基準より少なければ、家族の健康保険の扶養に入れるため}
-  - {field: occupation, value: retired, flag: conditional, score: 0.3, reason: 退職して収入が年金などだけになったら、家族の扶養に入れることがあるため}
-  - {field: occupation, value: employee, flag: unrelated, score: -1.0, reason: 会社員・公務員は自分の勤務先の健康保険に入るため}
+  - {field: occupation, value: unemployed, flag: conditional, score: 0.6, reason: 収入が減ったら家族の扶養に入れるため}
+  - {field: occupation, value: part_time, flag: conditional, score: 0.3, reason: 収入が基準より少なければ扶養に入れるため}
+  - {field: occupation, value: retired, flag: conditional, score: 0.3, reason: 退職して収入が減ったら扶養に入れるため}
+  - {field: occupation, value: employee, flag: unrelated, score: -1.0, reason: 勤務先の健康保険に入っているため}
   - {field: supported_by, op: in, value: [parent, spouse], flag: unrelated, score: -1.0, reason: すでに家族の扶養に入っているため}
-  - {field: health_insurance, value: dependent, flag: unrelated, score: -1.0, reason: すでに家族の健康保険の扶養に入っているため}
-  - {field: age, op: gte, value: 75, flag: unrelated, score: -1.0, reason: 75歳からは後期高齢者医療制度に入り、扶養の仕組みが無いため}
+  - {field: health_insurance, value: dependent, flag: unrelated, score: -1.0, reason: すでに家族の扶養に入っているため}
+  - {field: age, op: gte, value: 75, flag: unrelated, score: -1.0, reason: 75歳からは後期高齢者医療制度に入るため}
 steps:
-  - title: 扶養に入れるか確かめる（19〜22歳）
-    detail: これから1年間の収入の見込みが150万円未満（配偶者の扶養なら130万円未満）であることなどが条件です。同居なら家族の収入の半分未満であることも必要です。失業給付を受ける間は、1日あたりの額によって入れないことがあります。
+  - title: 収入が150万円未満か確かめる
+    detail: これから1年間の収入で判断します。同居なら家族の収入の半分未満も条件です。
     when:
       - {field: age_at_year_end, op: in, value: [19, 20, 21, 22]}
-  - title: 扶養に入れるか確かめる
-    detail: これから1年間の収入の見込みが130万円未満であることなどが条件です。同居なら家族の収入の半分未満であることも必要です。失業給付を受ける間は、1日あたりの額によって入れないことがあります。
+  - title: 収入が130万円未満か確かめる
+    detail: これから1年間の収入で判断します。同居なら家族の収入の半分未満も条件です。
     when:
       - {field: age_at_year_end, op: not_in, value: [19, 20, 21, 22]}
       - {field: age, op: lt, value: 60}
-  - title: 扶養に入れるか確かめる（60歳以上）
-    detail: これから1年間の収入の見込み（年金を含む）が180万円未満であることなどが条件です。同居なら家族の収入の半分未満であることも必要です。
+  - title: 収入が180万円未満か確かめる
+    detail: 年金を含めた、これから1年間の収入で判断します。同居なら家族の収入の半分未満も条件です。
     when:
       - {field: age, op: gte, value: 60}
-  - title: 家族に勤務先へ届け出てもらう
-    detail: 家族の勤務先に「被扶養者（異動）届」を出してもらいます（5日以内）。配偶者の扶養なら、同じ届で国民年金の第3号被保険者の届出もします。
+  - title: 家族に「被扶養者（異動）届」を出してもらう
+    detail: 家族の勤務先に5日以内に出します。配偶者の扶養なら、国民年金の第3号の届出も一緒にします。
     where: 家族の勤務先
     documents: [健康保険 被扶養者（異動）届（家族の勤務先が用意）, 退職日や収入が分かる書類（離職票・退職証明書など）, マイナンバーが分かるもの]
-  - title: 国保に入っていたらやめる届出をする
-    detail: 先に国民健康保険に入っていた場合は、扶養に入ってから14日以内に、役所で国保をやめる届出をします。
+  - title: 国保をやめる届出をする
+    detail: 扶養に入ってから14日以内に、役所で届け出ます。
     where: 市区町村の役所
     when:
       - {field: health_insurance, value: national}

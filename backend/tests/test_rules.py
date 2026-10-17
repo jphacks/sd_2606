@@ -106,7 +106,19 @@ def test_multiple_occupations():
 def test_unrelated_reasons_are_not_shown_as_reasons():
     rec = by_id(UserProfile(age=22, age_at_year_end=22, occupation="student", annual_income=800_000, supported_by="parent"))
     assert all("ため" in r for r in rec["nenshu_kabe"].reasons)
-    assert len(rec["nenshu_kabe"].reasons) == 3  # 学生・19〜22歳・家族の扶養
+    assert len(rec["nenshu_kabe"].reasons) == 2  # 学生・家族の扶養
+
+
+def test_income_wall_is_required_only_when_family_must_act():
+    def kabe(income: int):
+        return by_id(
+            UserProfile(age=20, age_at_year_end=20, occupation="part_time", annual_income=income, supported_by="parent")
+        )["nenshu_kabe"]
+
+    # 基準より低ければ、やることは無いので「関係がありそう」
+    assert not kabe(800_000).required
+    # 136万円を超えると親の税金の控除が変わり、親が申告し直す
+    assert kabe(1_400_000).required
 
 
 def test_api_recommendations_without_llm():

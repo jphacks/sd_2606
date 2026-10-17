@@ -1,31 +1,31 @@
 id: iryohi_kojo
-title: 医療費控除
+title: 医療費控除を申告する
 category: tax
-summary: 1年間に支払った医療費が10万円（所得200万円未満なら所得の5%）を超えた分を、所得から差し引けます。
-deadline: 翌年の確定申告（還付申告は5年以内なら可能）
+summary: 1年間の医療費が10万円（所得200万円未満なら所得の5%）を超えたら、確定申告で税金が戻ります。
+deadline: 翌年の確定申告（5年以内なら出せる）
 due: {month: 3, day: 15}
-office: 税務署（e-Tax で提出可能）
+office: 税務署（e-Tax で出せる）
 relations:
   # 医療費が年10万円などを超えるかで決まるので、必須にはしない
-  - {field: age, op: gte, value: 60, flag: conditional, score: 0.4, reason: 年齢とともに医療費がかかりやすく、年10万円などを超えると税金が戻るため}
-  - {field: occupation, op: in, value: [employee, self_employed, freelance, retired, part_time], flag: conditional, score: 0.2, reason: 所得税を納めている人は、医療費が多い年に税金が戻るため}
+  - {field: age, op: gte, value: 60, flag: conditional, score: 0.4, reason: 医療費がかかりやすい年代のため}
+  - {field: occupation, op: in, value: [employee, self_employed, freelance, retired, part_time], flag: conditional, score: 0.2, reason: 所得税を納めているため}
   - {field: occupation, value: student, flag: conditional, score: -0.3}   # 所得税を納めていない学生が多い
   - {field: annual_income, op: lte, value: 1780000, flag: conditional, score: -0.3}   # 給与だけなら所得税がかからない
 steps:
-  - title: 医療費の領収書・医療費通知を集める
-    detail: 家族（生計を一にする人）の分も合算できます。保険で補てんされた額は差し引きます。
+  - title: 医療費の領収書と医療費通知を集める
+    detail: 家族の分も合算できます。
     documents: [医療費の領収書, 健康保険の医療費通知]
   - title: 医療費控除の明細書を作る
-    detail: 確定申告書等作成コーナーで入力できます。マイナポータル連携で自動入力も可能です。
+    detail: 確定申告書等作成コーナーで入力できます（マイナポータルから自動入力も可）。
     where: 確定申告書等作成コーナー
-  - title: 確定申告をする（会社員・アルバイト）
-    detail: 医療費控除は年末調整では受けられないので、自分で確定申告をします。勤務先からもらった源泉徴収票を使います。
+  - title: 確定申告をする
+    detail: 年末調整では受けられないので、自分で申告します。
     where: e-Tax・税務署
     documents: [源泉徴収票]
     when:
       - {field: occupation, op: in, value: [employee, part_time]}
-  - title: 確定申告書に書き加える
-    detail: 毎年の確定申告書に、医療費控除の明細書を付けて提出します。
+  - title: 確定申告書に明細書を付けて出す
+    detail: いつもの確定申告と一緒に出します。
     where: e-Tax・税務署
     when:
       - {field: occupation, op: in, value: [self_employed, freelance, retired]}

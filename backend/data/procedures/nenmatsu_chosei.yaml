@@ -1,8 +1,8 @@
 id: nenmatsu_chosei
-title: 年末調整（扶養控除等申告書を出す）
+title: 年末調整の書類を出す
 category: tax
-summary: 給与から引かれた所得税の1年分の過不足を、勤務先が12月に精算します。勤務先に申告書を出しておかないと、税金が多く引かれたままになります。
-deadline: 扶養控除等申告書は最初の給与の前まで。年末調整の書類は勤務先が指定する日（11〜12月ごろ）
+summary: 勤務先が12月に1年分の所得税を精算します。そのための書類を勤務先に出します。
+deadline: 11〜12月ごろ（勤務先が指定する日）
 due: {month: 11, day: 30}
 office: 勤務先（アルバイト先を含む）
 relations:
@@ -10,31 +10,31 @@ relations:
     value: employee
     flag: conditional
     score: 1.0
-    reason: 勤務先で年末調整を受けるため、11〜12月ごろに書類を出すため
+    reason: 勤務先で年末調整を受けるため
     when:
       - {field: annual_income, op: lte, value: 20000000}
-  - {field: occupation, value: part_time, flag: conditional, score: 0.7, reason: アルバイト先でも、扶養控除等申告書を出せば年末調整を受けられるため}
-  - {field: occupation, op: not_in, value: [employee, part_time], flag: unrelated, score: -1.0, reason: 勤務先から給与を受けていないため（所得税は確定申告で精算する）}
-  - {field: annual_income, op: gt, value: 20000000, flag: unrelated, score: -1.0, reason: 年収が2,000万円を超える人は年末調整の対象外で、確定申告をするため}
+  - {field: occupation, value: part_time, flag: conditional, score: 0.7, reason: アルバイト先でも年末調整を受けられるため}
+  - {field: occupation, op: not_in, value: [employee, part_time], flag: unrelated, score: -1.0, reason: 給与を受けていないため（確定申告で精算）}
+  - {field: annual_income, op: gt, value: 20000000, flag: unrelated, score: -1.0, reason: 年収2,000万円超は確定申告で精算するため}
 steps:
-  - title: 扶養控除等申告書を勤務先に出す
-    detail: 入社したら、最初の給与の前に「給与所得者の扶養控除等（異動）申告書」を出します。
+  - title: 扶養控除等申告書を出す
+    detail: 入社したら、最初の給与の前に勤務先に出します。
     where: 勤務先
     documents: [給与所得者の扶養控除等（異動）申告書]
-  - title: 掛け持ちしているなら、申告書は1か所だけに出す
-    detail: 扶養控除等申告書を出せるのは1か所だけで、主な勤務先に出します。出していない勤務先では税金が多めに引かれるので、確定申告で精算すると戻ることがあります。
+  - title: 掛け持ちなら、申告書は主な勤務先1か所だけに出す
+    detail: ほかの勤務先では税金が多めに引かれ、確定申告で戻ります。
     when:
       - {field: occupation, value: part_time}
-  - title: 年の途中で入社したら、前の勤務先の源泉徴収票を出す
-    detail: 同じ年にほかの勤務先（アルバイトを含む）から給与をもらっていたら、その源泉徴収票を新しい勤務先に出します。出さないと年末調整ができず、自分で確定申告することになります。
+  - title: 前の勤務先の源泉徴収票を出す
+    detail: 今年ほかの勤務先から給与をもらった人だけ出します。
     where: 勤務先
-    documents: [前の勤務先の源泉徴収票（同じ年にほかの勤務先があった人）]
+    documents: [前の勤務先の源泉徴収票（今年ほかの勤務先があった人）]
   - title: 11〜12月に年末調整の書類を出す
-    detail: 基礎控除申告書や保険料控除申告書を出します。2026年分は基礎控除などが引き上げられ、12月の年末調整でまとめて精算されます。自分で国民年金の保険料を払った人は、その控除証明書も出します。
+    detail: 国民年金を自分で払った人は、控除証明書も付けます。
     where: 勤務先
     documents: [基礎控除申告書, 保険料控除申告書, 国民年金保険料の控除証明書（払った人）]
   - title: 源泉徴収票を受け取って保管する
-    detail: 年明けに勤務先から渡されます。転職や確定申告のときに使います。
+    detail: 年明けに渡されます。転職や確定申告で使います。
 links:
   - {label: 国税庁 No.2665 年末調整の対象となる人, url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/gensen/2665.htm"}
   - {label: 国税庁 No.2674 中途就職者の年末調整, url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/gensen/2674.htm"}

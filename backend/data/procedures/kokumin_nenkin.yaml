@@ -1,16 +1,16 @@
 id: kokumin_nenkin
-title: 国民年金（第1号被保険者）の手続き
+title: 国民年金の手続き
 category: pension
-summary: 20〜59歳で厚生年金に入っていない人は、国民年金の第1号被保険者として保険料を納めます。20歳になったときは届出は要らず、日本年金機構から書類が届きます。会社を辞めたときは、自分で切り替えを届け出ます。
-deadline: 20歳になったときは届出不要（約2週間で書類が届く）。会社を辞めたときは14日以内に切り替えを届け出る
+summary: 厚生年金に入っていない人が入る年金です。保険料を納めるか、免除・猶予を申請します。
+deadline: 会社を辞めたら14日以内に切り替え
 due: {days: 14}
-office: 住んでいる市区町村の役所（国民年金の窓口）
+office: 市区町村の役所（国民年金の窓口）
 relations:
   - field: age_at_year_end
     value: 20
     flag: conditional
     score: 1.0
-    reason: 今年20歳になり、国民年金に加入するため（届出は不要で、書類が届く）
+    reason: 今年20歳になるため
     when:
       - {field: occupation, op: ne, value: employee}
   - field: occupation
@@ -18,7 +18,7 @@ relations:
     value: [self_employed, freelance, unemployed, retired]
     flag: conditional
     score: 0.8
-    reason: 自営業・フリーランス・無職の20〜59歳は、国民年金（第1号）に加入して保険料を納めるため
+    reason: 自営業・フリーランス・無職は国民年金に入るため
     when:
       - {field: occupation, op: ne, value: employee}
       - {field: age, op: gte, value: 20}
@@ -27,38 +27,39 @@ relations:
     value: student
     flag: conditional
     score: 0.6
-    reason: 20歳以上の学生も国民年金に加入し、保険料を納めるか学生納付特例を申請するため
+    reason: 20歳以上の学生も国民年金に入るため
     when:
       - {field: occupation, op: ne, value: employee}
       - {field: age, op: gte, value: 20}
       - {field: age, op: lt, value: 60}
-  - {field: occupation, value: part_time, flag: conditional, score: 0.4, reason: パート・アルバイトで勤務先の厚生年金に入っていない20〜59歳は、国民年金に加入するため}
-  - {field: occupation, value: employee, flag: unrelated, score: -1.0, reason: 会社員・公務員は厚生年金に入るため}
-  - {field: age_at_year_end, op: lt, value: 20, flag: unrelated, score: -1.0, reason: 国民年金に加入するのは20歳からのため}
-  - {field: age, op: gte, value: 60, flag: unrelated, score: -1.0, reason: 国民年金に加入するのは60歳になるまでのため}
+  - {field: occupation, value: part_time, flag: conditional, score: 0.4, reason: 勤務先の厚生年金に入っていなければ国民年金に入るため}
+  - {field: occupation, value: employee, flag: unrelated, score: -1.0, reason: 厚生年金に入っているため}
+  - {field: age_at_year_end, op: lt, value: 20, flag: unrelated, score: -1.0, reason: 20歳になるまでは入らないため}
+  - {field: age, op: gte, value: 60, flag: unrelated, score: -1.0, reason: 60歳からは入らないため}
 steps:
-  - title: 20歳になったら、届いた書類を確かめる
-    detail: 20歳になって約2週間で、日本年金機構から「国民年金加入のお知らせ」「基礎年金番号通知書」と、納付書・申請書が届きます。加入の届出は要りません。2週間たっても届かなければ、役所か年金事務所で手続きします。
+  - title: 届いた「国民年金加入のお知らせ」を確かめる
+    detail: 20歳の誕生日から約2週間で届きます。届出は要りません。
     documents: [国民年金加入のお知らせ, 基礎年金番号通知書]
     when:
       - {field: age_at_year_end, op: lte, value: 20}
-  - title: 学生納付特例を申請するか、保険料を納めるかを選ぶ
-    detail: 学生は、申請すると在学中の保険料の納付を猶予できます（「国民年金の学生納付特例」を参照）。余裕があれば自分で納めても構いません。家族が代わりに納めると、家族の税金の社会保険料控除になります。
+  - title: 厚生年金からの切り替えを届け出る
+    detail: 会社を辞めてから14日以内に、役所かマイナポータルで届け出ます。
+    where: 市区町村の役所・マイナポータル
+    documents: [退職日が分かる書類（離職票・退職証明書など）, マイナンバーカード]
+    when:
+      - {field: occupation, op: in, value: [unemployed, self_employed, freelance, retired]}
+      - {field: occupation, op: ne, value: employee}
+      - {field: occupation, op: ne, value: student}
+  - title: 学生納付特例を申請する
+    detail: 在学中は保険料の納付を待ってもらえます（「国民年金の学生納付特例」）。
     when:
       - {field: occupation, value: student}
-  - title: 保険料の納め方を選ぶ
-    detail: 納付書で納めるほか、口座振替や前納にすると割引があります。収入が少なければ免除・納付猶予を申請できます。家族が代わりに納めると、家族の税金の社会保険料控除になります。
+  - title: 保険料を納める
+    detail: 納付書か口座振替で納めます。前納すると割引があります。
     when:
       - {field: occupation, op: ne, value: student}
-  - title: 会社を辞めたら、切り替えを届け出る（14日以内）
-    detail: 次の勤務先が決まっていない20〜59歳は、厚生年金から国民年金（第1号）への切り替えを届け出ます。マイナポータルからもできます。
-    where: 市区町村の役所・マイナポータル
-    documents: [退職日が分かる書類（離職票や退職証明書など）, マイナンバーカード]
-    when:
-      - {field: occupation, op: in, value: [unemployed, self_employed, freelance, part_time, retired]}
-      - {field: occupation, op: ne, value: employee}
-  - title: 払えないときは放っておかない
-    detail: 未納のままにすると、将来の年金だけでなく、けがや病気のときの障害年金にも影響します。払えないときは免除・納付猶予を申請します。
+  - title: 払えなければ免除・納付猶予を申請する
+    detail: 「国民年金保険料の免除・納付猶予」を参照。
     when:
       - {field: occupation, op: ne, value: student}
 links:

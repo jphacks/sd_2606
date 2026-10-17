@@ -1,41 +1,41 @@
 id: gakusei_tokurei
 title: 国民年金の学生納付特例
 category: pension
-summary: 20歳以上の学生は、申請すると在学中の国民年金保険料の納付が猶予されます。
-deadline: 毎年度（4月〜翌3月）申請。過去2年1か月分までさかのぼって申請可能
-office: 市区町村役所・年金事務所・在学中の学校（代行している場合）・マイナポータル
+summary: 学生は、申請すると在学中の国民年金保険料の納付を待ってもらえます。
+deadline: 毎年度（4月〜翌3月）申請。2年1か月前までさかのぼれる
+office: 市区町村の役所・年金事務所・マイナポータル
 relations:
   - field: occupation
     value: student
     flag: conditional
     score: 0.9
-    reason: 20歳以上の学生は、申請すると在学中の国民年金保険料の納付を猶予できるため
+    reason: 学生は保険料の納付を待ってもらえるため
     when:
       - {field: age, op: gte, value: 20}
   - field: age_at_year_end
     value: 20
     flag: conditional
     score: 0.5
-    reason: 今年20歳になる学生は、20歳になったら申請できるため
+    reason: 今年20歳になるため
     when:
       - {field: occupation, value: student}
   - {field: occupation, op: ne, value: student, flag: unrelated, score: -1.0, reason: 学生ではないため}
-  - {field: age_at_year_end, op: lt, value: 20, flag: unrelated, score: -1.0, reason: 国民年金に加入するのは20歳からのため}
+  - {field: age_at_year_end, op: lt, value: 20, flag: unrelated, score: -1.0, reason: 20歳になるまでは国民年金に入らないため}
 steps:
-  - title: 20歳になったら届く書類を待つ
-    detail: 申請できるのは20歳になってからです。20歳になって約2週間で、日本年金機構から加入のお知らせと、学生納付特例の申請書などが届きます。
+  - title: 20歳になったら届く申請書を待つ
+    detail: 誕生日から約2週間で、加入のお知らせと一緒に届きます。
     when:
       - {field: age, op: lt, value: 20}
-  - title: 学生証（在学証明書）を用意する
-    detail: 学生証のコピー、または在学証明書を用意します。
-    documents: [学生証のコピーまたは在学証明書, 基礎年金番号が分かるもの（基礎年金番号通知書など）]
-  - title: 申請する
-    detail: マイナポータルから電子申請するか、役所・年金事務所に申請書を出します。在学中の学校が申請を代行していることもあります。
-    where: マイナポータル・市区町村役所・年金事務所
+  - title: 学生証のコピーか在学証明書を用意する
+    detail: どちらか1つを用意します。
+    documents: [学生証のコピーまたは在学証明書, 基礎年金番号が分かるもの]
+  - title: 申請書を出す
+    detail: マイナポータル・役所・年金事務所のどれかで出します。学校が受け付けていることもあります。
+    where: マイナポータル・市区町村の役所・年金事務所
     documents: [国民年金保険料学生納付特例申請書（窓口・郵送の場合）]
-  - title: 承認通知を受け取る
-    detail: 承認されると通知が届きます。毎年度の申請が必要です（継続の案内が届く場合あり）。
-  - title: 10年以内に追納する（任意）
-    detail: 猶予された期間の保険料は10年以内なら後から納められ、満額の年金に近づけられます。
+  - title: 毎年4月に申請し直す
+    detail: 続けて受けるには毎年度の申請が要ります。案内のはがきが届くこともあります。
+  - title: （任意）10年以内に追納する
+    detail: 就職して余裕ができたら、待ってもらった分を納められます。
 links:
   - {label: 日本年金機構 学生納付特例制度, url: "https://www.nenkin.go.jp/service/kokunen/menjo/20150514.html"}
