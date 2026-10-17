@@ -29,11 +29,29 @@ import androidx.compose.ui.unit.dp
 import jp.jphacks.sd2606.data.Labels
 import jp.jphacks.sd2606.data.UserProfile
 import jp.jphacks.sd2606.ui.theme.AppTheme
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Savings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProfileScreen(profile: UserProfile, onChange: ((UserProfile) -> UserProfile) -> Unit, onSubmit: () -> Unit) {
-    Scaffold(topBar = { TopAppBar(title = { Text("あなたの状況を教えてください") }) }) { padding ->
+fun ProfileScreen(
+    profile: UserProfile,
+    onChange: ((UserProfile) -> UserProfile) -> Unit,
+    onSubmit: () -> Unit,
+    onOpenMeter: () -> Unit,
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("あなたの状況を教えてください") },
+                actions = {
+                    IconButton(onClick = onOpenMeter) { Icon(Icons.Filled.Savings, contentDescription = "バイト代メーター") }
+                },
+            )
+        },
+    ) { padding ->
         Column(
             modifier = Modifier
                 .padding(padding)
@@ -129,5 +147,5 @@ private fun MultiChoice(options: Map<String, String>, selected: List<String>, on
 @Preview(showBackground = true)
 @Composable
 private fun ProfileScreenPreview() {
-    AppTheme { ProfileScreen(UserProfile(lifeEvents = listOf("resign")), onChange = {}, onSubmit = {}) }
+    AppTheme { ProfileScreen(UserProfile(lifeEvents = listOf("resign")), onChange = {}, onSubmit = {}, onOpenMeter = {}) }
 }
