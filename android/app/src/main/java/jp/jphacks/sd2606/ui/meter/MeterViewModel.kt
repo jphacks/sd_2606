@@ -16,6 +16,17 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import jp.jphacks.sd2606.data.meter.IncomeWall
+
+/** 今のペースで12月まで働いたときの見込み。 */
+data class Projection(
+    /** 12月末の年収の見込み */
+    val yearEnd: Long,
+    /** 次の壁を超えそうな月（超えない見込みなら null） */
+    val crossMonth: Int?,
+    /** 次の壁を超えないための、残りの月の1か月あたりの上限（残りの月が無ければ null） */
+    val monthlyLimit: Long?,
+)
 
 data class MeterUiState(
     val year: Int,
@@ -51,6 +62,22 @@ data class MeterUiState(
     /** 新しいバイト先に使う色（まだ使っていない色を優先） */
     val nextColorIndex: Int
         get() = JobPalette.indices.firstOrNull { i -> jobs.none { it.colorIndex == i } } ?: jobs.size
+
+    /**
+     * 今年の見込み。最初に給料が出た月から最後に出た月までの平均月収で、12月まで続けたと仮定する。
+     * 今年以外の年や、記録が無いときは null。
+     */
+    fun projection(next: IncomeWall?, today: LocalDate = LocalDate.now()): Projection? {
+        if (year != today.year || incomes.isEmpty()) return null
+        val months = incomes.map { it.paidOn.substring(5, 7).toInt() }
+        val last = months.max()
+        val average = total / (last - months.min() + 1)
+        val remaining = 12 - last
+        val yearEnd = total + average * remaining
+        if (next == null || remaining == 0) return Projection(yearEnd, crossMonth = null, monthlyLimit = null)
+        val crossMonth = (last + 1..12).firstOrNull { month -> total + average * (month - last) >= next.amount }
+        return Projection(yearEnd, crossMonth, monthlyLimit = (next.amount - 1 - total) / remaining)
+    }
 
     fun jobName(jobId: Long): String = jobs.firstOrNull { it.id == jobId }?.name ?: "（不明）"
 
