@@ -1,5 +1,7 @@
 package jp.jphacks.sd2606.ui
 
+import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -18,12 +20,22 @@ private object Routes {
     fun flow(id: String) = "flow/$id"
 }
 
+private const val SLIDE_MS = 300
+
 @Composable
 fun AppNavHost(vm: AppViewModel = viewModel()) {
     val nav = rememberNavController()
     val state by vm.state.collectAsStateWithLifecycle()
 
-    NavHost(navController = nav, startDestination = Routes.PROFILE) {
+    // 画面遷移は横スライド: 進むときは右から入って左へ抜け、戻るときはその逆
+    NavHost(
+        navController = nav,
+        startDestination = Routes.PROFILE,
+        enterTransition = { slideIntoContainer(SlideDirection.Start, tween(SLIDE_MS)) },
+        exitTransition = { slideOutOfContainer(SlideDirection.Start, tween(SLIDE_MS)) },
+        popEnterTransition = { slideIntoContainer(SlideDirection.End, tween(SLIDE_MS)) },
+        popExitTransition = { slideOutOfContainer(SlideDirection.End, tween(SLIDE_MS)) },
+    ) {
         composable(Routes.PROFILE) {
             ProfileScreen(
                 catalog = state.catalog,
