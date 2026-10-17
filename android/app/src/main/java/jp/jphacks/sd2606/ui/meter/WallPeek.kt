@@ -88,6 +88,8 @@ class WallMenuState(private val radiusPx: Float, private val minDragPx: Float) {
 
     /** 詳細が開くアニメーション（0→1） */
     val openProgress = Animatable(0f)
+
+    /**
      * i 番目の選択肢の向き（ラジアン）。選択肢は金額の小さい順に渡す。
      * 4つなら十字に、下＝いちばん低い壁・左右＝真ん中の2つ（左が低いほう）・上＝いちばん高い壁に置く。
      * 4つ以外なら、上から時計回りに等間隔で並べる。
