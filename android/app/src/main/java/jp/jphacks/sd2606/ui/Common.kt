@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,4 +52,11 @@ fun <T> ResultContent(result: UiResult<T>, onRetry: () -> Unit, modifier: Modifi
             CircularProgressIndicator()
         }
     }
+}
+
+/** 「10月17日に完了」（今年でなければ年も付ける）。 */
+fun completedLabel(isoDate: String, today: LocalDate = LocalDate.now()): String {
+    val d = runCatching { LocalDate.parse(isoDate) }.getOrNull() ?: return "完了"
+    val year = if (d.year == today.year) "" else "${d.year}年"
+    return "$year${d.monthValue}月${d.dayOfMonth}日に完了"
 }

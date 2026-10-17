@@ -155,13 +155,15 @@ fun QuestionCard(
 
 /**
  * この端末に保存している情報の一覧。受け付ける項目をすべて並べ（未入力も含む）、項目ごとに編集・削除できる。
- * 何を持っていて、何を送っていないかを見せる。
+ * 完了の記録も端末に保存しているので、件数を見せて消せるようにする。何を持っていて、何を送っていないかを見せる。
  */
 @Composable
 fun AnswersDialog(
     questions: List<Question>,
     answers: Map<String, Answer>,
+    completedCount: Int,
     onAnswer: (String, Answer?) -> Unit,
+    onClearCompleted: () -> Unit,
     onDismiss: () -> Unit,
     onClear: () -> Unit,
 ) {
@@ -196,13 +198,27 @@ fun AnswersDialog(
                     }
                     HorizontalDivider()
                 }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("完了の記録", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            if (completedCount > 0) "${completedCount}件" else "なし",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = if (completedCount == 0) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                    IconButton(onClick = onClearCompleted, enabled = completedCount > 0) {
+                        Icon(Icons.Default.Delete, contentDescription = "完了の記録を削除")
+                    }
+                }
+                HorizontalDivider()
                 Spacer(Modifier.size(4.dp))
                 PrivacyNote("サーバーには送っていません。判定はこの端末の中で行っています。")
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("閉じる") } },
         dismissButton = {
-            TextButton(onClick = onClear, enabled = answers.isNotEmpty()) {
+            TextButton(onClick = onClear, enabled = answers.isNotEmpty() || completedCount > 0) {
                 Text("すべて消去", color = MaterialTheme.colorScheme.error)
             }
         },

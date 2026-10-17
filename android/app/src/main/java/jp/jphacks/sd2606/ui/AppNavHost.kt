@@ -52,10 +52,12 @@ fun AppNavHost(vm: AppViewModel = viewModel()) {
             RecommendScreen(
                 state = state,
                 onAnswer = vm::answer,
-                onClearAnswers = {
-                    vm.clearAnswers()
+                onComplete = vm::setCompleted,
+                onClearAll = {
+                    vm.clearAll()
                     nav.popBackStack(Routes.PROFILE, inclusive = false)
                 },
+                onClearCompleted = vm::clearCompleted,
                 onRetry = vm::loadCatalog,
                 onBack = { nav.popBackStack() },
                 onOpen = { id -> nav.navigate(Routes.flow(id)) },
@@ -66,6 +68,7 @@ fun AppNavHost(vm: AppViewModel = viewModel()) {
                 state = state,
                 procedureId = entry.arguments?.getString("id").orEmpty(),
                 onAnswer = vm::answer,
+                onComplete = vm::setCompleted,
                 onRetry = vm::loadCatalog,
                 onBack = { nav.popBackStack() },
             )

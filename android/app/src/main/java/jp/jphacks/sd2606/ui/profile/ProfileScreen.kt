@@ -25,7 +25,7 @@ import jp.jphacks.sd2606.ui.ResultContent
 import jp.jphacks.sd2606.ui.UiResult
 import jp.jphacks.sd2606.ui.theme.AppTheme
 
-/** 最初の画面。おすすめが大きく変わる質問（initial）だけを聞く。それ以外は判定に必要になったときに聞く。 */
+/** 最初の画面。おすすめが大きく変わる質問（initial: 働き方・生年月日）だけを聞く。それ以外は判定に必要になったときに聞く。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
@@ -54,7 +54,7 @@ fun ProfileScreen(
                 }
 
                 Text(
-                    "生年月日や年収などは、手続きの判定に必要になったときだけ、1問ずつお聞きします。",
+                    "年齢と働き方から、関係する手続きを関係の強い順に並べます。年収や扶養の状況などは、手続きの判定に必要になったときだけ、1問ずつお聞きします。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

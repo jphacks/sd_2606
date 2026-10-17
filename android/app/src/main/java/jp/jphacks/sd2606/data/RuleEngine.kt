@@ -11,34 +11,59 @@ import kotlinx.serialization.json.longOrNull
 /** 条件の判定結果。未回答の項目があると UNKNOWN になる。 */
 enum class Tri { TRUE, FALSE, UNKNOWN }
 
+/** 手続きの判定: 必要（必須）/ 関係がありそう / 対象外。 */
+enum class Status { REQUIRED, LIKELY, UNRELATED }
+
+/** 一覧の並べ方。 */
+enum class SortOrder { RELEVANCE, DEADLINE }
+
 /**
- * 一覧に出す手続き。required なら「必要な手続き」、そうでなければ「関係がありそうな手続き」。
- * missing は「関係がありそう」のうち、答えると必須かどうか決まる項目（条件次第の未回答の条件）。
+ * 手続きのステップのうち、この人に表示するもの。
+ * unknown は、まだ答えていないため当てはまるか分からない条件の項目（空なら当てはまる）。
+ */
+data class StepView(val step: FlowStep, val unknown: List<String>)
+
+/** 必要なもの1つ。conditional なら、当てはまるか分からないステップでだけ使う。 */
+data class Document(val name: String, val conditional: Boolean)
+
+/**
+ * 判定した手続き。
+ * - reasons: 必要・関係がありそうなら当てはまった理由（点数の高い順）、対象外なら対象外の理由
+ * - missing: 答えると判定が変わりうる項目（「判定には生年月日が必要です」の案内に使う）
+ * - steps: 当てはまらない説明を除いたステップ
  */
 data class Scored(
     val procedure: ProcedureDef,
-    val required: Boolean,
+    val status: Status,
     val score: Double,
     val reasons: List<String>,
     val missing: List<String>,
-)
+    val steps: List<StepView>,
+) {
+    val required: Boolean get() = status == Status.REQUIRED
 
-data class Evaluation(val required: List<Scored>, val likely: List<Scored>) {
-    fun find(id: String): Scored? = required.firstOrNull { it.procedure.id == id } ?: likely.firstOrNull { it.procedure.id == id }
+    /** 表示するステップの必要なものをまとめた一覧（同じものは1つにする）。 */
+    val documents: List<Document>
+        get() = steps.flatMap { s -> s.step.documents.map { Document(it, s.unknown.isNotEmpty()) } }
+            .groupBy { it.name }
+            .map { (name, docs) -> Document(name, docs.all { it.conditional }) }
+}
 
-    /** TRUE: 必要 / UNKNOWN: 関係がありそう / FALSE: 一覧に出ない */
-    fun statusOf(id: String): Tri = when (find(id)?.required) {
-        true -> Tri.TRUE
-        false -> Tri.UNKNOWN
-        null -> Tri.FALSE
-    }
+data class Evaluation(val items: List<Scored>) {
+    val required: List<Scored> = items.filter { it.status == Status.REQUIRED }
+    val likely: List<Scored> = items.filter { it.status == Status.LIKELY }
+    val unrelated: List<Scored> = items.filter { it.status == Status.UNRELATED }
+
+    fun find(id: String): Scored? = items.firstOrNull { it.procedure.id == id }
+
+    fun statusOf(id: String): Status? = find(id)?.status
 }
 
 /**
  * 端末内でのルール判定（backend/app/rules/engine.py と同じ条件の意味）。
  *
- * 未回答の項目は「まだ分からない」として3値で判定し、必須かどうかを決めるのに足りない項目だけを聞く。
- * これにより、最初は最小限の質問だけで始め、必要になった情報だけを後から聞ける。
+ * 未回答の項目は「まだ分からない」として3値で判定し、判定を変えうる項目だけを後から聞く。
+ * これにより、最初は最小限の質問（働き方・生年月日）だけで始め、必要になった情報だけを後から聞ける。
  */
 object RuleEngine {
     /** 生年月日から計算する項目（questions.yaml の birth_date の provides と対応）。 */
@@ -59,47 +84,87 @@ object RuleEngine {
     }
 
     /**
-     * 手続きごとに relations を見て、必要（必須）・関係がありそう（点数がしきい値以上）・出さない、に分ける。
+     * 手続きごとに relations を見て、必要・関係がありそう・対象外に分ける。対象外も含めて全件を返す（点数の高い順）。
      *
      * - きっかけに当てはまる行だけを数える
-     * - required の行があれば必須。conditional は conditions をすべて満たせば必須、満たさない条件があればその行は数えない、
-     *   未回答の条件があれば点数だけ数えて、その項目を missing（答えると必須かどうか決まる）にする
-     * - 必須でなければ、数えた行の点数の合計がしきい値以上なら「関係がありそう」。どちらも点数の高い順に並べる
+     * - required の行があれば必要。conditional は conditions をすべて満たせば必要、満たさない条件があればその行は数えない、
+     *   未回答の条件があれば点数だけ数える。conditions の無い conditional は点数だけ
+     * - 必要でなく、unrelated の行が当てはまるか、点数の合計がしきい値（null は -inf）未満なら対象外
+     * - それ以外は関係がありそう
      */
     fun evaluate(
         procedures: List<ProcedureDef>,
         rawAnswers: Map<String, Answer>,
-        threshold: Double,
+        threshold: Double?,
         today: LocalDate = LocalDate.now(),
     ): Evaluation {
         val answers = withDerived(rawAnswers, today)
-        val required = mutableListOf<Scored>()
-        val likely = mutableListOf<Scored>()
-        for (proc in procedures) {
-            var isRequired = false
-            val counted = mutableListOf<Relation>()
-            val missing = mutableListOf<String>()
-            for (rel in proc.relations) {
-                if (check(rel.trigger(), answers[rel.field]) != Tri.TRUE) continue
-                when (rel.flag) {
-                    "required" -> isRequired = true
-                    "conditional" -> {
-                        val results = rel.conditions.map { it to check(it, answers[it.field]) }
-                        if (results.any { it.second == Tri.FALSE }) continue
-                        val unknown = results.filter { it.second == Tri.UNKNOWN }.map { it.first.field }
-                        if (results.isNotEmpty() && unknown.isEmpty()) isRequired = true else missing += unknown
+        val lower = threshold ?: Double.NEGATIVE_INFINITY
+        return Evaluation(procedures.map { judge(it, answers, lower) }.sortedByDescending { it.score })
+    }
+
+    private fun judge(proc: ProcedureDef, answers: Map<String, Answer>, lower: Double): Scored {
+        var isRequired = false
+        val excluded = mutableListOf<Relation>()
+        val counted = mutableListOf<Relation>()
+        val canRequire = linkedSetOf<String>() // 答えると必要になりうる項目
+        val canExclude = linkedSetOf<String>() // 答えると対象外になりうる項目
+        for (rel in proc.relations) {
+            val conditions = rel.conditions.map { it to check(it, answers[it.field]) }
+            when (check(rel.trigger(), answers[rel.field])) {
+                Tri.FALSE -> continue
+                Tri.UNKNOWN -> {
+                    when {
+                        rel.flag == "unrelated" -> canExclude += rel.field
+                        rel.flag == "required" -> canRequire += rel.field
+                        conditions.isNotEmpty() && conditions.none { it.second == Tri.FALSE } -> canRequire += rel.field
                     }
+                    continue
                 }
-                counted += rel
+                Tri.TRUE -> Unit
             }
-            val score = counted.sumOf { it.score }
-            val reasons = counted.sortedByDescending { it.score }.mapNotNull { it.reason }.distinct()
-            when {
-                isRequired -> required += Scored(proc, true, score, reasons, emptyList())
-                score >= threshold - 1e-9 -> likely += Scored(proc, false, score, reasons, missing.distinct())
+            when (rel.flag) {
+                "required" -> isRequired = true
+                "unrelated" -> excluded += rel
+                "conditional" -> {
+                    if (conditions.any { it.second == Tri.FALSE }) continue
+                    val unknown = conditions.filter { it.second == Tri.UNKNOWN }.map { it.first.field }
+                    if (conditions.isNotEmpty() && unknown.isEmpty()) isRequired = true else canRequire += unknown
+                }
             }
+            counted += rel
         }
-        return Evaluation(required.sortedByDescending { it.score }, likely.sortedByDescending { it.score })
+        val score = counted.sumOf { it.score }
+        val status = when {
+            isRequired -> Status.REQUIRED
+            excluded.isNotEmpty() || score < lower - 1e-9 -> Status.UNRELATED
+            else -> Status.LIKELY
+        }
+        val reasons = when (status) {
+            Status.UNRELATED -> excluded.mapNotNull { it.reason }
+            else -> counted.filter { it.score > 0 }.sortedByDescending { it.score }.mapNotNull { it.reason }
+        }.distinct()
+        val missing = when (status) {
+            Status.REQUIRED -> emptyList()
+            Status.UNRELATED -> canRequire.toList() // 対象外でも、答えると必要になることがある（必要が優先）
+            Status.LIKELY -> (canRequire + canExclude).toList()
+        }
+        return Scored(proc, status, score, reasons, missing, visibleSteps(proc, answers))
+    }
+
+    /** 当てはまらない条件のあるステップを除く。未回答の条件だけなら「当てはまる場合のみ」として残す。 */
+    private fun visibleSteps(proc: ProcedureDef, answers: Map<String, Answer>): List<StepView> = proc.steps.mapNotNull { step ->
+        val results = step.conditions.map { it.field to check(it, answers[it.field]) }
+        if (results.any { it.second == Tri.FALSE }) null
+        else StepView(step, results.filter { it.second == Tri.UNKNOWN }.map { it.first }.distinct())
+    }
+
+    /** 関連度順（点数の高い順）か期限順（期限の近い順。期限の無いものは最後、同じなら点数の高い順）に並べる。 */
+    fun sort(items: List<Scored>, order: SortOrder, today: LocalDate = LocalDate.now()): List<Scored> = when (order) {
+        SortOrder.RELEVANCE -> items.sortedByDescending { it.score }
+        SortOrder.DEADLINE -> items.sortedWith(
+            compareBy<Scored, LocalDate?>(nullsLast()) { it.procedure.due?.dateFrom(today) }.thenByDescending { it.score },
+        )
     }
 
     /** 項目に答えるための質問（age なら生年月日の質問）。 */

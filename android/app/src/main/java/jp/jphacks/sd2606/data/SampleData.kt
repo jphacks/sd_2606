@@ -17,8 +17,10 @@ object SampleData {
             FlowStep("保険料を納める", "納付書か口座振替で納めます。"),
         ),
         links = listOf(Link("厚生労働省", "https://www.mhlw.go.jp/")),
+        due = Due(days = 14),
         relations = listOf(
-            Relation("life_events", value = JsonPrimitive("resign"), flag = "conditional", score = 1.0, reason = "退職して勤務先の健康保険を抜けるため"),
+            Relation("occupation", value = JsonPrimitive("unemployed"), flag = "conditional", score = 0.7, reason = "会社を辞めた人は、国保・任意継続・家族の扶養から選ぶため"),
+            Relation("occupation", value = JsonPrimitive("employee"), flag = "unrelated", score = -1.0, reason = "会社員は勤務先の健康保険に入るため"),
         ),
     )
 
@@ -30,7 +32,7 @@ object SampleData {
         deadline = "該当した日から14日以内",
         relations = listOf(
             Relation(
-                "life_events", value = JsonPrimitive("resign"), flag = "conditional", score = 0.8, reason = "退職して厚生年金から外れるため",
+                "occupation", value = JsonPrimitive("unemployed"), flag = "conditional", score = 0.8, reason = "無職の20〜59歳は国民年金に加入するため",
                 conditions = listOf(Condition("age", "gte", JsonPrimitive(20)), Condition("age", "lt", JsonPrimitive(60))),
             ),
         ),
@@ -40,19 +42,14 @@ object SampleData {
         procedures = listOf(kokuho, nenkin),
         questions = listOf(
             Question(
-                field = "life_events", kind = "multi", text = "最近あったこと・これからあることは？", label = "最近あったこと", initial = true, noneIfEmpty = true,
-                choices = listOf(Choice("退職", "resign"), Choice("開業・独立", "start_business"), Choice("引越し", "move")),
-            ),
-            Question(
                 field = "occupation", kind = "multi", text = "いまの働き方は？", label = "働き方", initial = true,
                 choices = listOf(Choice("会社員・公務員", "employee"), Choice("フリーランス", "freelance"), Choice("無職・求職中", "unemployed")),
             ),
-            Question(field = "birth_date", kind = "date", text = "生年月日は？", label = "生年月日", provides = listOf("age", "age_at_year_end")),
+            Question(field = "birth_date", kind = "date", text = "生年月日は？", label = "生年月日", initial = true, provides = listOf("age", "age_at_year_end")),
         ),
     )
 
     val answers: Map<String, Answer> = mapOf(
-        "life_events" to Answer.Multi(listOf("resign")),
         "occupation" to Answer.Multi(listOf("unemployed")),
     )
 
