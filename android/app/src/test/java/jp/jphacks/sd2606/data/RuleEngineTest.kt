@@ -249,4 +249,38 @@ class RuleEngineTest {
         )
         assertEquals(listOf("窓口で書く", "郵送もできる"), proc.steps.single().details)
     }
+
+    @Test
+    fun reminderDueDatesFollowMonthEndAndBeforeDays() {
+        val monthly = Reminder(label = "納付期限（毎月末）", day = 31)
+        // 10/17 から: 10月末の期限は通知日 10/24 なので入る。11月は30日まで
+        assertEquals(
+            listOf(LocalDate.of(2026, 10, 31), LocalDate.of(2026, 11, 30), LocalDate.of(2026, 12, 31)),
+            monthly.dueDates(today, LocalDate.of(2026, 12, 31)),
+        )
+        // 3/15 の1週間前（3/8）に通知
+        val yearly = Reminder(label = "確定申告", month = 3, day = 15)
+        assertEquals(listOf(LocalDate.of(2027, 3, 15)), yearly.dueDates(today, today.plusYears(1)))
+        // 通知日が過ぎた期限は入れない（10/20 の期限は通知日 10/13）
+        assertEquals(emptyList<LocalDate>(), Reminder(label = "x", month = 10, day = 20).dueDates(today, LocalDate.of(2026, 12, 31)))
+    }
+
+    @Test
+    fun onlyEnabledRemindersOfRelevantProceduresAreScheduled() {
+        val reminder = Reminder(label = "確定申告の期限", month = 3, day = 15)
+        val procs = catalog.procedures.map { if (it.id == "kakutei") it.copy(reminders = listOf(reminder)) else it }
+        val freelance = RuleEngine.evaluate(procs, mapOf(occupation("freelance")), catalog.threshold, today)
+        val id = RuleEngine.reminderId(procs.first { it.id == "kakutei" }, reminder)
+        assertEquals(listOf(id), RuleEngine.upcomingReminders(freelance, today).map { it.id })
+        val now = today.atTime(10, 0)
+        val zone = java.time.ZoneId.of("Asia/Tokyo")
+        // オンにしていなければ予約しない
+        assertEquals(emptyList<ScheduledNotification>(), RuleEngine.scheduledNotifications(freelance, emptySet(), now, zone))
+        val scheduled = RuleEngine.scheduledNotifications(freelance, setOf(id), now, zone).single()
+        assertEquals(LocalDate.of(2027, 3, 8).atTime(9, 0).atZone(zone).toInstant().toEpochMilli(), scheduled.atMillis)
+        assertEquals("確定申告の期限", scheduled.title)
+        // 「関係ない」にした手続きの通知は予約しない
+        val dismissed = RuleEngine.evaluate(procs, mapOf(occupation("freelance")), catalog.threshold, today, dismissed = setOf("kakutei"))
+        assertEquals(emptyList<ScheduledNotification>(), RuleEngine.scheduledNotifications(dismissed, setOf(id), now, zone))
+    }
 }

@@ -1,7 +1,11 @@
 package jp.jphacks.sd2606.data
 
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.Period
+import java.time.ZoneId
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
@@ -23,6 +27,13 @@ enum class SortOrder { RELEVANCE, DEADLINE }
  */
 data class StepView(val step: FlowStep, val unknown: List<String>)
 
+/** 通知1つ分（次に来る期限）。id は手続きと期限の名前から作り、オン・オフの記録に使う。 */
+data class ReminderView(val id: String, val procedure: ProcedureDef, val reminder: Reminder, val due: LocalDate, val notifyOn: LocalDate)
+
+/** 端末に予約する通知1回分（再起動したときに予約し直すため、端末に保存する）。 */
+@Serializable
+data class ScheduledNotification(val key: String, val atMillis: Long, val title: String, val text: String)
+
 /** 必要なもの1つ。conditional なら、当てはまるか分からないステップでだけ使う。 */
 data class Document(val name: String, val conditional: Boolean)
 
@@ -41,6 +52,8 @@ data class Scored(
     val missing: List<String>,
     val steps: List<StepView>,
     val dismissed: Boolean = false,
+    /** 当てはまらない条件を除いた、期限の前の通知 */
+    val reminders: List<Reminder> = emptyList(),
 ) {
     val required: Boolean get() = status == Status.REQUIRED
 
@@ -169,8 +182,47 @@ object RuleEngine {
             Status.UNRELATED -> canRequire.toList() // 対象外でも、答えると必要になることがある（必要が優先）
             Status.LIKELY -> (canRequire + canExclude).toList()
         }
-        return Scored(proc, status, score, reasons, missing, visibleSteps(proc, answers))
+        val reminders = proc.reminders.filter { r -> r.conditions.none { check(it, answers[it.field]) == Tri.FALSE } }
+        return Scored(proc, status, score, reasons, missing, visibleSteps(proc, answers), reminders = reminders)
     }
+
+    fun reminderId(procedure: ProcedureDef, reminder: Reminder): String = "${procedure.id}:${reminder.label}"
+
+    /** 対象外でない手続きの通知を、次に来る期限で1つずつ、通知日の早い順に並べる（「通知と履歴」の一覧）。 */
+    fun upcomingReminders(evaluation: Evaluation, today: LocalDate = LocalDate.now()): List<ReminderView> =
+        evaluation.items.filter { it.status != Status.UNRELATED }.flatMap { item ->
+            item.reminders.mapNotNull { r ->
+                r.dueDates(today, today.plusYears(1)).firstOrNull()?.let { due ->
+                    ReminderView(reminderId(item.procedure, r), item.procedure, r, due, due.minusDays(r.beforeDays.toLong()))
+                }
+            }
+        }.sortedBy { it.notifyOn }
+
+    /**
+     * オンにした通知を、これから1年分（毎月のものは12回ほど）、通知日の朝9時に予約する形にする。
+     * 過ぎた時刻のものは入れない。
+     */
+    fun scheduledNotifications(
+        evaluation: Evaluation,
+        enabled: Set<String>,
+        now: LocalDateTime = LocalDateTime.now(),
+        zone: ZoneId = ZoneId.systemDefault(),
+    ): List<ScheduledNotification> =
+        evaluation.items.filter { it.status != Status.UNRELATED }.flatMap { item ->
+            item.reminders.filter { reminderId(item.procedure, it) in enabled }.flatMap { r ->
+                r.dueDates(now.toLocalDate(), now.toLocalDate().plusYears(1)).map { due ->
+                    val at = due.minusDays(r.beforeDays.toLong()).atTime(NOTIFY_AT).atZone(zone).toInstant().toEpochMilli()
+                    ScheduledNotification(
+                        key = "${reminderId(item.procedure, r)}@$due",
+                        atMillis = at,
+                        title = r.label,
+                        text = "期限は${due.monthValue}月${due.dayOfMonth}日です（${item.procedure.title}）",
+                    )
+                }
+            }
+        }.filter { it.atMillis > now.atZone(zone).toInstant().toEpochMilli() }.sortedBy { it.atMillis }
+
+    private val NOTIFY_AT: LocalTime = LocalTime.of(9, 0)
 
     /** 当てはまらない条件のあるステップを除く。未回答の条件だけなら「当てはまる場合のみ」として残す。 */
     private fun visibleSteps(proc: ProcedureDef, answers: Map<String, Answer>): List<StepView> = proc.steps.mapNotNull { step ->

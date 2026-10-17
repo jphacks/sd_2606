@@ -10,6 +10,7 @@ import kotlinx.serialization.json.Json
  * - 回答: アプリ専用の領域に保存し、サーバーには送らない（allowBackup=false なのでクラウドのバックアップにも載らない）
  * - 完了の記録: 手続きの id と完了した日（ISO 形式）。回答と同じく端末の中だけ
  * - 「自分には関係ない」にした手続きの id
+ * - 通知: オンにした通知の id と、予約した通知（再起動したときに予約し直す）
  * - 制度データ: 通信できないときのために、前回受け取ったものを残しておく
  */
 class LocalStore(context: Context) {
@@ -39,12 +40,27 @@ class LocalStore(context: Context) {
         prefs.edit { putStringSet(KEY_DISMISSED, ids) }
     }
 
-    /** 回答・完了の記録・「関係ない」の記録を消す（制度データの控えは個人の情報ではないので残す）。 */
+    fun loadRemindersOn(): Set<String> = prefs.getStringSet(KEY_REMINDERS, null)?.toSet() ?: emptySet()
+
+    fun saveRemindersOn(ids: Set<String>) {
+        prefs.edit { putStringSet(KEY_REMINDERS, ids) }
+    }
+
+    fun loadScheduled(): List<ScheduledNotification> =
+        runCatching { prefs.getString(KEY_SCHEDULED, null)?.let { json.decodeFromString<List<ScheduledNotification>>(it) } }
+            .getOrNull() ?: emptyList()
+
+    fun saveScheduled(items: List<ScheduledNotification>) {
+        prefs.edit { putString(KEY_SCHEDULED, json.encodeToString(items)) }
+    }
+
+    /** 回答・完了の記録・「関係ない」の記録・通知の設定を消す（制度データの控えは個人の情報ではないので残す）。 */
     fun clearAll() {
         prefs.edit {
             remove(KEY_ANSWERS)
             remove(KEY_COMPLETED)
             remove(KEY_DISMISSED)
+            remove(KEY_REMINDERS)
         }
     }
 
@@ -58,5 +74,7 @@ class LocalStore(context: Context) {
         const val KEY_ANSWERS = "answers"
         const val KEY_COMPLETED = "completed"
         const val KEY_DISMISSED = "dismissed"
+        const val KEY_REMINDERS = "reminders_on"
+        const val KEY_SCHEDULED = "scheduled"
     }
 }

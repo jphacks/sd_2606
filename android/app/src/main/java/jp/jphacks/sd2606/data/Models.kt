@@ -1,6 +1,7 @@
 package jp.jphacks.sd2606.data
 
 import java.time.LocalDate
+import java.time.YearMonth
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
@@ -29,7 +30,35 @@ data class ProcedureDef(
     val steps: List<FlowStep> = emptyList(),
     val links: List<Link> = emptyList(),
     val relations: List<Relation> = emptyList(),
+    /** 期限の前の通知（「通知と履歴」で本人がオンにしたものだけ通知する） */
+    val reminders: List<Reminder> = emptyList(),
 )
+
+/** 期限の前に端末から通知するもの。month が null なら毎月。day がその月に無ければ月末。 */
+@Serializable
+data class Reminder(
+    val label: String,
+    val month: Int? = null,
+    val day: Int,
+    @SerialName("before_days") val beforeDays: Int = 7,
+    @SerialName("when") val conditions: List<Condition> = emptyList(),
+) {
+    /** 通知日が from〜until に入る期限の日付を、早い順に返す。 */
+    fun dueDates(from: LocalDate, until: LocalDate): List<LocalDate> {
+        val result = mutableListOf<LocalDate>()
+        var ym = YearMonth.from(from)
+        val last = YearMonth.from(until.plusDays(beforeDays.toLong()))
+        while (!ym.isAfter(last)) {
+            if (month == null || ym.monthValue == month) {
+                val due = ym.atDay(minOf(day, ym.lengthOfMonth()))
+                val notify = due.minusDays(beforeDays.toLong())
+                if (!notify.isBefore(from) && !notify.isAfter(until)) result += due
+            }
+            ym = ym.plusMonths(1)
+        }
+        return result
+    }
+}
 
 /** 期限。days（きっかけから何日以内）か、month / day（毎年の期限。day が無ければ月末）のどちらか。 */
 @Serializable

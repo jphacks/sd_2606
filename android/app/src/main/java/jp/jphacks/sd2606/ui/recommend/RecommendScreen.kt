@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.ManageAccounts
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material3.AssistChip
@@ -50,6 +51,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -65,6 +67,7 @@ import jp.jphacks.sd2606.data.Status
 import jp.jphacks.sd2606.ui.AnswersDialog
 import jp.jphacks.sd2606.ui.AppUiState
 import jp.jphacks.sd2606.ui.BackTopBar
+import jp.jphacks.sd2606.ui.CategoryChip
 import jp.jphacks.sd2606.ui.PrivacyNote
 import jp.jphacks.sd2606.ui.QuestionInput
 import jp.jphacks.sd2606.ui.ResultContent
@@ -87,9 +90,11 @@ fun RecommendScreen(
     onClearAll: () -> Unit,
     onClearCompleted: () -> Unit,
     onClearDismissed: () -> Unit,
+    onClearReminders: () -> Unit,
     onRetry: () -> Unit,
     onBack: () -> Unit,
     onOpen: (String) -> Unit,
+    onManage: () -> Unit,
 ) {
     var showAnswers by rememberSaveable { mutableStateOf(false) }
     var order by rememberSaveable { mutableStateOf(SortOrder.RELEVANCE) }
@@ -100,6 +105,9 @@ fun RecommendScreen(
     Scaffold(
         topBar = {
             BackTopBar("あなたの手続き", onBack) {
+                IconButton(onClick = onManage) {
+                    Icon(Icons.Default.Notifications, contentDescription = "通知と履歴")
+                }
                 IconButton(onClick = { showAnswers = true }) {
                     Icon(Icons.Default.ManageAccounts, contentDescription = "保存している回答")
                 }
@@ -204,9 +212,11 @@ fun RecommendScreen(
                     answers = state.answers,
                     completedCount = state.completed.size,
                     dismissedCount = state.dismissed.size,
+                    reminderCount = state.remindersOn.size,
                     onAnswer = onAnswer,
                     onClearCompleted = onClearCompleted,
                     onClearDismissed = onClearDismissed,
+                    onClearReminders = onClearReminders,
                     onDismiss = { showAnswers = false },
                     onClear = {
                         showAnswers = false
@@ -278,9 +288,9 @@ private fun ProcedureCard(
     val content: @Composable () -> Unit = {
         Column(Modifier.padding(16.dp).animateContentSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                AssistChip(onClick = onClick, label = { Text(Labels.category[proc.category] ?: proc.category) })
+                CategoryChip(proc.category, onClick)
                 Spacer(Modifier.width(8.dp))
-                Text(proc.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                Text(proc.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             }
             proc.deadline?.let {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -369,7 +379,7 @@ private fun CompletedCard(item: Scored, completedOn: String, onClick: () -> Unit
             Icon(Icons.Default.CheckCircle, contentDescription = "完了", tint = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(item.procedure.title, style = MaterialTheme.typography.titleSmall)
+                Text(item.procedure.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 Text(completedLabel(completedOn), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             TextButton(onClick = onUndo) { Text("未完了に戻す") }
@@ -394,9 +404,11 @@ private fun RecommendScreenPreview() {
             onClearAll = {},
             onClearCompleted = {},
             onClearDismissed = {},
+            onClearReminders = {},
             onRetry = {},
             onBack = {},
             onOpen = {},
+            onManage = {},
         )
     }
 }

@@ -16,18 +16,20 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Info
@@ -37,13 +39,14 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.DoNotDisturbOn
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -56,6 +59,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -91,7 +95,19 @@ fun FlowScreen(
     onBack: () -> Unit,
 ) {
     val proc = (state.catalog as? UiResult.Success)?.data?.procedures?.firstOrNull { it.id == procedureId }
-    Scaffold(topBar = { BackTopBar(proc?.title ?: "手続きの流れ", onBack) }) { padding ->
+    Scaffold(
+        topBar = { BackTopBar(proc?.title ?: "手続きの流れ", onBack, bold = true) },
+        bottomBar = {
+            if (proc != null) {
+                BottomActions(
+                    completedOn = state.completed[proc.id],
+                    dismissed = proc.id in state.dismissed,
+                    onComplete = { onComplete(proc.id, it) },
+                    onDismiss = { onDismiss(proc.id, it) },
+                )
+            }
+        },
+    ) { padding ->
         ResultContent(state.catalog, onRetry, Modifier.padding(padding)) { catalog ->
             if (proc == null) {
                 Text("手続きが見つかりませんでした。", Modifier.padding(padding).padding(16.dp))
@@ -102,17 +118,9 @@ fun FlowScreen(
             val uriHandler = LocalUriHandler.current
             LazyColumn(contentPadding = PaddingValues(16.dp), modifier = Modifier.padding(padding)) {
                 item { Header(proc) }
-                item {
-                    Actions(
-                        completedOn = state.completed[proc.id],
-                        dismissed = item?.dismissed == true,
-                        onComplete = { onComplete(proc.id, it) },
-                        onDismiss = { onDismiss(proc.id, it) },
-                    )
-                }
                 item { Status(item, state, catalog.questions, onAnswer) }
                 if (item != null && item.documents.isNotEmpty()) item { Documents(item) }
-                item { Text("手続きの流れ", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(bottom = 12.dp)) }
+                item { Text("手続きの流れ", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp)) }
                 if (steps.isEmpty()) {
                     item { Text("あなたに当てはまる手順はありません。", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 16.dp)) }
                 }
@@ -127,40 +135,41 @@ fun FlowScreen(
     }
 }
 
-/** 完了の記録と「自分には関係ない」。どちらも端末に残し、元に戻せる。 */
+/**
+ * 画面の下に固定する2つのボタン。左は「自分には関係ない」、右は「完了にする」。
+ * どちらも端末に記録し、押し直すと取り消せる。記録したときは、ボタンの上にその旨を出す。
+ */
 @Composable
-private fun Actions(completedOn: String?, dismissed: Boolean, onComplete: (Boolean) -> Unit, onDismiss: (Boolean) -> Unit) {
-    Column(Modifier.padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (completedOn != null) {
-            OutlinedCard(Modifier.fillMaxWidth()) {
-                Row(Modifier.padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.width(12.dp))
-                    Text(completedLabel(completedOn), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                    TextButton(onClick = { onComplete(false) }) { Text("未完了に戻す") }
+private fun BottomActions(completedOn: String?, dismissed: Boolean, onComplete: (Boolean) -> Unit, onDismiss: (Boolean) -> Unit) {
+    Surface(tonalElevation = 3.dp, shadowElevation = 8.dp) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            val note = when {
+                completedOn != null -> completedLabel(completedOn)
+                dismissed -> "「関係ない」にしました"
+                else -> null
+            }
+            note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedButton(onClick = { onDismiss(!dismissed) }, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Outlined.DoNotDisturbOn, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(if (dismissed) "関係ありに戻す" else "関係ない")
                 }
-            }
-        } else if (!dismissed) {
-            Button(onClick = { onComplete(true) }, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Outlined.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("申請などが終わったら、完了にする")
-            }
-        }
-        if (dismissed) {
-            OutlinedCard(Modifier.fillMaxWidth()) {
-                Row(Modifier.padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.DoNotDisturbOn, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.width(12.dp))
-                    Text("「関係ない」にしました", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                    TextButton(onClick = { onDismiss(false) }) { Text("元に戻す") }
+                if (completedOn != null) {
+                    OutlinedButton(onClick = { onComplete(false) }, modifier = Modifier.weight(1f)) { Text("未完了に戻す") }
+                } else {
+                    Button(onClick = { onComplete(true) }, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Outlined.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("完了にする")
+                    }
                 }
-            }
-        } else if (completedOn == null) {
-            OutlinedButton(onClick = { onDismiss(true) }, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Outlined.DoNotDisturbOn, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("自分には関係ない（対象外にする）")
             }
         }
     }
@@ -290,25 +299,35 @@ private fun StepRow(number: Int, view: StepView, questions: List<Question>, answ
                 .weight(1f),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Text(RuleEngine.fillIn(step.title, answers, questions), style = MaterialTheme.typography.titleSmall)
+            Text(RuleEngine.fillIn(step.title, answers, questions), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             if (view.unknown.isNotEmpty()) {
                 val names = view.unknown.mapNotNull { RuleEngine.questionFor(it, questions)?.name }.distinct().joinToString("・")
                 Text(
                     "当てはまる場合のみ（${names}を入れると、当てはまるかどうかで表示を絞ります）",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.tertiary,
+                    color = MaterialTheme.colorScheme.outline,
                 )
             }
             // 「年収（{annual_income}）」のような箇所を、その人の回答に置き換える
             Text(RuleEngine.fillIn(step.detail, answers, questions), style = MaterialTheme.typography.bodyMedium)
-            step.where?.let { Text("📍 $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
+            step.where?.let {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Place, contentDescription = "場所", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.outline)
+                    Spacer(Modifier.width(4.dp))
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                }
+            }
             if (step.documents.isNotEmpty()) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     step.documents.forEach { doc -> SuggestionChip(onClick = {}, label = { Text(doc) }) }
                 }
             }
             if (step.details.isNotEmpty()) {
-                TextButton(onClick = { open = !open }, contentPadding = PaddingValues(horizontal = 0.dp)) {
+                TextButton(
+                    onClick = { open = !open },
+                    contentPadding = PaddingValues(horizontal = 0.dp),
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.outline),
+                ) {
                     Text(if (open) "詳しい手順を閉じる" else "詳しい手順")
                     Icon(if (open) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = null, modifier = Modifier.size(18.dp))
                 }
