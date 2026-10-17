@@ -7,6 +7,10 @@ Wants=network-online.target
 [Service]
 User=__USER__
 WorkingDirectory=__BACKEND__
+# 掲示板の DB は /var/lib/sd2606 に置く（StateDirectory は systemd が実行ユーザーの持ち物として作り、
+# ProtectSystem=strict でもここだけは書き込める。リポジトリの外なので deploy.sh で消えない）
+StateDirectory=sd2606
+Environment=BOARD_DB_PATH=/var/lib/sd2606/board.db
 EnvironmentFile=-__BACKEND__/.env
 # 127.0.0.1 だけで待ち受け、外部には tailscale funnel 経由で出す
 ExecStart=__BACKEND__/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8606 --proxy-headers

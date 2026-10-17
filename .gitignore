@@ -26,3 +26,6 @@ captures/
 .DS_Store
 Thumbs.db
 .vscode/
+
+# 掲示板の DB（ローカル開発用。Pi では /var/lib/sd2606）
+backend/board.db*

@@ -1,0 +1,160 @@
+# 掲示板のサンプル投稿。DB に無い key だけを起動時に入れる（何度起動しても重複しない）。
+# 開発チームが書いた例なので、アプリでは「サンプル」と表示する。実際の投稿のように見せかけないこと。
+# 消すときは DB 側で hidden にする（ここから消しても DB には残る）。
+
+- key: nenkin-20
+  kind: howto
+  tags: [kokumin_nenkin, gakusei_tokurei]
+  age_band: 20s_early
+  occupation: student
+  happened_ym: "2026-05"
+  difficulty: 2
+  minutes: 15
+  title: 20歳になったら年金のお知らせが届いた。学生なので納付特例に
+  body: |
+    誕生日のあと、日本年金機構から「国民年金加入のお知らせ」と納付書が届きました。加入の届出は自分ではしていません。
+    学生で収入が少ないので学生納付特例を申請。マイナポータルから電子申請でき、学生証の画像をアップするだけで10分ほどで終わりました。
+    納付書は使わずに置いておき、承認の通知が来るまで待ちました。
+
+- key: gakusei-renew
+  kind: trouble
+  tags: [gakusei_tokurei]
+  age_band: 20s_early
+  occupation: student
+  happened_ym: "2026-04"
+  difficulty: 1
+  minutes: 15
+  title: 学生納付特例は毎年申請が必要だった
+  body: |
+    1回申請すれば卒業まで大丈夫だと思っていたら、年度ごとの申請でした。
+    同じ学校に在学中なら、4月ごろに年金機構からはがきの申請書が届くので、それを出せば済みます。去年はそのはがきを捨てかけていました。
+
+- key: otsuran
+  kind: trouble
+  tags: [nenmatsu_chosei, shotokuzei, kakutei_shinkoku]
+  age_band: teen
+  occupation: part_time
+  happened_ym: "2026-02"
+  difficulty: 3
+  minutes: 60
+  title: バイト先に扶養控除等申告書を出し忘れて、所得税が多く引かれていた
+  body: |
+    初めてのバイトで、入社のときに「扶養控除等（異動）申告書」を出していませんでした。そのせいで毎月の所得税が高い区分（乙欄）で引かれていて、年末調整もしてもらえませんでした。
+    源泉徴収票をもらって、翌年に確定申告（還付申告）をしたら全額戻ってきました。バイトを始めたら、最初にこの紙を出すかどうか確認したほうがいいです。
+
+- key: kanpu-etax
+  kind: howto
+  tags: [kakutei_shinkoku, shotokuzei]
+  age_band: 20s_early
+  occupation: student
+  happened_ym: "2026-02"
+  difficulty: 2
+  minutes: 30
+  title: 年の途中でバイトを辞めたので、スマホで還付申告
+  body: |
+    秋にバイトを辞めて、年末調整を受けていませんでした。辞めたバイト先から源泉徴収票をもらい、確定申告書等作成コーナーでスマホとマイナンバーカードを使って提出。
+    入力は源泉徴収票の数字を写すだけで30分くらい。還付金は3週間ほどで口座に入りました。還付申告は1月から出せます。
+
+- key: kabe-two
+  kind: trouble
+  tags: [nenshu_kabe, kenpo]
+  age_band: 20s_early
+  occupation: student
+  happened_ym: "2026-09"
+  difficulty: 4
+  minutes: 60
+  title: 「税金の扶養」と「健康保険の扶養」で基準が別だった
+  body: |
+    バイトのシフトを増やす前に、親と「年収いくらまでなら大丈夫か」を話したら、税金の扶養控除の話と、親の会社の健康保険の扶養の話がごちゃごちゃになって、すれ違いました。
+    基準の金額も、数える期間（その年の1月〜12月か、これから先の見込みか）も違います。親の会社の健康保険にも問い合わせて、やっとシフトを決めました。
+
+- key: juminzei-resign
+  kind: trouble
+  tags: [juminzei]
+  age_band: 20s_late
+  occupation: unemployed
+  happened_ym: "2026-08"
+  difficulty: 3
+  minutes: 15
+  title: 退職したら住民税の納付書が届いて驚いた
+  body: |
+    6月末に退職したら、しばらくして市役所から住民税の納付書が届きました。在職中は給料から引かれていた分を、自分で払う「普通徴収」に切り替わったそうです。
+    1〜5月に辞めると最後の給料からまとめて引かれることが多いらしく、辞める時期で払い方が変わります。退職前に貯金を残しておくべきでした。
+
+- key: kokuho-shikaku
+  kind: howto
+  tags: [kokuho]
+  age_band: 20s_late
+  occupation: unemployed
+  happened_ym: "2026-07"
+  difficulty: 3
+  minutes: 60
+  title: 退職後の国保加入。「資格喪失証明書」を待つのに時間がかかった
+  body: |
+    退職から14日以内に区役所で国民健康保険の加入手続きをしました。必要だったのは、会社の健康保険をやめた日がわかる「健康保険資格喪失証明書」とマイナンバーカード。
+    証明書は会社に頼んでから届くまで1週間かかったので、退職が決まったら早めに頼んでおくのがおすすめです。窓口は30分待ちで、手続き自体は15分ほどでした。
+
+- key: nini-keizoku
+  kind: howto
+  tags: [kenpo, kokuho]
+  age_band: 20s_late
+  occupation: unemployed
+  happened_ym: "2026-07"
+  difficulty: 3
+  minutes: 60
+  title: 国保と任意継続、保険料を比べてから決めた
+  body: |
+    退職後の健康保険は、国保に入るか、会社の健康保険を任意継続するかを選べました。任意継続は退職日の翌日から20日以内に申し出が必要で、思ったより短いです。
+    区役所で国保の保険料の見込みを聞き、協会けんぽの任意継続の保険料と比べてから決めました。前年の所得によってどちらが安いかが変わるそうです。
+
+- key: menjo-shitsugyo
+  kind: howto
+  tags: [nenkin_menjo, kokumin_nenkin]
+  age_band: 20s_late
+  occupation: unemployed
+  happened_ym: "2026-08"
+  difficulty: 2
+  minutes: 30
+  title: 失業したので国民年金の免除を申請
+  body: |
+    退職して国民年金に切り替えたときに、窓口で免除の申請もできると教えてもらいました。失業を理由にする場合は、離職票か雇用保険受給資格者証のコピーが必要です。
+    払えないまま放っておくと「未納」になるけれど、免除が通れば将来の年金の計算にも一部入るそうです。
+
+- key: iryohi-meisai
+  kind: howto
+  tags: [iryohi, kakutei_shinkoku]
+  age_band: 20s_late
+  occupation: employee
+  happened_ym: "2026-03"
+  difficulty: 2
+  minutes: 60
+  title: 親知らずの手術で医療費控除。領収書は出さなくてよかった
+  body: |
+    手術と通院で1年間の医療費が10万円を超えたので、確定申告で医療費控除をしました。会社員でも年末調整とは別に申告が必要です。
+    今は領収書を提出するのではなく「医療費控除の明細書」を作って出す形でした（領収書は5年間保管）。健康保険組合の医療費通知を使うと入力が楽です。
+
+- key: hikkoshi-online
+  kind: howto
+  tags: [hikkoshi]
+  age_band: 20s_early
+  occupation: employee
+  happened_ym: "2026-04"
+  difficulty: 2
+  minutes: 30
+  title: 就職で引越し。転出届はマイナポータルでできた
+  body: |
+    マイナンバーカードがあったので、転出届はマイナポータルからオンラインで出せました。転入届は引越してから14日以内に新しい市役所の窓口へ。
+    転入のときにマイナンバーカードの住所変更も一緒にしてもらえます。カードの暗証番号を聞かれるので、思い出しておくとスムーズです。
+
+- key: juminzei-first
+  kind: trouble
+  tags: [juminzei]
+  age_band: 20s_early
+  occupation: employee
+  happened_ym: "2026-06"
+  difficulty: 1
+  minutes: 15
+  title: 社会人2年目の6月、手取りが減った理由は住民税
+  body: |
+    2年目の6月に急に手取りが減って、給与明細を見たら住民税が引かれ始めていました。住民税は前の年の所得にかかるので、1年目はほとんど引かれていなかったそうです。
+    昇給したのに手取りが減ったのでびっくりしました。新卒の人は覚えておくと慌てずに済みます。

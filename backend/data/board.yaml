@@ -1,0 +1,99 @@
+# 体験談の掲示板の定義。アプリは GET /api/board/meta で受け取るので、ここを直せばアプリの更新は要らない。
+#
+# - value は DB に保存する値。投稿が残っているうちは変えない（label は変えてよい）
+# - tags の procedures は、その手続きの画面に体験談を出すための対応。手続き YAML の id を書く
+#   （手続き側には何も書かない。テストで id が存在することを確認している）
+
+kinds:
+  - {value: howto, label: やり方・体験}
+  - {value: trouble, label: トラブル・失敗}
+
+# 年代。アプリは端末内の生年月日から初期値を選ぶ（生年月日は送らない）。max は含む
+age_bands:
+  - {value: teen, label: 10代, min: 0, max: 19}
+  - {value: 20s_early, label: 20代前半, min: 20, max: 24}
+  - {value: 20s_late, label: 20代後半, min: 25, max: 29}
+  - {value: 30s, label: 30代, min: 30, max: 39}
+  - {value: 40s, label: 40代, min: 40, max: 49}
+  - {value: 50plus, label: 50代以上, min: 50, max: null}
+
+# 立場。value は questions.yaml の occupation と同じにして、アプリが回答から初期値を選べるようにする
+occupations:
+  - {value: student, label: 学生}
+  - {value: part_time, label: アルバイト・パート}
+  - {value: employee, label: 会社員・公務員}
+  - {value: freelance, label: フリーランス}
+  - {value: self_employed, label: 自営業}
+  - {value: unemployed, label: 無職・求職中}
+
+# かかった時間（分）。平均ではなく中央値で「だいたい◯◯」と出す
+durations:
+  - {value: 15, label: 15分以内}
+  - {value: 30, label: 30分くらい}
+  - {value: 60, label: 1時間くらい}
+  - {value: 180, label: 半日くらい}
+  - {value: 480, label: 1日以上}
+
+tag_groups:
+  - {value: tax, label: 税金}
+  - {value: insurance, label: 保険}
+  - {value: pension, label: 年金}
+  - {value: other, label: 給付・届出}
+
+tags:
+  - id: shotokuzei
+    label: 所得税
+    group: tax
+    procedures: [kakutei_shinkoku, nenmatsu_chosei, fuyou_kojo, iryohi_kojo]
+  - id: nenmatsu_chosei
+    label: 年末調整
+    group: tax
+    procedures: [nenmatsu_chosei]
+  - id: kakutei_shinkoku
+    label: 確定申告・還付
+    group: tax
+    procedures: [kakutei_shinkoku, iryohi_kojo]
+  - id: juminzei
+    label: 住民税
+    group: tax
+    procedures: [juminzei_first, juminzei_resign]
+  - id: nenshu_kabe
+    label: 扶養・年収の壁
+    group: tax
+    procedures: [nenshu_kabe, fuyou_kojo, fuyou_hazureru, fuyou_hairu]
+  - id: iryohi
+    label: 医療費控除
+    group: tax
+    procedures: [iryohi_kojo]
+  - id: kokuho
+    label: 国民健康保険
+    group: insurance
+    procedures: [kokuho_enroll, kokuho_withdraw]
+  - id: kenpo
+    label: 会社の健康保険・扶養
+    group: insurance
+    procedures: [nini_keizoku, fuyou_hairu, fuyou_hazureru]
+  - id: kokumin_nenkin
+    label: 国民年金
+    group: pension
+    procedures: [kokumin_nenkin, gakusei_tokurei, nenkin_menjo]
+  - id: gakusei_tokurei
+    label: 学生納付特例
+    group: pension
+    procedures: [gakusei_tokurei]
+  - id: nenkin_menjo
+    label: 年金の免除・猶予
+    group: pension
+    procedures: [nenkin_menjo]
+  - id: kosodate
+    label: 出産・子育て
+    group: other
+    procedures: [shussan_kosodate]
+  - id: hikkoshi
+    label: 引越し
+    group: other
+    procedures: [hikkoshi]
+  - id: fukugyo
+    label: 副業・開業
+    group: other
+    procedures: [kaigyo_todoke, kakutei_shinkoku]
