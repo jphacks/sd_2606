@@ -49,9 +49,17 @@ import jp.jphacks.sd2606.ui.theme.AppTheme
 /**
  * 手続きの流れを縦のタイムラインで表示する画面。制度データは端末内にあるので通信しない。
  * まだ判定できていない手続きなら、上部で判定に必要な質問だけを聞く。
+ * footer には、流れの下に出すもの（みんなの体験談）を渡す。
  */
 @Composable
-fun FlowScreen(state: AppUiState, procedureId: String, onAnswer: (String, Answer?) -> Unit, onRetry: () -> Unit, onBack: () -> Unit) {
+fun FlowScreen(
+    state: AppUiState,
+    procedureId: String,
+    onAnswer: (String, Answer?) -> Unit,
+    onRetry: () -> Unit,
+    onBack: () -> Unit,
+    footer: @Composable () -> Unit = {},
+) {
     val proc = (state.catalog as? UiResult.Success)?.data?.procedures?.firstOrNull { it.id == procedureId }
     Scaffold(topBar = { BackTopBar(proc?.title ?: "手続きの流れ", onBack) }) { padding ->
         ResultContent(state.catalog, onRetry, Modifier.padding(padding)) { catalog ->
@@ -70,6 +78,7 @@ fun FlowScreen(state: AppUiState, procedureId: String, onAnswer: (String, Answer
                     val link = proc.links[i]
                     TextButton(onClick = { uriHandler.openUri(link.url) }) { Text("🔗 ${link.label}") }
                 }
+                item { footer() }
             }
         }
     }

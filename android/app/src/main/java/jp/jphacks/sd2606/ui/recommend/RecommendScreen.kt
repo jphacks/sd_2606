@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.ManageAccounts
 import androidx.compose.material.icons.filled.Schedule
@@ -64,6 +65,8 @@ fun RecommendScreen(
     onRetry: () -> Unit,
     onBack: () -> Unit,
     onOpen: (String) -> Unit,
+    /** 手続きごとの体験談の件数（掲示板から） */
+    reviewCounts: Map<String, Int> = emptyMap(),
 ) {
     var showAnswers by rememberSaveable { mutableStateOf(false) }
     Scaffold(
@@ -98,7 +101,7 @@ fun RecommendScreen(
                     item(key = "none") { Text("いまの回答では、必ず必要な手続きは見つかりませんでした。", style = MaterialTheme.typography.bodyMedium) }
                 }
                 items(evaluation.required, key = { it.procedure.id }) { item ->
-                    ProcedureCard(item, catalog.questions, state.answers, onAnswer, onClick = { onOpen(item.procedure.id) }, Modifier.animateItem())
+                    ProcedureCard(item, catalog.questions, state.answers, onAnswer, onClick = { onOpen(item.procedure.id) }, Modifier.animateItem(), reviewCounts[item.procedure.id] ?: 0)
                 }
 
                 if (evaluation.likely.isNotEmpty()) {
@@ -112,7 +115,7 @@ fun RecommendScreen(
                         )
                     }
                     items(evaluation.likely, key = { it.procedure.id }) { item ->
-                        ProcedureCard(item, catalog.questions, state.answers, onAnswer, onClick = { onOpen(item.procedure.id) }, Modifier.animateItem())
+                        ProcedureCard(item, catalog.questions, state.answers, onAnswer, onClick = { onOpen(item.procedure.id) }, Modifier.animateItem(), reviewCounts[item.procedure.id] ?: 0)
                     }
                 }
             }
@@ -148,6 +151,7 @@ private fun ProcedureCard(
     onAnswer: (String, Answer?) -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    reviewCount: Int = 0,
 ) {
     val proc = item.procedure
     val missing = remember(item, questions) { item.missing.mapNotNull { RuleEngine.questionFor(it, questions) }.distinct() }
@@ -176,6 +180,13 @@ private fun ProcedureCard(
                 Text("・$reason", style = MaterialTheme.typography.bodyMedium)
             }
             missing.forEach { q -> NeedInfo(q, answers[q.field]) { onAnswer(q.field, it) } }
+            if (reviewCount > 0) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Forum, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.width(4.dp))
+                    Text("みんなの体験談 ${reviewCount}件", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                }
+            }
         }
     }
 }
