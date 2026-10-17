@@ -24,4 +24,9 @@ steps:
     where: 市区町村の役所
     when:
       - {field: occupation, op: in, value: [unemployed, part_time, student]}
+reminders:
+  - {label: 住民税の納期（1期・6月末）, month: 6, day: 30}
+  - {label: 住民税の納期（2期・8月末）, month: 8, day: 31}
+  - {label: 住民税の納期（3期・10月末）, month: 10, day: 31}
+  - {label: 住民税の納期（4期・1月末）, month: 1, day: 31}
 links: []

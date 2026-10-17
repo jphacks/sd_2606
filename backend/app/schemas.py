@@ -94,6 +94,16 @@ class Due(BaseModel):
         return self
 
 
+class Reminder(BaseModel):
+    """期限の前に端末から通知するもの（例: 確定申告の期限の1週間前）。アプリの「通知と履歴」で本人がオンにする。"""
+
+    label: str = Field(description="通知に出す期限の名前（例: 確定申告の期限）")
+    month: int | None = Field(default=None, ge=1, le=12, description="期限の月。省くと毎月")
+    day: int = Field(ge=1, le=31, description="期限の日。その月に無い日（31日など）は月末")
+    before_days: int = Field(default=7, ge=0, le=60, description="期限の何日前に通知するか")
+    when: list[Condition] = Field(default_factory=list, description="通知を出す人の条件（ステップの when と同じ意味）")
+
+
 class Procedure(BaseModel):
     """data/procedures/*.yaml の1ファイル分（判定条件 relations は除く）。"""
 
@@ -106,6 +116,7 @@ class Procedure(BaseModel):
     office: str | None = None
     steps: list[FlowStep] = Field(default_factory=list)
     links: list[Link] = Field(default_factory=list)
+    reminders: list[Reminder] = Field(default_factory=list, description="期限の前の通知")
 
 
 class Recommendation(BaseModel):

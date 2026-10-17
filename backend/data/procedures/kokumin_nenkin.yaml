@@ -70,6 +70,11 @@ steps:
     detail: 「国民年金保険料の免除・納付猶予」を参照。
     when:
       - {field: occupation, op: ne, value: student}
+reminders:
+  - label: 国民年金保険料の納付期限（毎月末）
+    day: 31
+    when:
+      - {field: occupation, op: ne, value: student}
 links:
   - {label: 日本年金機構 20歳到達時の国民年金の手続き, url: "https://www.nenkin.go.jp/service/kokunen/kanyu/hatachi-tetsuduki.html"}
   - {label: 日本年金機構 国民年金に加入するための手続き, url: "https://www.nenkin.go.jp/service/kokunen/kanyu/20140710-04.html"}

@@ -25,5 +25,7 @@ steps:
     where: e-Tax・税務署
     when:
       - {field: occupation, op: in, value: [self_employed, freelance, retired, unemployed]}
+reminders:
+  - {label: 扶養控除の申告（年末調整）, month: 11, day: 30}
 links:
   - {label: 国税庁 配偶者控除, url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1191.htm"}

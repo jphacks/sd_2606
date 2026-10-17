@@ -33,5 +33,7 @@ steps:
     where: e-Tax・税務署
     when:
       - {field: occupation, op: in, value: [self_employed, freelance, retired]}
+reminders:
+  - {label: 医療費控除の申告（確定申告の期限）, month: 3, day: 15}
 links:
   - {label: 国税庁 医療費控除, url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1120.htm"}

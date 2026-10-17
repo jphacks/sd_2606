@@ -65,6 +65,8 @@ steps:
     documents: [還付金を受け取る本人名義の口座]
     when:
       - {field: occupation, op: in, value: [unemployed, part_time, student, retired]}
+reminders:
+  - {label: 確定申告の期限, month: 3, day: 15}
 links:
   - {label: 国税庁 確定申告書等作成コーナー, url: "https://www.keisan.nta.go.jp/"}
   - {label: 国税庁 No.1910 中途退職で年末調整を受けていないとき, url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1910.htm"}

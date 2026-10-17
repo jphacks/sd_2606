@@ -61,7 +61,8 @@ def load_procedures(data_dir: Path = DATA_DIR) -> dict[str, ProcedureDef]:
             raise ValueError(f"{path.name}: id ({proc.id}) とファイル名を一致させてください")
         if not proc.relations:
             raise ValueError(f"{path.name}: relations がありません")
-        conds = [c for rel in proc.relations for c in (rel, *rel.when)] + [c for step in proc.steps for c in step.when]
+        conds = [c for rel in proc.relations for c in (rel, *rel.when)]
+        conds += [c for step in proc.steps for c in step.when] + [c for r in proc.reminders for c in r.when]
         for cond in conds:
             if cond.field not in UserProfile.model_fields:
                 raise ValueError(f"{path.name}: unknown field {cond.field}")

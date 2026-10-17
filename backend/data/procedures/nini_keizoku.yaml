@@ -27,5 +27,7 @@ steps:
     documents: [任意継続被保険者資格取得申出書]
   - title: 毎月10日までに保険料を納める
     detail: 遅れると資格を失います。
+reminders:
+  - {label: 任意継続の保険料の納付期限（毎月10日）, day: 10}
 links:
   - {label: 協会けんぽ 任意継続, url: "https://www.kyoukaikenpo.or.jp/benefit/voluntary_continuation/index.html"}

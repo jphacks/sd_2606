@@ -44,6 +44,8 @@ steps:
     documents: [基礎控除申告書, 保険料控除申告書, 国民年金保険料の控除証明書（払った人）]
   - title: 源泉徴収票を受け取って保管する
     detail: 年明けに渡されます。転職や確定申告で使います。
+reminders:
+  - {label: 年末調整の書類（勤務先の締め切りも確認）, month: 11, day: 30}
 links:
   - {label: 国税庁 No.2665 年末調整の対象となる人, url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/gensen/2665.htm"}
   - {label: 国税庁 No.2674 中途就職者の年末調整, url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/gensen/2674.htm"}

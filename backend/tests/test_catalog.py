@@ -100,6 +100,22 @@ def test_range_choices_cover_all_values_without_gaps():
             assert a.max + 1 == b.min
 
 
+def test_reminders_have_valid_dates():
+    reminders = [r for p in load_procedures().values() for r in p.reminders]
+    assert len(reminders) >= 10
+    for r in reminders:
+        assert r.label and 0 <= r.before_days <= 60
+    # 毎月の通知（国民年金の保険料など）と、毎年の通知（確定申告など）の両方がある
+    assert any(r.month is None for r in reminders) and any(r.month == 3 and r.day == 15 for r in reminders)
+
+
+def test_reminder_conditions_use_known_fields():
+    fields = {f for q in build_catalog().questions for f in [q.field, *q.provides]}
+    for p in load_procedures().values():
+        for r in p.reminders:
+            assert {c.field for c in r.when} <= fields, p.id
+
+
 def test_unused_fields_are_not_asked():
     assert "has_spouse" not in {q.field for q in build_catalog().questions}
 

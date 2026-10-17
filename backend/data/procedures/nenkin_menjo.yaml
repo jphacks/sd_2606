@@ -35,6 +35,8 @@ steps:
     detail: 承認は1年ごと（7月〜翌年6月）です。
   - title: （任意）10年以内に追納する
     detail: 余裕ができたら、免除・猶予の分を納められます。
+reminders:
+  - {label: 免除・納付猶予の申請し直し（7月から新しい年度）, month: 7, day: 31}
 links:
   - {label: 日本年金機構 国民年金保険料の免除制度・納付猶予制度, url: "https://www.nenkin.go.jp/service/kokunen/menjo/20150428.html"}
   - {label: 日本年金機構 転職をご検討中の方へ（加入・免除のご案内）, url: "https://www.nenkin.go.jp/tokusetsu/taishoku_menjo.html"}

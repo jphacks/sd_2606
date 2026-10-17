@@ -41,5 +41,7 @@ steps:
     detail: 続けて受けるには毎年度の申請が要ります。案内のはがきが届くこともあります。
   - title: （任意）10年以内に追納する
     detail: 就職して余裕ができたら、待ってもらった分を納められます。
+reminders:
+  - {label: 学生納付特例の申請（4月から新しい年度）, month: 4, day: 30}
 links:
   - {label: 日本年金機構 学生納付特例制度, url: "https://www.nenkin.go.jp/service/kokunen/menjo/20150514.html"}

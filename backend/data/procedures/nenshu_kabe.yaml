@@ -145,6 +145,8 @@ steps:
       - {field: age_at_year_end, op: in, value: [19, 20, 21, 22]}
       - {field: supported_by, value: spouse}
       - {field: annual_income, op: lt, value: 1300000}
+reminders:
+  - {label: 年収を確かめて家族に伝える（年末調整の前）, month: 11, day: 30}
 links:
   - {label: 国税庁 源泉所得税の改正のあらまし（令和8年4月）, url: "https://www.nta.go.jp/publication/pamph/gensen/2026kaisei.pdf"}
   - {label: 日本年金機構 19歳以上23歳未満の方の被扶養者認定の年間収入要件, url: "https://www.nenkin.go.jp/oshirase/taisetu/2025/202508/0819.html"}
