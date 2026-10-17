@@ -1,0 +1,42 @@
+id: fuyou_hazureru
+title: 親の扶養から外れる（親の勤務先への届出）
+category: insurance
+summary: 就職して自分の勤務先の健康保険に入ったときや、アルバイトの収入が基準を超えたときは、親の健康保険と税金の扶養から外れます。届け出るのは親（親の勤務先）なので、本人から親に伝えます。
+deadline: 健康保険は扶養から外れた日から5日以内（親の勤務先を通じて）。税金は親の年末調整まで
+office: 親の勤務先
+relations:
+  - field: life_events
+    value: new_job
+    flag: conditional
+    score: 1.0
+    reason: 就職して自分の勤務先の健康保険に入ると、親の扶養から外れるため
+    when:
+      - {field: supported_by, value: parent}
+  - field: life_events
+    value: part_time_more
+    flag: conditional
+    score: 0.6
+    reason: アルバイトの収入が基準（130万円、19〜22歳は150万円）を超えると、親の健康保険の扶養から外れるため
+    when:
+      - {field: supported_by, value: parent}
+      - {field: annual_income, op: gte, value: 1500000}
+  - {field: supported_by, op: in, value: [spouse, none], flag: unrelated, score: -1.0}   # 親の扶養ではない
+steps:
+  - title: 外れる日を確かめる
+    detail: 就職したなら、自分の勤務先の健康保険に入った日です。アルバイトの収入が増えたなら、これから1年間の収入（交通費を含む）の見込みが130万円以上（19〜22歳は150万円以上）になった時点です。
+  - title: 親に伝える
+    detail: 届け出るのは親です。外れる日と理由（就職・収入の増加）を伝えます。
+  - title: 親が勤務先に「被扶養者（異動）届」を出す
+    detail: 親の勤務先を通じて、健康保険の扶養から外す届出をします。扶養から外れた日から5日以内です。親の健康保険の資格確認書などを持っていれば返します。
+    where: 親の勤務先
+    documents: [健康保険 被扶養者（異動）届（親の勤務先が用意）]
+  - title: 親の年末調整で扶養控除の申告を直す
+    detail: 2026年の子の給与収入が136万円を超えると、親の扶養控除の対象から外れます。19〜22歳（12月31日時点）なら、197万円以下まで特定親族特別控除に変わります。親が勤務先に「扶養控除等（異動）申告書」を出し直します。
+    where: 親の勤務先
+    documents: [給与所得者の扶養控除等（異動）申告書]
+  - title: 届け出が遅れたら
+    detail: 扶養から外れた後に親の健康保険で受診した医療費は、返すよう求められることがあります。気づいたらすぐに届け出ます。
+links:
+  - {label: 日本年金機構 被扶養者にするとき・異動があったときの手続き, url: "https://www.nenkin.go.jp/service/kounen/tekiyo/hihokensha1/20141202.html"}
+  - {label: 日本年金機構 19歳以上23歳未満の方の被扶養者認定の年間収入要件, url: "https://www.nenkin.go.jp/oshirase/taisetu/2025/202508/0819.html"}
+  - {label: 国税庁 源泉所得税の改正のあらまし（令和8年4月）, url: "https://www.nta.go.jp/publication/pamph/gensen/2026kaisei.pdf"}

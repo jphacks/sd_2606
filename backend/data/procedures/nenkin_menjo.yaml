@@ -1,0 +1,27 @@
+id: nenkin_menjo
+title: 国民年金保険料の免除・納付猶予
+category: pension
+summary: 失業したり収入が少なかったりして国民年金の保険料を払えないときは、申請すると免除や猶予を受けられます。未納のままにすると、将来の年金だけでなく、けがや病気のときの障害年金を受けられないことがあります。
+deadline: 早めに（納付期限から2年以内なら、さかのぼって申請できる）
+office: 市区町村の国民年金窓口・年金事務所（マイナポータルでも申請できる）
+relations:
+  - {field: life_events, value: resign, flag: conditional, score: 0.7, reason: 失業した人は、前の年の収入が多くても失業の特例で免除を受けられるため}
+  - {field: occupation, value: unemployed, flag: conditional, score: 0.5, reason: 収入が少ないときは、保険料の免除・納付猶予を申請できるため}
+  - {field: occupation, value: student, flag: unrelated, score: -1.0}    # 学生は学生納付特例を使う
+  - {field: occupation, value: employee, flag: unrelated, score: -1.0}   # 厚生年金に入る
+  - {field: age, op: gte, value: 60, flag: unrelated, score: -1.0}       # 国民年金の加入は60歳まで
+  - {field: age, op: lt, value: 20, flag: unrelated, score: -1.0}
+steps:
+  - title: 申請書と添付書類をそろえる
+    detail: 「国民年金保険料免除・納付猶予申請書」を使います。失業した人は、離職票か雇用保険受給資格者証のコピーを付けると、前の年の収入にかかわらず審査されます（失業の特例）。
+    documents: [国民年金保険料免除・納付猶予申請書, 雇用保険被保険者離職票などのコピー（失業した人）, 基礎年金番号が分かるもの]
+  - title: 役所か年金事務所に出す
+    detail: 窓口に持っていくか、郵送します。マイナポータルから電子申請もできます。
+    where: 市区町村の国民年金窓口・年金事務所・マイナポータル
+  - title: 結果を待ち、翌年度も必要なら申請し直す
+    detail: 承認されるのは7月から翌年6月までの1年ごとです。翌年度も払えなければ、改めて申請します。
+  - title: 余裕ができたら追納する
+    detail: 免除・猶予を受けた期間の保険料は、10年以内なら後から納められ、将来の年金が増えます。
+links:
+  - {label: 日本年金機構 国民年金保険料の免除制度・納付猶予制度, url: "https://www.nenkin.go.jp/service/kokunen/menjo/20150428.html"}
+  - {label: 日本年金機構 転職をご検討中の方へ（加入・免除のご案内）, url: "https://www.nenkin.go.jp/tokusetsu/taishoku_menjo.html"}

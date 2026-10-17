@@ -1,0 +1,23 @@
+id: fuyou_hairu
+title: 家族の扶養に入る・戻る（健康保険）
+category: insurance
+summary: 退職や結婚で収入が少なくなったら、親や配偶者の健康保険の扶養に入れることがあります。扶養に入ると、自分で健康保険料を払わずに済みます。配偶者の扶養なら、国民年金も保険料のかからない第3号になります。
+deadline: 扶養に入る日から5日以内（家族の勤務先を通じて）
+office: 家族（親・配偶者）の勤務先
+relations:
+  - {field: life_events, value: resign, flag: conditional, score: 0.8, reason: 退職後の健康保険は、国保・任意継続・家族の扶養から選ぶため}
+  - {field: life_events, value: marriage, flag: conditional, score: 0.6, reason: 結婚して、配偶者の健康保険の扶養に入れることがあるため}
+  - {field: occupation, value: employee, flag: unrelated, score: -1.0}   # 自分の勤務先の健康保険に入る
+steps:
+  - title: 扶養に入れるか確かめる
+    detail: これから1年間の収入の見込みが130万円未満（19〜22歳は150万円未満。配偶者を除く）で、同居なら家族の収入の半分未満であることなどが条件です。失業給付を受ける間は、1日あたりの額によって入れないことがあります。
+  - title: 家族に勤務先へ届け出てもらう
+    detail: 家族の勤務先に「被扶養者（異動）届」を出してもらいます（5日以内）。配偶者の扶養なら、同じ届で国民年金の第3号被保険者の届出もします。
+    where: 家族の勤務先
+    documents: [健康保険 被扶養者（異動）届（家族の勤務先が用意）, 退職日や収入が分かる書類（離職票・退職証明書など）, マイナンバーが分かるもの]
+  - title: 国保に入っていたらやめる届出をする
+    detail: 先に国民健康保険に入っていた場合は、扶養に入ってから14日以内に、役所で国保をやめる届出をします。
+    where: 市区町村の役所
+links:
+  - {label: 日本年金機構 被扶養者にするとき・異動があったときの手続き, url: "https://www.nenkin.go.jp/service/kounen/tekiyo/hihokensha1/20141202.html"}
+  - {label: 日本年金機構 19歳以上23歳未満の方の被扶養者認定の年間収入要件, url: "https://www.nenkin.go.jp/oshirase/taisetu/2025/202508/0819.html"}

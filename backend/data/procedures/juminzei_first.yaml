@@ -1,0 +1,22 @@
+id: juminzei_first
+title: 就職1〜2年目の住民税
+category: tax
+summary: 住民税は前の年の収入にかかります。就職1年目は給与から引かれず、2年目の6月から引かれ始めるので、手取りが減ります。学生のときのアルバイト収入が多いと、就職1年目に納付書が届くことがあります。
+deadline: 2年目の6月から給与天引き（納付書の場合は6月・8月・10月・1月）
+office: 勤務先・住んでいる市区町村
+relations:
+  - {field: life_events, value: new_job, flag: conditional, score: 0.7, reason: 住民税は前の年の収入にかかるので、就職2年目の6月から給与天引きが始まるため}
+  - {field: life_events, value: part_time_more, flag: conditional, score: 0.3, reason: アルバイトの収入が増えると、翌年に住民税がかかることがあるため}
+  - {field: occupation, value: student, flag: conditional, score: 0.3, reason: 学生でも、アルバイトの収入しだいで翌年に住民税がかかるため}
+steps:
+  - title: 1年目は給与から引かれない
+    detail: 前の年に収入がなければ、住民税はかかりません。前の年のアルバイト収入で住民税がかかっていれば、市区町村から納付書が届きます（6月・8月・10月・1月の4回）。
+  - title: 2年目の5〜6月に税額の通知を受け取る
+    detail: 1年目の収入にかかる住民税の額が、勤務先から「税額決定通知書」で渡されます。
+    where: 勤務先
+    documents: [特別徴収税額決定通知書]
+  - title: 2年目の6月から給与天引きが始まる
+    detail: 6月から翌年5月までの12回に分けて給与から引かれます。そのぶん手取りが減るので、見込んでおきます。
+links:
+  - {label: 仙台市 給与所得者に係る個人市県民税の特別徴収について, url: "https://www.city.sendai.jp/tokubetsuchoshu/kurashi/tetsuzuki/zekin/kojin/kyuyo.html"}
+  - {label: 仙台市 個人市県民税の納税について, url: "https://www.city.sendai.jp/shiminze-kikaku/kurashi/tetsuzuki/zekin/kojin/sikenminzeinituite/nouzeihouhou.html"}
