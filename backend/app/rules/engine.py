@@ -14,6 +14,9 @@ from app.schemas import Condition, ProcedureDef, Recommendation, UserProfile
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "procedures"
 
+# 必須でない手続きは、点数の合計がこの値以上なら「関係がありそうな手続き」に出す（アプリには Catalog で配る）
+THRESHOLD = 0.5
+
 OPS: dict[str, Callable[[Any, Any], bool]] = {
     "eq": lambda a, b: a == b,
     "ne": lambda a, b: a != b,
@@ -55,32 +58,52 @@ def load_procedures(data_dir: Path = DATA_DIR) -> dict[str, ProcedureDef]:
         proc = ProcedureDef.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
         if proc.id != path.stem:
             raise ValueError(f"{path.name}: id ({proc.id}) とファイル名を一致させてください")
-        for clause in proc.match:
-            for cond in clause.when:
+        if not proc.relations:
+            raise ValueError(f"{path.name}: relations がありません")
+        for rel in proc.relations:
+            for cond in [rel, *rel.when]:
                 if cond.field not in UserProfile.model_fields:
                     raise ValueError(f"{path.name}: unknown field {cond.field}")
                 if cond.op not in OPS:
                     raise ValueError(f"{path.name}: unknown op {cond.op}")
+            if rel.flag == "unrelated" and rel.score > 0:
+                raise ValueError(f"{path.name}: unrelated（無関係）の点数は 0 以下にしてください")
+            if rel.flag != "unrelated" and (rel.score <= 0 or not rel.reason):
+                raise ValueError(f"{path.name}: required / conditional には正の点数と reason を書いてください")
+            if rel.flag != "conditional" and rel.when:
+                raise ValueError(f"{path.name}: when は conditional（条件次第）のときだけ書けます")
         procs[proc.id] = proc
     return procs
 
 
 def recommend(profile: UserProfile) -> list[Recommendation]:
+    """必須のものと、必須でなく点数の合計がしきい値以上のもの（関係がありそう）を返す。必須を先に、それぞれ点数の高い順。
+
+    判定の意味はアプリの RuleEngine.kt と同じ（ここではプロフィールがすべて分かっている前提）。
+    """
     results: list[Recommendation] = []
     for proc in load_procedures().values():
-        reasons = [c.reason for c in proc.match if all(_check(w, profile) for w in c.when)]
-        if not reasons:
+        counted = [
+            r
+            for r in proc.relations
+            if _check(r, profile) and (r.flag != "conditional" or all(_check(c, profile) for c in r.when))
+        ]
+        required = any(r.flag == "required" or (r.flag == "conditional" and r.when) for r in counted)
+        score = round(sum(r.score for r in counted), 3)
+        if not required and score < THRESHOLD:
             continue
+        reasons = [r.reason for r in sorted(counted, key=lambda r: -r.score) if r.reason]
         results.append(
             Recommendation(
                 procedure_id=proc.id,
                 title=proc.title,
                 category=proc.category,
                 summary=proc.summary,
-                priority=proc.priority,
+                required=required,
+                score=score,
                 deadline=proc.deadline,
                 reasons=list(dict.fromkeys(reasons)),
             )
         )
-    results.sort(key=lambda r: r.priority, reverse=True)
+    results.sort(key=lambda r: (not r.required, -r.score))
     return results

@@ -2,13 +2,10 @@ id: hikkoshi
 title: 引越しに伴う住所変更
 category: registration
 summary: 別の市区町村に引越すときは転出届・転入届を出します。国民健康保険や国民年金も住所変更が必要です。
-priority: 70
 deadline: 転入届は引越した日から14日以内
 office: 旧住所と新住所の市区町村役所
-match:
-  - reason: 引越ししたため
-    when:
-      - {field: life_events, op: contains, value: move}
+relations:
+  - {field: life_events, value: move, flag: required, score: 1.0, reason: 引越ししたため}
 steps:
   - title: 転出届を出す（別の市区町村へ引越す場合）
     detail: マイナンバーカードがあればマイナポータルからオンラインで転出届を出せます。

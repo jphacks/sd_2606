@@ -12,23 +12,24 @@ from typing import Literal
 import yaml
 from pydantic import BaseModel, Field
 
-from app.rules.engine import load_procedures
+from app.rules.engine import THRESHOLD, load_procedures
 from app.schemas import Catalog, Choice, ProcedureDef, Question, UserProfile
 
 QUESTIONS_FILE = Path(__file__).resolve().parents[2] / "data" / "questions.yaml"
 
 
 class QuestionDef(BaseModel):
-    """questions.yaml の1項目。unit と scale は range の選択肢の表示にだけ使う。"""
+    """questions.yaml の1項目。unit と scale は range の選択肢と number の入力欄の表示に使う。"""
 
     field: str
-    kind: Literal["single", "multi", "range", "date"]
+    kind: Literal["single", "multi", "range", "number", "date"]
     text: str
+    label: str
     initial: bool = False
     none_if_empty: bool = False
     provides: list[str] = Field(default_factory=list, description="この回答からアプリが計算する項目")
     unit: str = ""
-    scale: int = Field(default=1, description="表示の単位。年収を万円で見せるなら 10000")
+    scale: int = Field(default=1, description="表示・入力の単位。年収を万円で扱うなら 10000")
     choices: list[Choice] = Field(default_factory=list)
 
 
@@ -36,10 +37,8 @@ def cut_points(field: str, procedures: Iterable[ProcedureDef]) -> list[int]:
     """field の値が境目 c 以上か未満かで、どれかの条件の結果が変わるような c の一覧。"""
     cuts: set[int] = set()
     for proc in procedures:
-        for clause in proc.match:
-            for cond in clause.when:
-                if cond.field != field:
-                    continue
+        for cond in [c for rel in proc.relations for c in (rel, *rel.when)]:
+            if cond.field == field:
                 for v in cond.value if isinstance(cond.value, list) else [cond.value]:
                     v = int(v)
                     if cond.op in ("gte", "lt"):
@@ -63,13 +62,20 @@ def _from(lo: int, q: QuestionDef) -> str:
     return f"{_num(lo, q)}{q.unit}以上"
 
 
+def _upto(hi: int, q: QuestionDef) -> str:
+    """「hi 以下」。年収の「1,499,999円以下」は「150万円未満」と書く。"""
+    if q.scale > 1 and (hi + 1) % q.scale == 0:
+        return f"{_num(hi + 1, q)}{q.unit}未満"
+    return f"{_num(hi, q)}{q.unit}以下"
+
+
 def range_label(lo: int, hi: int | None, q: QuestionDef) -> str:
     if hi is None:
         return _from(lo, q)
     if lo == hi:
         return f"{_num(lo, q)}{q.unit}"
     if lo == 0:
-        return f"{_num(hi, q)}{q.unit}以下"
+        return _upto(hi, q)
     if q.scale > 1 and lo % q.scale == 1:
         return f"{_from(lo, q)}〜{_num(hi, q)}{q.unit}以下"
     return f"{_num(lo, q)}〜{_num(hi, q)}{q.unit}"
@@ -109,10 +115,13 @@ def build_catalog() -> Catalog:
                 field=q.field,
                 kind=q.kind,
                 text=q.text,
+                label=q.label,
                 initial=q.initial,
                 none_if_empty=q.none_if_empty,
                 choices=choices,
+                unit=q.unit,
+                scale=q.scale,
                 provides=q.provides,
             )
         )
-    return Catalog(procedures=procedures, questions=questions)
+    return Catalog(procedures=procedures, questions=questions, threshold=THRESHOLD)

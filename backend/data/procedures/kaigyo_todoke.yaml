@@ -2,16 +2,11 @@ id: kaigyo_todoke
 title: 開業届と青色申告承認申請
 category: registration
 summary: 個人で事業を始めたら税務署に開業届を出します。同時に青色申告の承認申請をすると最大65万円の控除が受けられます。
-priority: 88
 deadline: 開業届は開業日から1か月以内。青色申告承認申請は開業日から2か月以内
 office: 住所地の税務署（e-Tax で提出可能）
-match:
-  - reason: 開業・独立したため
-    when:
-      - {field: life_events, op: contains, value: start_business}
-  - reason: 継続して事業をしているなら開業届が必要なため（未提出の場合）
-    when:
-      - {field: occupation, op: in, value: [self_employed, freelance]}
+relations:
+  - {field: life_events, value: start_business, flag: required, score: 0.6, reason: 開業・独立したため}
+  - {field: occupation, op: in, value: [self_employed, freelance], flag: conditional, score: 0.5, reason: 継続して事業をしているなら開業届が必要なため（未提出の場合）}
 steps:
   - title: 開業届（個人事業の開業・廃業等届出書）を作る
     detail: 屋号・事業内容・開業日を記入します。国税庁の作成コーナーなど無料ツールでも作れます。

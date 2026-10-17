@@ -1,27 +1,25 @@
 id: kakutei_shinkoku
 title: 所得税の確定申告
 category: tax
-summary: 1年間（1〜12月）の所得と税額を計算して税務署に申告し、所得税を納めます（還付を受ける場合もあります）。
-priority: 80
-deadline: 翌年2月16日〜3月15日（土日祝の場合は翌平日）
+summary: 1年間（1〜12月）の所得と税額を計算して税務署に申告し、所得税を納めます。年の途中でアルバイトや会社を辞めて年末調整を受けていない人は、申告すると引かれすぎた税金が戻ること（還付申告）があります。
+deadline: 翌年2月16日〜3月15日（土日祝の場合は翌平日）。還付申告は翌年1月から5年以内
 office: 住所地の税務署（e-Tax で自宅から提出可能）
-match:
-  - reason: 自営業・フリーランスは自分で所得を申告する必要があるため
+relations:
+  - {field: occupation, op: in, value: [self_employed, freelance], flag: required, score: 0.7, reason: 自営業・フリーランスは自分で所得を申告する必要があるため}
+  - {field: life_events, value: side_job, flag: conditional, score: 0.8, reason: 副業の所得が年20万円を超える場合は確定申告が必要なため}
+  - {field: life_events, value: resign, flag: conditional, score: 0.6, reason: 年の途中で退職（アルバイトを含む）して年末調整を受けていない場合、引かれすぎた税金が戻る可能性があるため}
+  - {field: life_events, value: part_time_more, flag: conditional, score: 0.3, reason: アルバイトを掛け持ちすると、税金が引かれすぎたり申告が必要になったりするため}
+  - {field: life_events, value: start_business, flag: conditional, score: 0.6, reason: 開業した年から、所得があれば確定申告が必要になるため}
+  - field: occupation
+    value: employee
+    flag: conditional
+    score: 0.3
+    reason: 年収が2,000万円を超える会社員は年末調整の対象外になるため
     when:
-      - {field: occupation, op: in, value: [self_employed, freelance]}
-  - reason: 副業の所得が年20万円を超える場合は確定申告が必要なため
-    when:
-      - {field: life_events, op: contains, value: side_job}
-  - reason: 年収が2,000万円を超える会社員は年末調整の対象外になるため
-    when:
-      - {field: occupation, op: eq, value: employee}
       - {field: annual_income, op: gt, value: 20000000}
-  - reason: 年の途中で退職して再就職していない場合、払いすぎた税金が戻る可能性があるため
-    when:
-      - {field: life_events, op: contains, value: resign}
 steps:
   - title: 収入と経費の資料を集める
-    detail: 源泉徴収票、売上・経費の記録、控除の証明書（社会保険料・生命保険料など）をまとめます。
+    detail: 源泉徴収票、売上・経費の記録、控除の証明書（社会保険料・生命保険料など）をまとめます。アルバイトを辞めた人は、辞めた勤務先から源泉徴収票をもらいます。
     documents: [源泉徴収票, 帳簿・領収書, 控除証明書]
   - title: 申告書を作る
     detail: 国税庁「確定申告書等作成コーナー」で画面の案内に沿って入力すると、税額が自動計算されます。
@@ -33,3 +31,5 @@ steps:
     detail: 納付は3月15日まで。振替納税なら4月中旬ごろ引き落とし。還付の場合は1か月半ほどで口座に振り込まれます。
 links:
   - {label: 国税庁 確定申告書等作成コーナー, url: "https://www.keisan.nta.go.jp/"}
+  - {label: 国税庁 No.1910 中途退職で年末調整を受けていないとき, url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1910.htm"}
+  - {label: 国税庁 No.2030 還付申告, url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/2030.htm"}

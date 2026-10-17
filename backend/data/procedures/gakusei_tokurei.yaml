@@ -2,14 +2,23 @@ id: gakusei_tokurei
 title: 国民年金の学生納付特例
 category: pension
 summary: 20歳以上の学生は、申請すると在学中の国民年金保険料の納付が猶予されます。
-priority: 85
 deadline: 毎年度（4月〜翌3月）申請。過去2年1か月分までさかのぼって申請可能
 office: 市区町村役所・年金事務所・在学中の学校（代行している場合）・マイナポータル
-match:
-  - reason: 20歳以上の学生で、保険料の納付を猶予できるため
+relations:
+  - field: occupation
+    value: student
+    flag: conditional
+    score: 0.9
+    reason: 20歳以上の学生は、国民年金の保険料の納付を猶予できるため
     when:
-      - {field: occupation, op: eq, value: student}
       - {field: age, op: gte, value: 20}
+  - field: life_events
+    value: turn_20
+    flag: conditional
+    score: 0.6
+    reason: 20歳になった学生は、国民年金の保険料の納付を猶予できるため
+    when:
+      - {field: occupation, value: student}
 steps:
   - title: 学生証（在学証明書）を用意する
     detail: 学生証のコピー、または在学証明書を用意します。

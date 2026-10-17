@@ -33,7 +33,7 @@ async def post_recommendations(profile: UserProfile) -> RecommendationResponse:
 
 @router.get("/procedures", response_model=list[Procedure])
 def list_procedures() -> list[Procedure]:
-    return [Procedure.model_validate(p.model_dump(exclude={"match"})) for p in load_procedures().values()]
+    return [Procedure.model_validate(p.model_dump(exclude={"relations"})) for p in load_procedures().values()]
 
 
 @router.get("/procedures/{procedure_id}", response_model=Procedure)
@@ -42,4 +42,4 @@ def get_procedure(procedure_id: str) -> Procedure:
     proc = load_procedures().get(procedure_id)
     if proc is None:
         raise HTTPException(status_code=404, detail="procedure not found")
-    return Procedure.model_validate(proc.model_dump(exclude={"match"}))
+    return Procedure.model_validate(proc.model_dump(exclude={"relations"}))

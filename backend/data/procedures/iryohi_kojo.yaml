@@ -2,16 +2,12 @@ id: iryohi_kojo
 title: 医療費控除
 category: tax
 summary: 1年間に支払った医療費が10万円（所得200万円未満なら所得の5%）を超えた分を、所得から差し引けます。
-priority: 60
 deadline: 翌年の確定申告（還付申告は5年以内なら可能）
 office: 税務署（e-Tax で提出可能）
-match:
-  - reason: 医療費が多くかかったため、税金が戻る可能性があるため
-    when:
-      - {field: life_events, op: contains, value: high_medical_expense}
-  - reason: 出産にかかった費用の一部が医療費控除の対象になるため
-    when:
-      - {field: life_events, op: contains, value: childbirth}
+relations:
+  # 医療費が年10万円などを超えるかで決まるので、必須にはしない
+  - {field: life_events, value: high_medical_expense, flag: conditional, score: 0.7, reason: 医療費が多くかかったため、税金が戻る可能性があるため}
+  - {field: life_events, value: childbirth, flag: conditional, score: 0.5, reason: 出産にかかった費用の一部が医療費控除の対象になるため}
 steps:
   - title: 医療費の領収書・医療費通知を集める
     detail: 家族（生計を一にする人）の分も合算できます。保険で補てんされた額は差し引きます。

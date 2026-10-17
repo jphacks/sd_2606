@@ -1,34 +1,43 @@
 id: kokumin_nenkin
 title: 国民年金（第1号被保険者）の手続き
 category: pension
-summary: 20〜59歳で厚生年金に入っていない人は、国民年金の第1号被保険者として自分で手続きし、保険料を納めます。
-priority: 90
-deadline: 該当した日から14日以内
+summary: 20〜59歳で厚生年金に入っていない人は、国民年金の第1号被保険者として保険料を納めます。20歳になったときは届出は要らず、日本年金機構から書類が届きます。会社を辞めたときは、自分で切り替えを届け出ます。
+deadline: 20歳になったときは届出不要（約2週間で書類が届く）。退職したときは14日以内に切り替えを届け出る
 office: 住んでいる市区町村の役所（国民年金の窓口）
-match:
-  - reason: 退職して厚生年金から外れるため
+relations:
+  - {field: life_events, value: turn_20, flag: required, score: 1.0, reason: 20歳になると国民年金に加入するため}
+  - field: life_events
+    value: resign
+    flag: conditional
+    score: 0.8
+    reason: 退職して厚生年金から外れる20〜59歳は、国民年金に切り替えるため
     when:
-      - {field: life_events, op: contains, value: resign}
-      - {field: age, op: gte, value: 20}
-      - {field: age, op: lt, value: 60}
-  - reason: 自営業・フリーランス・無職の20〜59歳は国民年金に加入するため（会社員を兼ねる場合は厚生年金）
-    when:
-      - {field: occupation, op: in, value: [self_employed, freelance, unemployed]}
       - {field: occupation, op: ne, value: employee}
       - {field: age, op: gte, value: 20}
       - {field: age, op: lt, value: 60}
-  - reason: 20歳になると国民年金への加入が必要になるため
+  - field: occupation
+    op: in
+    value: [self_employed, freelance, unemployed]
+    flag: conditional
+    score: 0.5
+    reason: 自営業・フリーランス・無職の20〜59歳は国民年金に加入するため（会社員を兼ねる場合は厚生年金）
     when:
-      - {field: life_events, op: contains, value: turn_20}
+      - {field: occupation, op: ne, value: employee}
+      - {field: age, op: gte, value: 20}
+      - {field: age, op: lt, value: 60}
+  - {field: occupation, value: employee, flag: unrelated, score: -1.0}  # 厚生年金に入る
 steps:
-  - title: 届け出に必要なものをそろえる
-    detail: 退職した場合は、退職日が分かる書類（離職票や退職証明書など）を用意します。20歳になった人には日本年金機構から書類が届きます。
-    documents: [基礎年金番号が分かるもの, 退職日が分かる書類, マイナンバーカード]
-  - title: 役所またはマイナポータルで届け出る
-    detail: 第1号被保険者への種別変更（または資格取得）を届け出ます。
-    where: 市区町村役所・マイナポータル
-  - title: 保険料を納める（難しければ免除・猶予を申請）
-    detail: 収入が少ない・失業した場合は、保険料の免除や納付猶予を申請できます。未納のままにすると将来の年金や障害年金に影響します。
-    where: 市区町村役所・年金事務所
+  - title: 20歳になったら、届いた書類を確かめる
+    detail: 20歳になって約2週間で、日本年金機構から「国民年金加入のお知らせ」「基礎年金番号通知書」と、納付書・申請書が届きます。加入の届出は要りません。2週間たっても届かなければ、役所か年金事務所で手続きします。
+    documents: [国民年金加入のお知らせ, 基礎年金番号通知書]
+  - title: 保険料の納め方を選ぶ
+    detail: 自分で納める（口座振替や前納なら割引あり）、学生なら学生納付特例を申請する、収入が少なければ免除・納付猶予を申請する、のどれかを選びます。家族が代わりに納めると、家族の税金の社会保険料控除になります。
+  - title: 会社を辞めたら、切り替えを届け出る（14日以内）
+    detail: 次の勤務先が決まっていない20〜59歳は、厚生年金から国民年金（第1号）への切り替えを届け出ます。マイナポータルからもできます。
+    where: 市区町村の役所・マイナポータル
+    documents: [退職日が分かる書類（離職票や退職証明書など）, マイナンバーカード]
+  - title: 払えないときは放っておかない
+    detail: 未納のままにすると、将来の年金だけでなく障害年金にも影響します。払えないときは免除・納付猶予を申請します。
 links:
-  - {label: 日本年金機構 国民年金の加入手続き, url: "https://www.nenkin.go.jp/service/kokunen/kanyu/20140710.html"}
+  - {label: 日本年金機構 20歳到達時の国民年金の手続き, url: "https://www.nenkin.go.jp/service/kokunen/kanyu/hatachi-tetsuduki.html"}
+  - {label: 日本年金機構 国民年金に加入するための手続き, url: "https://www.nenkin.go.jp/service/kokunen/kanyu/20140710-04.html"}

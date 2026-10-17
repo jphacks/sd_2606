@@ -14,6 +14,13 @@ Occupation = Literal[
     "retired",  # 退職済み（年金生活など）
 ]
 
+SupportedBy = Literal[
+    "parent",  # 親の扶養に入っている
+    "spouse",  # 配偶者の扶養に入っている
+    "none",  # 入っていない
+    "unknown",
+]
+
 HealthInsurance = Literal[
     "employer",  # 勤務先の健康保険（協会けんぽ・健保組合・共済）
     "national",  # 国民健康保険
@@ -23,6 +30,7 @@ HealthInsurance = Literal[
 
 LifeEvent = Literal[
     "new_job",  # 就職・転職
+    "part_time_more",  # アルバイトを始めた・増やした
     "resign",  # 退職
     "marriage",  # 結婚
     "childbirth",  # 出産
@@ -35,6 +43,9 @@ LifeEvent = Literal[
 
 Category = Literal["tax", "insurance", "pension", "benefit", "registration"]
 
+# きっかけの回答と手続きの関係: required（必須）/ conditional（条件次第）/ unrelated（無関係）
+Flag = Literal["required", "conditional", "unrelated"]
+
 
 class UserProfile(BaseModel):
     age: int = Field(ge=0, le=120)
@@ -44,6 +55,8 @@ class UserProfile(BaseModel):
     occupation: list[Occupation] = Field(description="働き方（複数可。例: 会社員とフリーランスの副業）")
     annual_income: int = Field(ge=0, description="年収（円）")
     health_insurance: HealthInsurance = "unknown"
+    supported_by: SupportedBy | None = Field(default=None, description="誰の扶養に入っているか（税・健康保険）")
+    prev_health_insurance: HealthInsurance | None = Field(default=None, description="就職する前に入っていた健康保険")
     has_spouse: bool = False
     dependents: int = Field(default=0, ge=0, description="扶養している家族の人数")
     life_events: list[LifeEvent] = Field(default_factory=list)
@@ -67,13 +80,12 @@ class FlowStep(BaseModel):
 
 
 class Procedure(BaseModel):
-    """data/procedures/*.yaml の1ファイル分（判定条件 match は除く）。"""
+    """data/procedures/*.yaml の1ファイル分（判定条件 relations は除く）。"""
 
     id: str
     title: str
     category: Category
     summary: str
-    priority: int = Field(ge=0, le=100, description="大きいほど優先して表示")
     deadline: str | None = None
     office: str | None = None
     steps: list[FlowStep] = Field(default_factory=list)
@@ -85,7 +97,8 @@ class Recommendation(BaseModel):
     title: str
     category: Category
     summary: str
-    priority: int
+    required: bool = Field(description="必須と判定した（false なら「関係がありそう」）")
+    score: float = Field(description="関係の強さ（数えた relations の点数の合計）")
     deadline: str | None = None
     reasons: list[str] = Field(description="この人に該当すると判定した理由（ルールから）")
     personal_note: str | None = Field(default=None, description="LLM による個別の補足。生成できなければ null")
@@ -102,21 +115,28 @@ class RecommendationResponse(BaseModel):
 
 class Condition(BaseModel):
     field: str
-    op: str
+    op: str = "eq"
     value: Any
 
 
-class MatchClause(BaseModel):
-    """when の条件をすべて満たせば、reason を理由としてこの手続きが該当する。"""
+class Relation(Condition):
+    """きっかけ（field / op / value。例: ライフイベントに退職がある）に当てはまるときの、手続きとの関係。"""
 
-    reason: str
-    when: list[Condition]
+    flag: Flag = Field(
+        description="required: 必須 / conditional: when をすべて満たせば必須（条件次第）/ unrelated: 必須にはならない"
+    )
+    score: float = Field(ge=-1, le=1, description="関係の強さ。1: 強く関係する ～ -1: 当てはまると関係が無くなる")
+    reason: str | None = Field(default=None, description="画面に出す理由（required / conditional のとき）")
+    when: list[Condition] = Field(
+        default_factory=list,
+        description="conditional の条件。満たさない条件があればこの行は数えない。未回答があればアプリが聞く",
+    )
 
 
 class ProcedureDef(Procedure):
-    """判定条件 match を含む手続き。アプリはこれを受け取り、端末内で判定する。"""
+    """判定条件を含む手続き。アプリはこれを受け取り、端末内で判定する。"""
 
-    match: list[MatchClause]
+    relations: list[Relation] = Field(description="きっかけの回答ごとの関係（状態・点数・理由）")
 
 
 class Choice(BaseModel):
@@ -128,13 +148,16 @@ class Choice(BaseModel):
 
 class Question(BaseModel):
     field: str = Field(description="回答の項目名。UserProfile の項目名か、birth_date")
-    kind: Literal["single", "multi", "range", "date"]
+    kind: Literal["single", "multi", "range", "number", "date"]
     text: str
+    label: str = Field(description="項目の短い名前。「判定には生年月日が必要です」のような案内に使う")
     initial: bool = Field(default=False, description="true なら最初の画面で聞く。false は判定に必要になったときだけ聞く")
     none_if_empty: bool = Field(
         default=False, description="multi で何も選ばなかったとき、未回答ではなく「どれにも当てはまらない」として判定する"
     )
     choices: list[Choice] = Field(default_factory=list)
+    unit: str = Field(default="", description="number の単位（画面の表示用）")
+    scale: int = Field(default=1, description="number の入力の単位。年収を万円で入れるなら 10000（保存は円）")
     provides: list[str] = Field(
         default_factory=list,
         description="この回答から計算する項目（birth_date → age, age_at_year_end）。計算はアプリが端末内で行う",
@@ -144,3 +167,4 @@ class Question(BaseModel):
 class Catalog(BaseModel):
     procedures: list[ProcedureDef]
     questions: list[Question]
+    threshold: float = Field(description="必須でない手続きは、点数の合計がこの値以上なら「関係がありそうな手続き」に出す")

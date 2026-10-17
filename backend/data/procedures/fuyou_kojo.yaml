@@ -2,16 +2,11 @@ id: fuyou_kojo
 title: 配偶者控除・扶養控除の申告
 category: tax
 summary: 配偶者や扶養している家族がいると、所得税・住民税の控除が受けられます。会社員は年末調整、自営業者は確定申告で申告します。
-priority: 65
 deadline: 年末調整（11〜12月ごろ勤務先に提出）または翌年の確定申告
 office: 勤務先・税務署
-match:
-  - reason: 結婚して配偶者控除・配偶者特別控除の対象になる可能性があるため
-    when:
-      - {field: life_events, op: contains, value: marriage}
-  - reason: 扶養している家族がいるため
-    when:
-      - {field: dependents, op: gt, value: 0}
+relations:
+  - {field: dependents, op: gt, value: 0, flag: required, score: 0.6, reason: 扶養している家族がいるため}
+  - {field: life_events, value: marriage, flag: conditional, score: 0.5, reason: 結婚して配偶者控除・配偶者特別控除の対象になる可能性があるため}
 steps:
   - title: 配偶者・家族の年間所得を確認する
     detail: 配偶者控除・扶養控除は、相手の所得によって受けられるかどうかや金額が変わります。
