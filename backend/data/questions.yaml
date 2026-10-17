@@ -1,0 +1,63 @@
+# 判定に使う項目を、ユーザーにどう聞くか（書き方は docs/procedures.md）。
+#
+# - initial: true の項目だけを最初の画面で聞く。おすすめが大きく変わる項目に限る
+# - それ以外は、手続きの判定にその項目が必要になったときだけアプリが聞く
+# - kind: range の選択肢は書かない。手続き YAML の条件の境目から自動で作るので、
+#   判定に必要な細かさでしか聞かない（例: 年収は 2,000万円の境目だけ → 2択）
+# - kind: date は日付を選んでもらう。provides の項目は、アプリがその日付から端末内で計算する
+# - 手続き YAML の条件で使う項目は、すべてここに書くこと（テストで確認している）
+
+- field: life_events
+  kind: multi
+  initial: true
+  none_if_empty: true   # 何も選ばなければ「どれも無かった」として判定する
+  text: 最近あったこと・これからあることは？（複数選択可）
+  choices:
+    - {value: resign, label: 退職}
+    - {value: new_job, label: 就職・転職}
+    - {value: start_business, label: 開業・独立}
+    - {value: side_job, label: 副業を始めた}
+    - {value: marriage, label: 結婚}
+    - {value: childbirth, label: 出産}
+    - {value: move, label: 引越し}
+    - {value: turn_20, label: 20歳になった}
+    - {value: high_medical_expense, label: 医療費が多くかかった}
+
+- field: occupation
+  kind: multi           # 何も選ばなければ未回答として、判定に必要なときにもう一度聞く
+  initial: true
+  text: いまの働き方は？（複数選択可）
+  choices:
+    - {value: employee, label: 会社員・公務員}
+    - {value: part_time, label: パート・アルバイト}
+    - {value: self_employed, label: 自営業}
+    - {value: freelance, label: フリーランス}
+    - {value: student, label: 学生}
+    - {value: unemployed, label: 無職・求職中}
+    - {value: retired, label: 退職済み（年金生活など）}
+
+- field: birth_date
+  kind: date
+  text: 生年月日は？
+  # age: 今日時点の年齢 / age_at_year_end: その年の12月31日時点の年齢（所得税の控除などの判定用）
+  provides: [age, age_at_year_end]
+
+- field: health_insurance
+  kind: single
+  text: いま入っている健康保険は？
+  choices:
+    - {value: employer, label: 勤務先の保険}
+    - {value: national, label: 国民健康保険}
+    - {value: dependent, label: 家族の扶養}
+    - {value: unknown, label: わからない}
+
+- field: annual_income
+  kind: range
+  text: 年収（税込み）は？
+  unit: 万円
+  scale: 10000
+
+- field: dependents
+  kind: range
+  text: 扶養している家族は？
+  unit: 人

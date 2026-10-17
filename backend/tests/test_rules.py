@@ -36,6 +36,17 @@ def test_reasons_are_collected():
     assert len(kaigyo.reasons) == 2
 
 
+def test_multiple_occupations():
+    # 会社員でフリーランスの副業もしている人は、確定申告は必要だが国保・国民年金への加入は不要
+    result = ids(
+        UserProfile(age=30, occupation=["employee", "freelance"], annual_income=5_000_000, health_insurance="employer")
+    )
+    assert "kakutei_shinkoku" in result
+    assert "kokuho_enroll" not in result and "kokumin_nenkin" not in result
+    # 学生でアルバイトもしている20歳は学生納付特例の対象
+    assert "gakusei_tokurei" in ids(UserProfile(age=20, occupation=["student", "part_time"], annual_income=800_000))
+
+
 def test_api_recommendations_without_llm():
     res = client.post("/api/recommendations", json={"age": 22, "occupation": "student", "annual_income": 800000})
     assert res.status_code == 200

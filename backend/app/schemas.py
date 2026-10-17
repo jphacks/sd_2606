@@ -1,8 +1,8 @@
-"""API の入出力スキーマ。Android 側の data/model/Models.kt と対応させること。"""
+"""API の入出力スキーマ。Android 側の data/Models.kt と対応させること。"""
 
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 Occupation = Literal[
     "employee",  # 会社員・公務員
@@ -38,12 +38,20 @@ Category = Literal["tax", "insurance", "pension", "benefit", "registration"]
 
 class UserProfile(BaseModel):
     age: int = Field(ge=0, le=120)
-    occupation: Occupation
+    age_at_year_end: int | None = Field(
+        default=None, ge=0, le=120, description="その年の12月31日時点の年齢（所得税の控除などはこの年齢で判定する）"
+    )
+    occupation: list[Occupation] = Field(description="働き方（複数可。例: 会社員とフリーランスの副業）")
     annual_income: int = Field(ge=0, description="年収（円）")
     health_insurance: HealthInsurance = "unknown"
     has_spouse: bool = False
     dependents: int = Field(default=0, ge=0, description="扶養している家族の人数")
     life_events: list[LifeEvent] = Field(default_factory=list)
+
+    @field_validator("occupation", mode="before")
+    @classmethod
+    def _occupation_as_list(cls, v: object) -> object:
+        return [v] if isinstance(v, str) else v  # 1つだけなら文字列でも受け付ける
 
 
 class Link(BaseModel):
@@ -87,3 +95,52 @@ class RecommendationResponse(BaseModel):
     items: list[Recommendation]
     overall_advice: str | None = Field(default=None, description="LLM による全体のアドバイス")
     ai_generated: bool = False
+
+
+# --- 端末内で判定するための配信データ（GET /api/catalog）---
+
+
+class Condition(BaseModel):
+    field: str
+    op: str
+    value: Any
+
+
+class MatchClause(BaseModel):
+    """when の条件をすべて満たせば、reason を理由としてこの手続きが該当する。"""
+
+    reason: str
+    when: list[Condition]
+
+
+class ProcedureDef(Procedure):
+    """判定条件 match を含む手続き。アプリはこれを受け取り、端末内で判定する。"""
+
+    match: list[MatchClause]
+
+
+class Choice(BaseModel):
+    label: str
+    value: str | None = Field(default=None, description="single / multi の選択肢の値")
+    min: int | None = Field(default=None, description="range の下限（この値を含む）")
+    max: int | None = Field(default=None, description="range の上限（この値を含む）。null は上限なし")
+
+
+class Question(BaseModel):
+    field: str = Field(description="回答の項目名。UserProfile の項目名か、birth_date")
+    kind: Literal["single", "multi", "range", "date"]
+    text: str
+    initial: bool = Field(default=False, description="true なら最初の画面で聞く。false は判定に必要になったときだけ聞く")
+    none_if_empty: bool = Field(
+        default=False, description="multi で何も選ばなかったとき、未回答ではなく「どれにも当てはまらない」として判定する"
+    )
+    choices: list[Choice] = Field(default_factory=list)
+    provides: list[str] = Field(
+        default_factory=list,
+        description="この回答から計算する項目（birth_date → age, age_at_year_end）。計算はアプリが端末内で行う",
+    )
+
+
+class Catalog(BaseModel):
+    procedures: list[ProcedureDef]
+    questions: list[Question]

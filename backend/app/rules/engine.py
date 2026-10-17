@@ -9,9 +9,8 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel
 
-from app.schemas import Procedure, Recommendation, UserProfile
+from app.schemas import Condition, ProcedureDef, Recommendation, UserProfile
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "procedures"
 
@@ -28,27 +27,25 @@ OPS: dict[str, Callable[[Any, Any], bool]] = {
 }
 
 
-class Condition(BaseModel):
-    field: str
-    op: str
-    value: Any
-
-
-class MatchClause(BaseModel):
-    """when の条件をすべて満たせば、reason を理由としてこの手続きが該当する。"""
-
-    reason: str
-    when: list[Condition]
-
-
-class ProcedureDef(Procedure):
-    match: list[MatchClause]
+# 複数選択の項目（life_events・occupation）では、eq / in は「選んだどれかが当てはまる」、
+# ne / not_in は「選んだどれも当てはまらない」。アプリの RuleEngine.kt も同じ意味で判定する
+LIST_OPS: dict[str, Callable[[list, Any], bool]] = {
+    "eq": lambda a, b: b in a,
+    "ne": lambda a, b: b not in a,
+    "in": lambda a, b: any(x in b for x in a),
+    "not_in": lambda a, b: not any(x in b for x in a),
+}
 
 
 def _check(cond: Condition, profile: UserProfile) -> bool:
     if cond.op not in OPS:
         raise ValueError(f"unknown op: {cond.op}")
-    return OPS[cond.op](getattr(profile, cond.field), cond.value)
+    value = getattr(profile, cond.field)
+    if value is None:  # 未入力の項目を使う条件は満たさないものとする
+        return False
+    if isinstance(value, list) and cond.op in LIST_OPS:
+        return LIST_OPS[cond.op](value, cond.value)
+    return OPS[cond.op](value, cond.value)
 
 
 @lru_cache

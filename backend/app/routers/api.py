@@ -2,14 +2,24 @@ from fastapi import APIRouter, HTTPException
 
 from app.llm.explain import explain
 from app.rules.engine import load_procedures, recommend
-from app.schemas import Procedure, RecommendationResponse, UserProfile
+from app.rules.questions import build_catalog
+from app.schemas import Catalog, Procedure, RecommendationResponse, UserProfile
 
 router = APIRouter(prefix="/api")
 
 
+@router.get("/catalog", response_model=Catalog)
+def get_catalog() -> Catalog:
+    """全手続き（判定条件つき）と質問の定義。アプリはこれを受け取って端末内で判定し、ユーザーの情報は送らない。"""
+    return build_catalog()
+
+
 @router.post("/recommendations", response_model=RecommendationResponse)
 async def post_recommendations(profile: UserProfile) -> RecommendationResponse:
-    """プロフィールから関係しそうな手続きを優先度順に返す。"""
+    """プロフィールから関係しそうな手続きを優先度順に返す。
+
+    アプリはプロフィールを送らない方針にしたため使っていない（判定は /api/catalog を使って端末内で行う）。
+    """
     items = recommend(profile)
     explanation = await explain(profile, items)
     if explanation is None:

@@ -11,9 +11,10 @@ match:
       - {field: life_events, op: contains, value: resign}
       - {field: age, op: gte, value: 20}
       - {field: age, op: lt, value: 60}
-  - reason: 自営業・フリーランス・無職の20〜59歳は国民年金に加入するため
+  - reason: 自営業・フリーランス・無職の20〜59歳は国民年金に加入するため（会社員を兼ねる場合は厚生年金）
     when:
       - {field: occupation, op: in, value: [self_employed, freelance, unemployed]}
+      - {field: occupation, op: ne, value: employee}
       - {field: age, op: gte, value: 20}
       - {field: age, op: lt, value: 60}
   - reason: 20歳になると国民年金への加入が必要になるため
