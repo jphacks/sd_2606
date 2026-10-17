@@ -13,5 +13,6 @@ cd backend
 .venv/bin/pip install --quiet --upgrade -r requirements.txt
 
 sudo systemctl restart sd2606-api
-sleep 2
-curl -fsS http://127.0.0.1:8606/health && echo
+# Pi では起動に数秒かかるので待つ
+for _ in $(seq 30); do curl -fsS http://127.0.0.1:8606/health 2>/dev/null && echo && exit 0; sleep 1; done
+echo "API が起動しません: journalctl -u sd2606-api -n 50" >&2; exit 1
