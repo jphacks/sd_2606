@@ -1,52 +1,66 @@
 # 構成
 
 ```
-┌──────────────────────┐   HTTPS (JSON)   ┌───────────────────────────────┐
-│ Android アプリ        │ ───────────────▶ │ FastAPI (backend/)            │
-│ Kotlin + Compose      │                  │  ├ rules/  YAML の制度データ   │
-│  プロフィール入力       │ ◀─────────────── │  │         でルール判定        │
-│  → おすすめ一覧        │                  │  └ llm/    Claude で個別の補足 │
-│  → 手続きフロー         │                  └───────────────┬───────────────┘
-└──────────────────────┘                                  │
-                                                          ▼
-                                                 Claude API（任意）
+┌─ Android アプリ（Kotlin + Compose）──────┐                  ┌─ FastAPI (backend/) ──────────────┐
+│ ① 最初の質問（2問だけ）                    │  GET /api/catalog │ data/procedures/*.yaml  制度データ │
+│ ② おすすめ一覧 ＋「答えると分かる手続き」   │ ◀──────────────── │ data/questions.yaml     質問の定義 │
+│ ③ 手続きフロー                             │  制度データと     │ rules/questions.py      選択肢を   │
+│                                            │  判定ルールだけ   │                         ルールから │
+│ RuleEngine  端末内でルール判定（3値）       │                  │                         自動生成   │
+│ LocalStore  回答は端末の中だけに保存        │ ──────╳─────────▶ └────────────────────────────────────┘
+└────────────────────────────────────────────┘  回答は送らない
 ```
 
-- **判定はルール、説明は LLM**: 「どの手続きが該当するか」は `backend/data/procedures/*.yaml` の条件で決める（毎回同じ結果になり、根拠を説明できる）。Claude は該当した手続きについて、その人向けの補足文と全体のアドバイスを書くだけ。API キーが無い・失敗したときはルール判定の結果だけを返す
-- **API キーはサーバー側だけ**: APK に入れると抜き取られるため、Claude の呼び出しはバックエンドで行う
+- **ユーザーの情報は送らない**: アプリがサーバーから受け取るのは、制度データ（手続きの説明・フロー・判定ルール）と質問の定義だけ。判定はアプリの中（`data/RuleEngine.kt`）で行い、回答は端末の中（`data/LocalStore.kt`）にだけ保存する。サーバーのログにも、誰が何に当てはまるかは残らない
+- **最初の質問は最小限、残りは必要になったときに聞く**: 最初の画面ではおすすめが大きく変わる項目（`questions.yaml` の `initial: true`。いまはライフイベントと働き方）だけを聞く。それ以外の項目は、ある手続きが「その項目しだいで該当するかどうか決まる」ときにだけ、一覧の「答えると分かる手続き」や手続きの画面で1問ずつ聞く
+- **未回答は「まだ分からない」として判定する**: 条件ごとに 真・偽・不明 の3値で判定する。どれかの `when` がすべて真なら「必要」、どれも偽を含むなら「対象外」、それ以外は「答えると分かる」になり、不明の原因になった項目だけを質問として出す
+- **判定に必要な細かさでしか聞かない**: 年収・扶養家族の人数などの数値は、手続き YAML の条件の境目から選択肢を自動で作る（`backend/app/rules/questions.py`）。たとえば年収の条件が「2,000万円を超えるか」だけなら「2,000万円以下 / 超」の2択になる。アプリは数値そのものではなく選んだ範囲だけを持つ
+- **年齢は生年月日から計算する**: 生年月日を聞いて端末に保存し、判定のたびに `age`（今日時点の年齢）と `age_at_year_end`（その年の12月31日時点の年齢。所得税の控除などはこの年齢で決まる）を計算する。手続き YAML ではこの2つを条件に使える
+- **働き方は複数選べる**（例: 会社員とフリーランスの副業、学生とアルバイト）。複数選択の項目では、`eq` / `in` は「選んだどれかが当てはまる」、`ne` / `not_in` は「選んだどれも当てはまらない」と判定する
+- **判定はルール**: 「どの手続きが該当するか」は `backend/data/procedures/*.yaml` の条件で決める（毎回同じ結果になり、根拠を説明できる）。制度が変わったらサーバーのデータを直すだけで、アプリを更新せずに反映できる
+- **通信できなくても使える**: アプリは前回受け取った制度データを端末に残し、取得に失敗したときはそれで判定する（画面に注記を出す）
+- **LLM（Claude）の補足**: バックエンドには、プロフィールを受け取って Claude で補足文を付ける `POST /api/recommendations` が残っているが、プロフィールを送ることになるため、いまのアプリからは使っていない。API キーはサーバー側だけに置く
 
 ## ディレクトリ
 
 ```
 sd_2606/
 ├── android/                         Android アプリ（Android Studio でこのフォルダを開く）
-│   └── app/src/main/java/jp/jphacks/sd2606/
-│       ├── MainActivity.kt
-│       ├── data/                    API 通信・データ型
-│       │   ├── Models.kt            API の入出力（backend/app/schemas.py と対応）
-│       │   ├── Labels.kt            選択肢の値 → 日本語の表示名
-│       │   ├── ApiClient.kt         Retrofit
-│       │   └── SampleData.kt        Preview 用ダミー
-│       └── ui/
-│           ├── AppNavHost.kt        画面遷移
-│           ├── AppViewModel.kt      画面をまたぐ状態
-│           ├── Common.kt            共通部品
-│           ├── profile/             ① プロフィール入力
-│           ├── recommend/           ② おすすめ手続き一覧
-│           ├── flow/                ③ 手続きフロー（タイムライン）
-│           └── theme/
+│   └── app/src/
+│       ├── main/java/jp/jphacks/sd2606/
+│       │   ├── MainActivity.kt
+│       │   ├── data/
+│       │   │   ├── Models.kt        GET /api/catalog の型（backend/app/schemas.py の Catalog と対応）
+│       │   │   ├── Answer.kt        回答の型（単一選択・複数選択・範囲・日付）
+│       │   │   ├── RuleEngine.kt    端末内のルール判定（3値）、生年月日からの年齢計算、「答えると分かる」質問の抽出
+│       │   │   ├── LocalStore.kt    回答と制度データのキャッシュを端末に保存
+│       │   │   ├── Labels.kt        分類（税金・保険など）の表示名
+│       │   │   ├── ApiClient.kt     Retrofit（制度データの取得だけ）
+│       │   │   └── SampleData.kt    Preview 用ダミー
+│       │   └── ui/
+│       │       ├── AppNavHost.kt    画面遷移（横スライド）
+│       │       ├── AppViewModel.kt  制度データ・回答・判定結果
+│       │       ├── Questions.kt     質問の選択肢・質問カード・保存している回答のダイアログ
+│       │       ├── Common.kt        共通部品
+│       │       ├── profile/         ① 最初の質問
+│       │       ├── recommend/       ② おすすめ一覧
+│       │       ├── flow/            ③ 手続きフロー（タイムライン）
+│       │       └── theme/
+│       └── test/                    RuleEngine の単体テスト
 ├── backend/                         FastAPI
 │   ├── app/
 │   │   ├── main.py
 │   │   ├── schemas.py               API の入出力
 │   │   ├── routers/api.py           エンドポイント
-│   │   ├── rules/engine.py          ルールエンジン
-│   │   └── llm/explain.py           Claude による補足生成
+│   │   ├── rules/engine.py          制度データの読み込みとルール判定（サーバー側）
+│   │   ├── rules/questions.py       質問の定義の読み込みと、range の選択肢の自動生成
+│   │   └── llm/explain.py           Claude による補足生成（いまのアプリでは未使用）
 │   ├── data/procedures/*.yaml       制度データ（1手続き1ファイル）→ docs/procedures.md
+│   ├── data/questions.yaml          質問の定義 → docs/procedures.md
 │   ├── tests/
 │   └── deploy/pi/                   Raspberry Pi へのデプロイ設定（→ サーバー構成）
 ├── docs/
-└── .github/workflows/ci.yml         backend のテストと APK ビルド
+└── .github/workflows/ci.yml         backend のテスト、APK のビルドと単体テスト
 ```
 
 ## API
@@ -54,25 +68,25 @@ sd_2606/
 | メソッド | パス | 内容 |
 | --- | --- | --- |
 | GET | `/health` | 稼働確認 |
-| POST | `/api/recommendations` | プロフィール（`UserProfile`）→ 該当する手続きを優先度順に返す。LLM が使えれば `personal_note` と `overall_advice` が付く |
-| GET | `/api/procedures` | 全手続きの一覧 |
+| GET | `/api/catalog` | **アプリが使うのはこれだけ**。全手続き（判定条件 `match` つき）と質問の定義（`questions`）を返す |
+| GET | `/api/procedures` | 全手続きの一覧（判定条件なし） |
 | GET | `/api/procedures/{id}` | 手続きの詳細とフロー（`steps`） |
+| POST | `/api/recommendations` | プロフィール（`UserProfile`）→ 該当する手続き。LLM が使えれば補足文が付く。**アプリからは使っていない**（プロフィールを送ることになるため） |
 
 スキーマの詳細はバックエンド起動中に `http://localhost:8000/docs`（Swagger UI）で見られる。
 
-リクエスト例:
+`GET /api/catalog` の `questions` の例:
 
 ```json
-POST /api/recommendations
-{
-  "age": 28,
-  "occupation": "unemployed",
-  "annual_income": 0,
-  "health_insurance": "unknown",
-  "has_spouse": false,
-  "dependents": 0,
-  "life_events": ["resign"]
-}
+[
+  {"field": "occupation", "kind": "multi", "initial": true, "text": "いまの働き方は？（複数選択可）",
+   "choices": [{"label": "会社員・公務員", "value": "employee"}, "..."]},
+  {"field": "birth_date", "kind": "date", "initial": false, "text": "生年月日は？",
+   "provides": ["age", "age_at_year_end"]},
+  {"field": "annual_income", "kind": "range", "initial": false, "text": "年収（税込み）は？",
+   "choices": [{"label": "2,000万円以下", "min": 0, "max": 20000000},
+               {"label": "2,000万円超", "min": 20000001, "max": null}]}
+]
 ```
 
 ## サーバー構成（共有バックエンド）
@@ -166,7 +180,7 @@ bash ~/sd_2606/backend/deploy/pi/install-tunnel.sh   # 公開 URL が表示さ�
 ### セキュリティ上の考え方
 
 - 外部に出しているのは API（`sd2606-api`）だけ。API は 127.0.0.1 で待ち受け、トンネルを通してしか届かない
-- API に認証は無い。そのため、本物の個人情報を受け取らない設計にしている（年齢・職業などの選択項目だけ）
+- API に認証は無い。アプリは制度データを受け取るだけで、ユーザーの回答を送らない設計にしている（判定は端末内）
 - Claude の API キーは Pi の `.env` にだけ置き、アプリにもリポジトリにも入れない。呼び出し回数はサーバー全体で制限する
 - サービスは一般ユーザー権限で動かし、systemd のサンドボックスでシステムやホームディレクトリへの書き込みを禁止している
 
@@ -177,10 +191,10 @@ bash ~/sd_2606/backend/deploy/pi/install-tunnel.sh   # 公開 URL が表示さ�
 - 家庭用の回線と電源で動いているので、停電・回線の不調で止まることがある。デモの前には `/health` を確認する
 - 固定 URL の経路として Tailscale Funnel（ポート 8443）も設定済みだが、Tailscale 側で公開 DNS が登録されず、2026-10-17 時点では外部から届かない
 
-## フィールドを増やすとき
+## 質問する項目を増やすとき
 
 1. `backend/app/schemas.py` の `UserProfile`（選択肢なら `Literal`）に追加
-2. `android/.../data/Models.kt` の `UserProfile` に追加（JSON 名は `@SerialName` で snake_case に）
-3. 選択肢なら `android/.../data/Labels.kt` に表示名を追加
-4. 入力欄を `ui/profile/ProfileScreen.kt` に追加
-5. YAML の条件で使う
+2. `backend/data/questions.yaml` に聞き方を追加（`initial: true` にするのは、おすすめが大きく変わる項目だけ）
+3. 手続き YAML の条件で使う
+
+アプリ側の変更は要らない（質問の文言・選択肢はサーバーから受け取る）。詳しくは [procedures.md](procedures.md)。
