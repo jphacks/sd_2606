@@ -42,10 +42,10 @@ object SampleData {
         procedures = listOf(kokuho, nenkin),
         questions = listOf(
             Question(
-                field = "occupation", kind = "multi", text = "いまの働き方は？", label = "働き方", initial = true,
+                field = "occupation", kind = "multi", text = "いまの働き方は？", label = "働き方", required = true,
                 choices = listOf(Choice("会社員・公務員", "employee"), Choice("フリーランス", "freelance"), Choice("無職・求職中", "unemployed")),
             ),
-            Question(field = "birth_date", kind = "date", text = "生年月日は？", label = "生年月日", initial = true, provides = listOf("age", "age_at_year_end")),
+            Question(field = "birth_date", kind = "date", text = "生年月日は？", label = "生年月日", required = true, provides = listOf("age", "age_at_year_end")),
         ),
     )
 

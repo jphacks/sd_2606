@@ -89,7 +89,7 @@ object RuleEngine {
      * - きっかけに当てはまる行だけを数える
      * - required の行があれば必要。conditional は conditions をすべて満たせば必要、満たさない条件があればその行は数えない、
      *   未回答の条件があれば点数だけ数える。conditions の無い conditional は点数だけ
-     * - 必要でなく、unrelated の行が当てはまるか、点数の合計がしきい値（null は -inf）未満なら対象外
+     * - 必要でなく、unrelated の行が当てはまる（conditions があればすべて満たす）か、点数の合計がしきい値（null は -inf）未満なら対象外
      * - それ以外は関係がありそう
      */
     fun evaluate(
@@ -115,9 +115,10 @@ object RuleEngine {
                 Tri.FALSE -> continue
                 Tri.UNKNOWN -> {
                     when {
+                        conditions.any { it.second == Tri.FALSE } -> Unit // 答えても、この行は当てはまらない
                         rel.flag == "unrelated" -> canExclude += rel.field
                         rel.flag == "required" -> canRequire += rel.field
-                        conditions.isNotEmpty() && conditions.none { it.second == Tri.FALSE } -> canRequire += rel.field
+                        conditions.isNotEmpty() -> canRequire += rel.field
                     }
                     continue
                 }
@@ -125,7 +126,15 @@ object RuleEngine {
             }
             when (rel.flag) {
                 "required" -> isRequired = true
-                "unrelated" -> excluded += rel
+                "unrelated" -> {
+                    if (conditions.any { it.second == Tri.FALSE }) continue
+                    val unknown = conditions.filter { it.second == Tri.UNKNOWN }.map { it.first.field }
+                    if (unknown.isNotEmpty()) {
+                        canExclude += unknown // 分かるまでは対象外にせず、点数にも数えない
+                        continue
+                    }
+                    excluded += rel
+                }
                 "conditional" -> {
                     if (conditions.any { it.second == Tri.FALSE }) continue
                     val unknown = conditions.filter { it.second == Tri.UNKNOWN }.map { it.first.field }
@@ -165,6 +174,27 @@ object RuleEngine {
         SortOrder.DEADLINE -> items.sortedWith(
             compareBy<Scored, LocalDate?>(nullsLast()) { it.procedure.due?.dateFrom(today) }.thenByDescending { it.score },
         )
+    }
+
+    private val placeholder = Regex("""\{(\w+)\}""")
+
+    /**
+     * 説明文の {annual_income} などを、その人の回答（「140万円」「20歳」）に置き換える。
+     * 未回答なら「（年収は未入力）」にする。回答は端末の中で使うだけで、送らない。
+     */
+    fun fillIn(text: String, rawAnswers: Map<String, Answer>, questions: List<Question>, today: LocalDate = LocalDate.now()): String {
+        if ('{' !in text) return text
+        val answers = withDerived(rawAnswers, today)
+        return placeholder.replace(text) { m ->
+            val field = m.groupValues[1]
+            val question = questions.firstOrNull { it.field == field }
+            val answer = answers[field]
+            when {
+                question != null && answer != null -> question.describe(answer)
+                answer is Answer.Range && answer.min == answer.max -> "${answer.min}歳" // 生年月日から計算した age・age_at_year_end
+                else -> "（${questionFor(field, questions)?.name ?: field}は未入力）"
+            }
+        }
     }
 
     /** 項目に答えるための質問（age なら生年月日の質問）。 */

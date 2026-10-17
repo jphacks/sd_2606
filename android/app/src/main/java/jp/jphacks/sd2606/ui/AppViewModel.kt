@@ -78,7 +78,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun submitInitial() {
         val catalog = (_state.value.catalog as? UiResult.Success)?.data ?: return
         catalog.questions
-            .filter { it.initial && it.noneIfEmpty && it.field !in _state.value.answers }
+            .filter { it.required && it.noneIfEmpty && it.field !in _state.value.answers }
             .forEach { answer(it.field, Answer.Multi(emptyList())) }
     }
 

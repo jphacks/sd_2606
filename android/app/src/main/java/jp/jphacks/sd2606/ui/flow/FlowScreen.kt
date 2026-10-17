@@ -96,7 +96,7 @@ fun FlowScreen(
                     )
                 }
                 itemsIndexed(steps) { index, view ->
-                    StepRow(index + 1, view, catalog.questions, isLast = index == steps.lastIndex)
+                    StepRow(index + 1, view, catalog.questions, state.answers, isLast = index == steps.lastIndex)
                 }
                 items(proc.links) { link ->
                     TextButton(onClick = { uriHandler.openUri(link.url) }) { Text("🔗 ${link.label}") }
@@ -201,7 +201,7 @@ private fun Header(proc: ProcedureDef) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun StepRow(number: Int, view: StepView, questions: List<Question>, isLast: Boolean) {
+private fun StepRow(number: Int, view: StepView, questions: List<Question>, answers: Map<String, Answer>, isLast: Boolean) {
     val step = view.step
     Row(Modifier.height(IntrinsicSize.Min)) {
         // 左側: 番号の丸と、次のステップへの線
@@ -229,7 +229,7 @@ private fun StepRow(number: Int, view: StepView, questions: List<Question>, isLa
                 .weight(1f),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Text(step.title, style = MaterialTheme.typography.titleSmall)
+            Text(RuleEngine.fillIn(step.title, answers, questions), style = MaterialTheme.typography.titleSmall)
             if (view.unknown.isNotEmpty()) {
                 val names = view.unknown.mapNotNull { RuleEngine.questionFor(it, questions)?.name }.distinct().joinToString("・")
                 Text(
@@ -238,7 +238,8 @@ private fun StepRow(number: Int, view: StepView, questions: List<Question>, isLa
                     color = MaterialTheme.colorScheme.tertiary,
                 )
             }
-            Text(step.detail, style = MaterialTheme.typography.bodyMedium)
+            // 「見込みの{annual_income}なら」のような箇所を、その人の回答に置き換える
+            Text(RuleEngine.fillIn(step.detail, answers, questions), style = MaterialTheme.typography.bodyMedium)
             step.where?.let { Text("📍 $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
             if (step.documents.isNotEmpty()) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {

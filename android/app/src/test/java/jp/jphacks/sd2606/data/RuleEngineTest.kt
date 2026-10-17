@@ -39,15 +39,20 @@ class RuleEngineTest {
               {"field": "dependents", "op": "gt", "value": 0, "flag": "required", "score": 0.8, "reason": "扶養している家族がいる"},
               {"field": "dependents", "value": 0, "flag": "unrelated", "score": -1.0, "reason": "扶養している家族がいない"}]},
             {"id": "nenkin_kojo", "title": "公的年金等控除", "category": "tax", "summary": "", "relations": [
-              {"field": "age_at_year_end", "op": "gte", "value": 65, "flag": "required", "score": 0.5, "reason": "年末時点で65歳以上"}]}
+              {"field": "age_at_year_end", "op": "gte", "value": 65, "flag": "required", "score": 0.5, "reason": "年末時点で65歳以上"}]},
+            {"id": "hazureru", "title": "扶養から外れる", "category": "insurance", "summary": "", "relations": [
+              {"field": "annual_income", "op": "gte", "value": 1500000, "flag": "required", "score": 0.6, "reason": "150万円以上"},
+              {"field": "annual_income", "op": "lte", "value": 1360000, "flag": "unrelated", "score": -1.0, "reason": "19〜22歳で136万円以下",
+               "when": [{"field": "age_at_year_end", "op": "in", "value": [19, 20, 21, 22]}]}]}
           ],
           "questions": [
-            {"field": "occupation", "kind": "multi", "text": "働き方は？", "label": "働き方", "initial": true, "choices": [
+            {"field": "occupation", "kind": "multi", "text": "働き方は？", "label": "働き方", "required": true, "choices": [
               {"label": "会社員", "value": "employee"}, {"label": "フリーランス", "value": "freelance"}, {"label": "無職", "value": "unemployed"}]},
-            {"field": "birth_date", "kind": "date", "text": "生年月日は？", "label": "生年月日", "initial": true, "provides": ["age", "age_at_year_end"]},
+            {"field": "birth_date", "kind": "date", "text": "生年月日は？", "label": "生年月日", "required": true, "provides": ["age", "age_at_year_end"]},
             {"field": "annual_income", "kind": "range", "text": "年収は？", "label": "年収", "choices": [
               {"label": "2,000万円以下", "min": 0, "max": 20000000}, {"label": "2,000万円超", "min": 20000001}]},
             {"field": "dependents", "kind": "number", "text": "扶養している家族は？", "label": "扶養している家族の人数", "unit": "人"},
+            {"field": "income", "kind": "number", "text": "年収は？", "label": "年収", "unit": "万円", "scale": 10000},
             {"field": "health_insurance", "kind": "single", "text": "健康保険は？", "label": "健康保険", "choices": [
               {"label": "勤務先", "value": "employer"}, {"label": "国保", "value": "national"}]}
           ]
@@ -136,7 +141,7 @@ class RuleEngineTest {
         assertEquals(listOf("nenkin", "kokuho"), RuleEngine.sort(items, SortOrder.RELEVANCE, today).take(2).map { it.procedure.id })
         // 期限: 国民年金 14日後（10/31）→ 扶養控除 11/30 → 確定申告 翌年3/15 → 期限なしは点数の高い順
         assertEquals(
-            listOf("nenkin", "kojo", "kakutei", "kokuho", "nenkin_kojo"),
+            listOf("nenkin", "kojo", "kakutei", "kokuho", "nenkin_kojo", "hazureru"),
             RuleEngine.sort(items, SortOrder.DEADLINE, today).map { it.procedure.id },
         )
     }
@@ -196,5 +201,30 @@ class RuleEngineTest {
         assertEquals(Status.REQUIRED, eval(employee, "annual_income" to Answer.Range(20_000_001, null)).statusOf("kakutei"))
         assertEquals(Status.LIKELY, eval(employee, "annual_income" to Answer.Range(0, 20_000_000)).statusOf("kakutei"))
         assertEquals(listOf("annual_income"), eval(employee, "annual_income" to Answer.Range(0, null)).find("kakutei")!!.missing)
+    }
+
+    @Test
+    fun unrelatedRowWithConditionsExcludesOnlyWhenAllHold() {
+        val income = "annual_income" to Answer.Number(1_200_000)
+        // 年末に20歳で136万円以下 → 対象外（理由つき）
+        val young = eval(income, born("2006-05-01")).find("hazureru")!!
+        assert(young.status == Status.UNRELATED && young.reasons == listOf("19〜22歳で136万円以下"))
+        // 25歳なら条件を満たさず、対象外にならない
+        assertEquals(Status.LIKELY, eval(income, born("2001-05-01")).statusOf("hazureru"))
+        // 生年月日が分からなければ対象外にせず、生年月日を聞く
+        val unknown = eval(income).find("hazureru")!!
+        assertEquals(Status.LIKELY, unknown.status)
+        assertEquals(listOf("age_at_year_end"), unknown.missing)
+    }
+
+    @Test
+    fun placeholdersAreFilledWithAnswers() {
+        val questions = catalog.questions
+        val answers = mapOf("income" to Answer.Number(1_400_000), born("2006-05-01"))
+        assertEquals(
+            "見込みの140万円なら、年末に20歳",
+            RuleEngine.fillIn("見込みの{income}なら、年末に{age_at_year_end}", answers, questions, today),
+        )
+        assertEquals("見込みの（年収は未入力）", RuleEngine.fillIn("見込みの{income}", emptyMap(), questions, today))
     }
 }

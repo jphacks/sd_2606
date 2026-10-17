@@ -45,7 +45,8 @@ data class Due(val days: Int? = null, val month: Int? = null, val day: Int? = nu
 
 /**
  * きっかけ（field / op / value。例: 働き方が学生）に当てはまるときの、手続きとの関係。
- * flag: required（必須）/ conditional（conditions をすべて満たせば必須、無ければ点数だけ。条件次第）/ unrelated（対象外。点数は0以下）
+ * flag: required（必須）/ conditional（conditions をすべて満たせば必須、無ければ点数だけ。条件次第）
+ *       / unrelated（対象外。conditions があればすべて満たしたときだけ。点数は0以下）
  */
 @Serializable
 data class Relation(
@@ -64,6 +65,7 @@ data class Relation(
 @Serializable
 data class Condition(val field: String, val op: String = "eq", val value: JsonElement)
 
+/** 手続きの1ステップ。title / detail の {annual_income} などは、表示するときにその人の回答に置き換える（RuleEngine.fillIn）。 */
 @Serializable
 data class FlowStep(
     val title: String,
@@ -86,8 +88,8 @@ data class Question(
     val text: String,
     /** 項目の短い名前（「判定には生年月日が必要です」の案内に使う） */
     val label: String = "",
-    /** true なら最初の画面で聞く。false は判定に必要になったときだけ聞く */
-    val initial: Boolean = false,
+    /** true なら最初の画面で必ず答えてもらう（基本情報）。false は任意（最初の画面の「もっと詳しく」と、判定に必要になった手続きで聞く） */
+    val required: Boolean = false,
     /** multi で何も選ばなかったとき、未回答ではなく「どれにも当てはまらない」とする */
     @SerialName("none_if_empty") val noneIfEmpty: Boolean = false,
     val choices: List<Choice> = emptyList(),

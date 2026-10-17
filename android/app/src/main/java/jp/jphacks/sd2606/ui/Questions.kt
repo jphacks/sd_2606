@@ -58,37 +58,45 @@ import jp.jphacks.sd2606.data.describe
 import jp.jphacks.sd2606.data.isSelected
 import jp.jphacks.sd2606.data.toAnswer
 
-/** 質問の種類に合った入力欄（日付なら日付の入力、それ以外は選択肢）。 */
+/**
+ * 質問の種類に合った入力欄（日付なら日付の入力、それ以外は選択肢）。
+ * live なら数値を入力のたびに反映する（並びが動かない最初の画面用）。
+ */
 @Composable
-fun QuestionInput(question: Question, answer: Answer?, onAnswer: (Answer?) -> Unit) {
+fun QuestionInput(question: Question, answer: Answer?, onAnswer: (Answer?) -> Unit, live: Boolean = false) {
     when (question.kind) {
         "date" -> DateInput(answer as? Answer.Date, onAnswer)
-        "number" -> NumberInput(question, answer as? Answer.Number, onAnswer)
+        "number" -> NumberInput(question, answer as? Answer.Number, onAnswer, live)
         else -> QuestionChips(question, answer, onAnswer)
     }
 }
 
 /**
  * 数値の入力。入力の途中で判定が変わって画面が動かないよう、「決定」（またはキーボードの完了）で反映する。
- * 空にして決定すると未回答に戻す。
+ * 空にして決定すると未回答に戻す。live なら入力のたびに反映し、「決定」ボタンは出さない。
  */
 @Composable
-private fun NumberInput(question: Question, answer: Answer.Number?, onAnswer: (Answer?) -> Unit) {
+private fun NumberInput(question: Question, answer: Answer.Number?, onAnswer: (Answer?) -> Unit, live: Boolean) {
     val saved = answer?.let { (it.value / question.scale).toString() }.orEmpty()
     var text by rememberSaveable(saved) { mutableStateOf(saved) }
     val commit = { onAnswer(text.toLongOrNull()?.let { Answer.Number(it * question.scale) }) }
     Row(verticalAlignment = Alignment.CenterVertically) {
         OutlinedTextField(
             value = text,
-            onValueChange = { v -> text = v.filter(Char::isDigit).take(7) },
+            onValueChange = { v ->
+                text = v.filter(Char::isDigit).take(7)
+                if (live) onAnswer(text.toLongOrNull()?.let { Answer.Number(it * question.scale) })
+            },
             suffix = { Text(question.unit) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { commit() }),
             modifier = Modifier.weight(1f),
         )
-        Spacer(Modifier.width(8.dp))
-        Button(onClick = commit, enabled = text != saved) { Text("決定") }
+        if (!live) {
+            Spacer(Modifier.width(8.dp))
+            Button(onClick = commit, enabled = text != saved) { Text("決定") }
+        }
     }
 }
 
@@ -193,7 +201,7 @@ fun AnswersDialog(
                     }
                     if (editing == q.field) {
                         Column(Modifier.padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            QuestionInput(q, answer) { onAnswer(q.field, it) }
+                            QuestionInput(q, answer, onAnswer = { onAnswer(q.field, it) })
                         }
                     }
                     HorizontalDivider()
