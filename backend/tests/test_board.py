@@ -47,11 +47,13 @@ def test_samples_are_valid_and_loaded():
     assert sum(p["sample"] for p in items) >= len(load_samples())
 
 
-def test_occupations_match_questions():
-    from app.rules.questions import load_question_defs
+def test_occupations_match_profile():
+    # 掲示板の立場は、最初の画面で聞かない会社員・自営業も含む。値は回答と同じ集合から選ぶ
+    from typing import get_args
 
-    occupation = next(q for q in load_question_defs() if q.field == "occupation")
-    assert {o.value for o in load_meta().occupations} <= {c.value for c in occupation.choices}
+    from app.schemas import Occupation
+
+    assert {o.value for o in load_meta().occupations} <= set(get_args(Occupation))
 
 
 def test_create_list_and_delete():

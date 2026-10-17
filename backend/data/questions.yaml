@@ -32,10 +32,8 @@
   initial: true
   text: いまの働き方は？（複数選択可）
   label: 働き方
-  choices:
-    - {value: employee, label: 会社員・公務員}
+  choices:   # 対象（20歳前後・家族の扶養に入っている人）に合わせて、会社員・自営業は聞かない
     - {value: part_time, label: パート・アルバイト}
-    - {value: self_employed, label: 自営業}
     - {value: freelance, label: フリーランス}
     - {value: student, label: 学生}
     - {value: unemployed, label: 無職・求職中}
