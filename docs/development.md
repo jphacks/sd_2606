@@ -84,11 +84,10 @@ cp .env.example .env                                   # Claude を使うなら 
 
 ### サーバー管理者向け
 
-- 初回: Pi 上で clone して `bash backend/deploy/pi/install.sh`（venv 作成・systemd ユニット配置・起動）。`backend/.env` に `ANTHROPIC_API_KEY` を設定して `sudo systemctl restart sd2606-api`
-- 更新: Pi 上で `bash ~/sd_2606/backend/deploy/pi/deploy.sh`（main を取り込んで再起動）
-- 構成: systemd ユニット `sd2606-api` が 127.0.0.1:8606 で待ち受け、次のどちらかで HTTPS 公開する
-  - Cloudflare Quick Tunnel（臨時）: `cloudflared` を入れて `bash backend/deploy/pi/install-tunnel.sh`。ユニットは `sd2606-tunnel`。**URL は起動のたびに変わる**ので、`bash backend/deploy/pi/tunnel-url.sh` で確認してチャットで共有し直す。止めるときは `sudo systemctl disable --now sd2606-tunnel`
-  - Tailscale Funnel（ポート 8443）: 公開 DNS への登録待ち。止めるときは `sudo tailscale funnel --https=8443 off`
+サーバーの構成・設定・構築手順・運用コマンドは [architecture.md のサーバー構成](architecture.md#サーバー構成共有バックエンド) にまとめてある。よく使うもの:
+
+- main を反映: Pi 上で `bash ~/sd_2606/backend/deploy/pi/deploy.sh`
+- 公開 URL の確認（変わったらチャットで共有し直す）: `bash ~/sd_2606/backend/deploy/pi/tunnel-url.sh`
 - ログ: `journalctl -u sd2606-api -f`
 
 ## ブランチと PR
