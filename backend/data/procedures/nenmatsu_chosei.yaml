@@ -6,9 +6,16 @@ deadline: 扶養控除等申告書は最初の給与の前まで。年末調整�
 due: {month: 11, day: 30}
 office: 勤務先（アルバイト先を含む）
 relations:
-  - {field: occupation, value: employee, flag: required, score: 1.0, reason: 勤務先で年末調整を受けるため、11〜12月ごろに書類を出すため}
+  - field: occupation
+    value: employee
+    flag: conditional
+    score: 1.0
+    reason: 勤務先で年末調整を受けるため、11〜12月ごろに書類を出すため
+    when:
+      - {field: annual_income, op: lte, value: 20000000}
   - {field: occupation, value: part_time, flag: conditional, score: 0.7, reason: アルバイト先でも、扶養控除等申告書を出せば年末調整を受けられるため}
   - {field: occupation, op: not_in, value: [employee, part_time], flag: unrelated, score: -1.0, reason: 勤務先から給与を受けていないため（所得税は確定申告で精算する）}
+  - {field: annual_income, op: gt, value: 20000000, flag: unrelated, score: -1.0, reason: 年収が2,000万円を超える人は年末調整の対象外で、確定申告をするため}
 steps:
   - title: 扶養控除等申告書を勤務先に出す
     detail: 入社したら、最初の給与の前に「給与所得者の扶養控除等（異動）申告書」を出します。

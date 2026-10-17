@@ -6,7 +6,7 @@ deadline: 早めに（納付期限から2年以内なら、さかのぼって申
 office: 市区町村の国民年金窓口・年金事務所（マイナポータルでも申請できる）
 relations:
   - {field: occupation, value: unemployed, flag: conditional, score: 0.7, reason: 失業した人は、前の年の収入が多くても失業の特例で免除を受けられるため}
-  - {field: occupation, value: part_time, flag: conditional, score: 0.3, reason: 収入が少ないときは、保険料の免除・納付猶予を申請できるため}
+  - {field: annual_income, op: lt, value: 1000000, flag: conditional, score: 0.3, reason: 収入が少ないときは、保険料の免除・納付猶予を受けられることがあるため（審査は前の年の所得で行う）}
   - {field: occupation, op: in, value: [self_employed, freelance], flag: conditional, score: 0.2, reason: 事業の収入が少ない年は、保険料の免除を申請できるため}
   - {field: occupation, value: student, flag: unrelated, score: -1.0, reason: 学生は学生納付特例を使うため}
   - {field: occupation, value: employee, flag: unrelated, score: -1.0, reason: 会社員・公務員は厚生年金に入るため}

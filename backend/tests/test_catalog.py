@@ -36,9 +36,29 @@ def test_every_question_has_a_short_label():
         assert q.label and len(q.label) <= 15, q.field
 
 
-def test_only_minimal_questions_are_asked_first():
-    initial = [q.field for q in build_catalog().questions if q.initial]
-    assert initial == ["occupation", "birth_date"]  # 関係の強さは年齢と働き方で決まる
+def test_basic_questions_are_required_and_others_optional():
+    # 最初の画面で必ず答えてもらう基本情報。ほかは任意（必要になった手続きのカードでも聞く）
+    required = [q.field for q in build_catalog().questions if q.required]
+    assert required == ["occupation", "birth_date", "supported_by", "annual_income"]
+    optional = {q.field for q in build_catalog().questions if not q.required}
+    assert optional == {"health_insurance", "prev_health_insurance", "dependents"}
+
+
+def test_required_single_choice_questions_offer_unknown():
+    # 必須でも「わからない」を選べる（扶養は税金と健康保険で意味が違い、分からない人が多い）
+    for q in build_catalog().questions:
+        if q.required and q.kind == "single":
+            assert "unknown" in {c.value for c in q.choices}, q.field
+
+
+def test_step_placeholders_refer_to_answer_fields():
+    import re
+
+    fields = {f for q in build_catalog().questions for f in [q.field, *q.provides]}
+    for p in load_procedures().values():
+        for s in p.steps:
+            for name in re.findall(r"\{(\w+)\}", s.title + s.detail):
+                assert name in fields, (p.id, name)
 
 
 def test_occupation_is_multi():
@@ -60,10 +80,13 @@ def test_income_and_dependents_are_numbers():
 
 
 def test_range_choices_follow_rule_thresholds():
-    # range にすると、手続き YAML の条件の境目（130万円以上・150万円以上・2,000万円超）だけで選択肢を作る
+    # range にすると、手続き YAML の条件の境目（130万円以上・150万円以上・2,000万円超など）だけで選択肢を作る
     income = QuestionDef(field="annual_income", kind="range", text="", label="年収", unit="万円", scale=10000)
-    labels = [c.label for c in range_choices(income, load_procedures().values())]
-    assert labels == ["130万円未満", "130万円以上150万円未満", "150〜2,000万円", "2,000万円超"]
+    choices = range_choices(income, load_procedures().values())
+    assert {1_300_000, 1_500_000, 20_000_001} <= {c.min for c in choices}
+    assert choices[-1].label == "2,000万円超"
+    assert "130万円以上150万円未満" not in [c.label for c in choices]  # 136万円にも境目がある
+    assert not any("9999" in c.label for c in choices)  # 「150万円未満」のように書く
     deps = QuestionDef(field="dependents", kind="range", text="", label="扶養", unit="人")
     assert [c.label for c in range_choices(deps, load_procedures().values())] == ["0人", "1人以上"]
 

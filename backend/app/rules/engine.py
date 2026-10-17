@@ -77,8 +77,8 @@ def _validate_relation(name: str, rel: Relation) -> None:
     """flag と点数・理由・when の組み合わせを確かめる（書き方は docs/procedures.md）。"""
     if rel.flag == "required" and (rel.score <= 0 or not rel.reason or rel.when):
         raise ValueError(f"{name}: required（必須）には正の点数と reason を書き、when は書かないでください")
-    if rel.flag == "unrelated" and (rel.score > 0 or rel.when):
-        raise ValueError(f"{name}: unrelated（対象外）の点数は 0 以下にし、when は書かないでください")
+    if rel.flag == "unrelated" and rel.score > 0:
+        raise ValueError(f"{name}: unrelated（対象外）の点数は 0 以下にしてください")
     if rel.flag == "conditional" and rel.score > 0 and not rel.reason:
         raise ValueError(f"{name}: 正の点数の conditional には reason を書いてください")
     if rel.flag == "conditional" and rel.when and rel.score <= 0:
@@ -90,15 +90,11 @@ def recommend(profile: UserProfile) -> list[Recommendation]:
 
     判定の意味はアプリの RuleEngine.kt と同じ（ここではプロフィールがすべて分かっている前提）。
     - required の行か、when をすべて満たした conditional の行があれば必須
-    - そうでなく、unrelated の行が当てはまれば対象外（返さない）
+    - そうでなく、unrelated の行が当てはまれば（when があればすべて満たせば）対象外（返さない）
     """
     results: list[Recommendation] = []
     for proc in load_procedures().values():
-        counted = [
-            r
-            for r in proc.relations
-            if _check(r, profile) and (r.flag != "conditional" or all(_check(c, profile) for c in r.when))
-        ]
+        counted = [r for r in proc.relations if _check(r, profile) and all(_check(c, profile) for c in r.when)]
         required = any(r.flag == "required" or (r.flag == "conditional" and r.when) for r in counted)
         excluded = any(r.flag == "unrelated" for r in counted)
         score = round(sum(r.score for r in counted), 3)

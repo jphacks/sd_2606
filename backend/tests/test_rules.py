@@ -78,10 +78,13 @@ def test_parent_dependency_threshold_depends_on_age_at_year_end():
             UserProfile(age=age, age_at_year_end=age, occupation="part_time", annual_income=income, supported_by="parent")
         ).get("fuyou_hazureru")
 
-    # 19〜22歳は150万円、それ以外は130万円
-    assert not hazureru(20, 1_400_000).required
+    # 19〜22歳: 136万円以下なら対象外（扶養のまま）、136万円を超えると親の税金の控除が変わる、150万円以上で健康保険も外れる
+    assert hazureru(20, 1_300_000) is None
+    assert hazureru(20, 1_400_000).required
     assert hazureru(20, 1_500_000).required
-    assert hazureru(24, 1_400_000).required
+    # それ以外: 130万円未満なら対象外、130万円以上で健康保険の扶養から外れる
+    assert hazureru(24, 1_250_000) is None
+    assert hazureru(24, 1_300_000).required
 
 
 def test_employee_gets_year_end_adjustment_as_required():

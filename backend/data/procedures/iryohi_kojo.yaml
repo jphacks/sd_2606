@@ -10,6 +10,7 @@ relations:
   - {field: age, op: gte, value: 60, flag: conditional, score: 0.4, reason: 年齢とともに医療費がかかりやすく、年10万円などを超えると税金が戻るため}
   - {field: occupation, op: in, value: [employee, self_employed, freelance, retired, part_time], flag: conditional, score: 0.2, reason: 所得税を納めている人は、医療費が多い年に税金が戻るため}
   - {field: occupation, value: student, flag: conditional, score: -0.3}   # 所得税を納めていない学生が多い
+  - {field: annual_income, op: lte, value: 1780000, flag: conditional, score: -0.3}   # 給与だけなら所得税がかからない
 steps:
   - title: 医療費の領収書・医療費通知を集める
     detail: 家族（生計を一にする人）の分も合算できます。保険で補てんされた額は差し引きます。

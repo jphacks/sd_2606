@@ -16,45 +16,121 @@ relations:
   - {field: occupation, value: student, flag: conditional, score: 0.4, reason: 学生はアルバイトの年収しだいで、親の扶養から外れることがあるため}
   - {field: age_at_year_end, op: in, value: [19, 20, 21, 22], flag: conditional, score: 0.3, reason: 19〜22歳（12月31日時点）は、親の健康保険の扶養の基準が150万円になり、親の税金の特別な控除の対象になるため}
   - {field: supported_by, op: in, value: [parent, spouse], flag: conditional, score: 0.3, reason: 家族の扶養に入っているため}
+  - {field: annual_income, op: gte, value: 1000000, flag: conditional, score: 0.3, reason: 年収の見込みが100万円以上で、税金や扶養の基準（119万円・130万円など）に近いため}
+  - {field: annual_income, op: lt, value: 500000, flag: conditional, score: -0.3}   # 基準から遠い
   - {field: supported_by, value: none, flag: unrelated, score: -1.0, reason: 家族の扶養に入っていないため}
   - {field: occupation, value: employee, flag: unrelated, score: -1.0, reason: 会社員・公務員は自分の勤務先の健康保険に入るため（「親の扶養から外れる」を見る）}
 steps:
+  - title: 扶養に入っているか確かめる
+    detail: 家族の健康保険の扶養に入っているかは、保険証（資格確認書）を見るか家族に聞くと分かります。税金の扶養は、家族が勤務先に出す扶養控除等申告書に名前があるかで分かります。
+    when:
+      - {field: supported_by, value: unknown}
   - title: 1年（1〜12月）の年収の見込みを出す
-    detail: 税金は1〜12月の給与の合計（交通費を除く）で決まります。掛け持ちしているなら合計します。
+    detail: 税金は1〜12月の給与の合計（交通費を除く）で決まります。掛け持ちしているなら合計します。いまの見込みは{annual_income}です。
     documents: [給与明細]
-  - title: 本人の税金（所得税・住民税）の基準と比べる
-    detail: 2026年の収入では、所得税は178万円以下ならかかりません。住民税は市区町村によって違いますが、2026年の収入なら119万円以下でかからないのが目安です（2025年の収入では110万円）。
-  - title: 親の税金の基準と比べる（19〜22歳）
-    detail: 給与収入が136万円以下なら、親は特定扶養控除（63万円）を受けられます。136万円を超えても197万円以下なら、特定親族特別控除で親の税金が軽くなります（159万円以下なら満額の63万円）。
+  - title: 本人の所得税はかからない見込み
+    detail: 2026年の収入では、給与だけなら178万円以下で所得税はかかりません。見込みの{annual_income}なら、引かれた所得税も年末調整か確定申告で戻ります。
+    when:
+      - {field: annual_income, op: lte, value: 1780000}
+  - title: 本人の所得税がかかる見込み
+    detail: 2026年の収入では、給与が178万円を超えると所得税がかかります。見込みの{annual_income}では、給与から引かれた所得税を年末調整で精算します。
+    when:
+      - {field: annual_income, op: gt, value: 1780000}
+  - title: 住民税はかからない見込み
+    detail: 住民税は市区町村によって違いますが、2026年の収入なら119万円以下でかからないのが目安です（2025年の収入では110万円）。見込みの{annual_income}なら、かからない見込みです。
+    when:
+      - {field: annual_income, op: lte, value: 1190000}
+  - title: 翌年に住民税がかかる見込み
+    detail: 2026年の収入が119万円を超えると、翌年度に住民税がかかるのが目安です（市区町村で違います）。見込みの{annual_income}では、翌年の6月ごろから納めます。
+    when:
+      - {field: annual_income, op: gt, value: 1190000}
+  - title: 親は特定扶養控除を受けられる
+    detail: 19〜22歳（12月31日時点）で給与収入が136万円以下なら、親は特定扶養控除（63万円）を受けられます。見込みの{annual_income}なら、このままで大丈夫です。
     when:
       - {field: supported_by, value: parent}
       - {field: age_at_year_end, op: in, value: [19, 20, 21, 22]}
-  - title: 親の税金の基準と比べる
-    detail: 子の給与収入が136万円以下なら、親は扶養控除を受けられます。
+      - {field: annual_income, op: lte, value: 1360000}
+  - title: 親の控除が特定親族特別控除に変わる
+    detail: 給与収入が136万円を超えて197万円以下なら、親の控除は特定扶養控除から特定親族特別控除に変わります（159万円以下なら満額の63万円、それを超えると段階的に減ります）。親が年末調整で申告し直すので、見込みの{annual_income}を親に伝えます。
+    when:
+      - {field: supported_by, value: parent}
+      - {field: age_at_year_end, op: in, value: [19, 20, 21, 22]}
+      - {field: annual_income, op: gt, value: 1360000}
+      - {field: annual_income, op: lte, value: 1970000}
+  - title: 親の控除が受けられなくなる
+    detail: 給与収入が197万円を超えると、親は特定扶養控除も特定親族特別控除も受けられなくなります。見込みの{annual_income}を親に伝えます。
+    when:
+      - {field: supported_by, value: parent}
+      - {field: age_at_year_end, op: in, value: [19, 20, 21, 22]}
+      - {field: annual_income, op: gt, value: 1970000}
+  - title: 親は扶養控除を受けられる
+    detail: 給与収入が136万円以下なら、親は扶養控除を受けられます。見込みの{annual_income}なら、このままで大丈夫です。
     when:
       - {field: supported_by, value: parent}
       - {field: age_at_year_end, op: not_in, value: [19, 20, 21, 22]}
-  - title: 配偶者の税金の基準と比べる
-    detail: 給与収入が136万円以下なら配偶者控除、207万円以下なら配偶者特別控除の対象になります（配偶者の収入によって変わります）。
+      - {field: annual_income, op: lte, value: 1360000}
+  - title: 親の扶養控除の対象から外れる
+    detail: 給与収入が136万円を超えると、親の扶養控除の対象から外れます。見込みの{annual_income}を親に伝えます。
+    when:
+      - {field: supported_by, value: parent}
+      - {field: age_at_year_end, op: not_in, value: [19, 20, 21, 22]}
+      - {field: annual_income, op: gt, value: 1360000}
+  - title: 配偶者は配偶者控除を受けられる
+    detail: 給与収入が136万円以下なら、配偶者は配偶者控除を受けられます（配偶者の収入によって変わります）。
     when:
       - {field: supported_by, value: spouse}
-  - title: 健康保険の扶養の基準と比べる（19〜22歳）
-    detail: 親の健康保険の扶養に入れるのは、これから1年間の収入（交通費を含む）の見込みが150万円未満の人です。税金より基準が低いので、まずここを確かめます。
-    where: 家族の勤務先・健康保険組合
+      - {field: annual_income, op: lte, value: 1360000}
+  - title: 配偶者の控除が配偶者特別控除に変わる
+    detail: 給与収入が136万円を超えて207万円以下なら、配偶者控除の代わりに配偶者特別控除になり、収入が増えるほど控除が減ります。見込みの{annual_income}を配偶者に伝えます。
+    when:
+      - {field: supported_by, value: spouse}
+      - {field: annual_income, op: gt, value: 1360000}
+      - {field: annual_income, op: lte, value: 2070000}
+  - title: 配偶者の控除が受けられなくなる
+    detail: 給与収入が207万円を超えると、配偶者特別控除も受けられなくなります。見込みの{annual_income}を配偶者に伝えます。
+    when:
+      - {field: supported_by, value: spouse}
+      - {field: annual_income, op: gt, value: 2070000}
+  - title: 健康保険は親の扶養のままでいられる見込み
+    detail: 19〜22歳（12月31日時点）は、これから1年間の収入（交通費を含む）の見込みが150万円未満なら、親の健康保険の扶養に入ったままでいられます。交通費を含めても150万円未満か確かめます。
+    where: 親の勤務先・健康保険組合
     when:
       - {field: age_at_year_end, op: in, value: [19, 20, 21, 22]}
       - {field: supported_by, op: ne, value: spouse}
-  - title: 健康保険の扶養の基準と比べる
-    detail: 家族の健康保険の扶養に入れるのは、これから1年間の収入（交通費を含む）の見込みが130万円未満の人です（配偶者の扶養は、19〜22歳でも130万円）。税金より基準が低いので、まずここを確かめます。
+      - {field: annual_income, op: lt, value: 1500000}
+  - title: 健康保険の扶養から外れる見込み
+    detail: 19〜22歳でも、これから1年間の収入（交通費を含む）の見込みが150万円以上になると、親の健康保険の扶養から外れ、自分で健康保険に入ります（「親の扶養から外れる」を参照）。
+    where: 親の勤務先・健康保険組合
+    when:
+      - {field: age_at_year_end, op: in, value: [19, 20, 21, 22]}
+      - {field: supported_by, op: ne, value: spouse}
+      - {field: annual_income, op: gte, value: 1500000}
+  - title: 健康保険は家族の扶養のままでいられる見込み
+    detail: これから1年間の収入（交通費を含む）の見込みが130万円未満なら、家族の健康保険の扶養に入ったままでいられます。交通費を含めても130万円未満か確かめます。
     where: 家族の勤務先・健康保険組合
     when:
       - {field: age_at_year_end, op: not_in, value: [19, 20, 21, 22]}
-  - title: 健康保険の扶養の基準と比べる（配偶者の扶養）
-    detail: 配偶者の健康保険の扶養に入れるのは、これから1年間の収入（交通費を含む）の見込みが130万円未満の人です。19〜22歳でも150万円にはなりません。
+      - {field: annual_income, op: lt, value: 1300000}
+  - title: 健康保険の扶養から外れる見込み
+    detail: これから1年間の収入（交通費を含む）の見込みが130万円以上になると、家族の健康保険の扶養から外れ、自分で健康保険に入ります。
+    where: 家族の勤務先・健康保険組合
+    when:
+      - {field: age_at_year_end, op: not_in, value: [19, 20, 21, 22]}
+      - {field: annual_income, op: gte, value: 1300000}
+  - title: 健康保険は配偶者の扶養のままでいられる見込み
+    detail: 配偶者の健康保険の扶養は、19〜22歳でも130万円未満が基準です（150万円にはなりません）。これから1年間の収入（交通費を含む）の見込みが130万円未満か確かめます。
     where: 配偶者の勤務先・健康保険組合
     when:
       - {field: age_at_year_end, op: in, value: [19, 20, 21, 22]}
       - {field: supported_by, value: spouse}
+      - {field: annual_income, op: lt, value: 1300000}
+  - title: 健康保険の配偶者の扶養から外れる見込み
+    detail: 配偶者の健康保険の扶養は、19〜22歳でも130万円未満が基準です。これから1年間の収入（交通費を含む）の見込みが130万円以上になると、扶養から外れます。
+    where: 配偶者の勤務先・健康保険組合
+    when:
+      - {field: age_at_year_end, op: in, value: [19, 20, 21, 22]}
+      - {field: supported_by, value: spouse}
+      - {field: annual_income, op: gte, value: 1300000}
   - title: 超えそうなら家族に伝える
     detail: 扶養から外れるときは、家族が勤務先に届け出ます（「親の扶養から外れる」を参照）。届け出が遅れると、あとから家族の税金の追加や医療費の返還を求められることがあります。
 links:

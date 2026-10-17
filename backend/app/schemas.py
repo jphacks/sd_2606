@@ -65,6 +65,8 @@ class Condition(BaseModel):
 
 
 class FlowStep(BaseModel):
+    """手続きの1ステップ。title / detail の {annual_income} などは、アプリがその人の回答（140万円・20歳など）に置き換える。"""
+
     title: str
     detail: str
     where: str | None = None
@@ -128,13 +130,14 @@ class Relation(Condition):
     """きっかけ（field / op / value。例: 働き方が学生）に当てはまるときの、手続きとの関係。"""
 
     flag: Flag = Field(
-        description="required: 必須 / conditional: when をすべて満たせば必須、無ければ点数だけ（条件次第）/ unrelated: 対象外"
+        description="required: 必須 / conditional: when をすべて満たせば必須、無ければ点数だけ（条件次第）"
+        " / unrelated: 対象外（when があれば、すべて満たしたときだけ）"
     )
     score: float = Field(ge=-1, le=1, description="関係の強さ。1: 強く関係する ～ -1: 関係が薄い")
     reason: str | None = Field(default=None, description="画面に出す理由（必要・関係がありそう・対象外の理由）")
     when: list[Condition] = Field(
         default_factory=list,
-        description="conditional の条件。満たさない条件があればこの行は数えない。未回答があればアプリが聞く",
+        description="conditional / unrelated の条件。満たさない条件があればこの行は数えない。未回答があればアプリが聞く",
     )
 
 
@@ -156,7 +159,9 @@ class Question(BaseModel):
     kind: Literal["single", "multi", "range", "number", "date"]
     text: str
     label: str = Field(description="項目の短い名前。「判定には生年月日が必要です」のような案内に使う")
-    initial: bool = Field(default=False, description="true なら最初の画面で聞く。false は判定に必要になったときだけ聞く")
+    required: bool = Field(
+        default=False, description="true なら最初の画面で必ず答えてもらう。false は任意（最初の画面の「もっと詳しく」と、判定に必要になった手続きで聞く）"
+    )
     none_if_empty: bool = Field(
         default=False, description="multi で何も選ばなかったとき、未回答ではなく「どれにも当てはまらない」として判定する"
     )

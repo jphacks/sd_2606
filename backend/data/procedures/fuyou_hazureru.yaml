@@ -33,10 +33,38 @@ relations:
       - {field: supported_by, value: parent}
       - {field: age_at_year_end, op: not_in, value: [19, 20, 21, 22]}
       - {field: occupation, op: ne, value: employee}
+  - field: annual_income
+    op: gt
+    value: 1360000
+    flag: conditional
+    score: 0.5
+    reason: 年収の見込みが136万円を超えると、親の税金の控除が特定扶養控除から特定親族特別控除に変わり、親が申告し直すため
+    when:
+      - {field: supported_by, value: parent}
+      - {field: age_at_year_end, op: in, value: [19, 20, 21, 22]}
+      - {field: occupation, op: ne, value: employee}
   - {field: occupation, op: in, value: [part_time, student], flag: conditional, score: 0.3, reason: アルバイトの収入が基準を超えると、親の扶養から外れるため}
   - {field: age, op: lt, value: 26, flag: conditional, score: 0.2, reason: 20代前半までは、親の扶養に入っている人が多いため}
   - {field: age, op: gte, value: 30, flag: conditional, score: -0.8}   # 親の扶養に入っている人は少ない
   - {field: supported_by, op: in, value: [spouse, none], flag: unrelated, score: -1.0, reason: 親の扶養に入っていないため}
+  - field: annual_income
+    op: lte
+    value: 1360000
+    flag: unrelated
+    score: -1.0
+    reason: 19〜22歳で年収の見込みが136万円以下なら、親の税金と健康保険の扶養のままでいられるため
+    when:
+      - {field: age_at_year_end, op: in, value: [19, 20, 21, 22]}
+      - {field: occupation, op: ne, value: employee}
+  - field: annual_income
+    op: lt
+    value: 1300000
+    flag: unrelated
+    score: -1.0
+    reason: 年収の見込みが130万円未満なら、親の税金と健康保険の扶養のままでいられるため
+    when:
+      - {field: age_at_year_end, op: not_in, value: [19, 20, 21, 22]}
+      - {field: occupation, op: ne, value: employee}
 steps:
   - title: 外れる日を確かめる（就職した場合）
     detail: 自分の勤務先の健康保険に入った日（ふつうは入社日）に、親の健康保険の扶養から外れます。

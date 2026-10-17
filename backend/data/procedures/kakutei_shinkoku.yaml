@@ -19,6 +19,7 @@ relations:
       - {field: annual_income, op: gt, value: 20000000}
   - {field: occupation, value: employee, flag: conditional, score: -0.3}   # 会社員の多くは年末調整で済む
   - {field: occupation, value: student, flag: conditional, score: -0.3}
+  - {field: annual_income, value: 0, flag: conditional, score: -0.5}   # 収入がなければ、納める税金も戻る税金もない
 steps:
   - title: 給与の源泉徴収票を集める
     detail: 1年間に給与をもらったすべての勤務先から、源泉徴収票をもらいます。年の途中で辞めた勤務先からももらいます。

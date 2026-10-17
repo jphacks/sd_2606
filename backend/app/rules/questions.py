@@ -26,7 +26,7 @@ class QuestionDef(BaseModel):
     kind: Literal["single", "multi", "range", "number", "date"]
     text: str
     label: str
-    initial: bool = False
+    required: bool = False
     none_if_empty: bool = False
     provides: list[str] = Field(default_factory=list, description="この回答からアプリが計算する項目")
     unit: str = ""
@@ -77,10 +77,10 @@ def range_label(lo: int, hi: int | None, q: QuestionDef) -> str:
         return f"{_num(lo, q)}{q.unit}"
     if lo == 0:
         return _upto(hi, q)
-    if q.scale > 1 and lo % q.scale == 1:
-        return f"{_from(lo, q)}〜{_num(hi, q)}{q.unit}以下"
     if q.scale > 1 and (hi + 1) % q.scale == 0:
         return f"{_from(lo, q)}{_upto(hi, q)}"
+    if q.scale > 1 and lo % q.scale == 1:
+        return f"{_from(lo, q)}〜{_num(hi, q)}{q.unit}以下"
     return f"{_num(lo, q)}〜{_num(hi, q)}{q.unit}"
 
 
@@ -119,7 +119,7 @@ def build_catalog() -> Catalog:
                 kind=q.kind,
                 text=q.text,
                 label=q.label,
-                initial=q.initial,
+                required=q.required,
                 none_if_empty=q.none_if_empty,
                 choices=choices,
                 unit=q.unit,
