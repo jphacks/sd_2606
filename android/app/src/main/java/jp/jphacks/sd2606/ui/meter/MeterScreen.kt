@@ -68,8 +68,14 @@ import jp.jphacks.sd2606.data.meter.incomeWallsFor
 import jp.jphacks.sd2606.ui.BackTopBar
 import jp.jphacks.sd2606.ui.theme.AppTheme
 import androidx.compose.material.icons.outlined.WarningAmber
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import kotlinx.coroutines.launch
 
-/** バイト代メーター。今年の給料をビーカーに積み、次の年収の壁までの残りを表示する。 */
+/** バイト代メーター。今年の給料を容器に積み、次の年収の壁までの残りを表示する。 */
 @Composable
 fun MeterScreen(age: Int, onBack: () -> Unit, vm: MeterViewModel = viewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
@@ -108,36 +114,69 @@ private fun MeterContent(
     onAdd: () -> Unit,
     onDelete: (Income) -> Unit,
 ) {
-    Scaffold(
-        topBar = { BackTopBar("バイト代メーター", onBack) },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(onClick = onAdd, icon = { Icon(Icons.Filled.Add, contentDescription = null) }, text = { Text("給料を追加") })
-        },
-    ) { padding ->
-        LazyColumn(
-            // 下は FAB に隠れないように空ける
-            contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 96.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(padding),
-        ) {
-            item { YearSelector(state.year, onPreviousYear, onNextYear) }
-            item { SummaryCard(state, walls) }
-            item { MonthlyBars(state) }
-            item { Text("給料の記録", style = MaterialTheme.typography.titleMedium) }
-            if (state.incomes.isEmpty()) {
-                item { Text("まだ記録がありません。右下のボタンから追加してください。", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            }
-            items(state.incomes, key = { it.id }) { income ->
-                IncomeRow(income, state.jobName(income.jobId), jobColor(state.colorIndexOf(income.jobId)), onDelete = { onDelete(income) })
-            }
-            item {
-                Text(
-                    "※ 金額は目安です。年収は1〜12月に支給された額（交通費を除く）で数えます。正確な判定は勤務先・税務署・自治体に確認してください。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+    // ビーカーの長押しで出す選択肢と詳細は、画面全体の上に重ねる
+    val menu = rememberWallMenuState()
+    val scope = rememberCoroutineScope()
+    var overlayOrigin by remember { mutableStateOf(Offset.Zero) }
+    Box(
+        Modifier
+            .fillMaxSize()
+            .onGloballyPositioned { overlayOrigin = it.positionInRoot() },
+    ) {
+        Scaffold(
+            topBar = { BackTopBar("バイト代メーター", onBack) },
+            floatingActionButton = {
+                ExtendedFloatingActionButton(onClick = onAdd, icon = { Icon(Icons.Filled.Add, contentDescription = null) }, text = { Text("給料を追加") })
+            },
+        ) { padding ->
+            LazyColumn(
+                // 下は FAB に隠れないように空ける
+                contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 96.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.padding(padding),
+            ) {
+                item { YearSelector(state.year, onPreviousYear, onNextYear) }
+                item {
+                    SummaryCard(
+                        state = state,
+                        walls = walls,
+                        onPeekStart = { position ->
+                            // 選択肢はすべての壁（金額の小さい順）
+                            val options = walls.sortedBy { it.amount }
+                            if (options.isNotEmpty()) {
+                                menu.show(options, position - overlayOrigin)
+                                scope.launch { menu.animateIn() }
+                            }
+                        },
+                        onPeekDrag = menu::dragBy,
+                        onPeekEnd = { scope.launch { menu.release() } },
+                    )
+                }
+                item { MonthlyBars(state) }
+                item { Text("給料の記録", style = MaterialTheme.typography.titleMedium) }
+                if (state.incomes.isEmpty()) {
+                    item { Text("まだ記録がありません。右下のボタンから追加してください。", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                }
+                items(state.incomes, key = { it.id }) { income ->
+                    IncomeRow(income, state.jobName(income.jobId), jobColor(state.colorIndexOf(income.jobId)), onDelete = { onDelete(income) })
+                }
+                item {
+                    Text(
+                        "※ 金額は目安です。年収は1〜12月に支給された額（交通費を除く）で数えます。正確な判定は勤務先・税務署・自治体に確認してください。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
+        val next = walls.firstOrNull { state.total < it.amount }
+        WallMenuOverlay(
+            menu = menu,
+            total = state.total,
+            projection = next?.let { state.projection(it) },
+            nextWall = next,
+            onClose = { scope.launch { menu.close() } },
+        )
     }
 }
 
@@ -152,7 +191,13 @@ private fun YearSelector(year: Int, onPrevious: () -> Unit, onNext: () -> Unit) 
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun SummaryCard(state: MeterUiState, walls: List<IncomeWall>) {
+private fun SummaryCard(
+    state: MeterUiState,
+    walls: List<IncomeWall>,
+    onPeekStart: (Offset) -> Unit,
+    onPeekDrag: (Offset) -> Unit,
+    onPeekEnd: () -> Unit,
+) {
     val total = state.total
     val next = walls.firstOrNull { total < it.amount }
     Card(Modifier.fillMaxWidth()) {
@@ -170,6 +215,14 @@ private fun SummaryCard(state: MeterUiState, walls: List<IncomeWall>) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(260.dp),
+                onPeekStart = onPeekStart,
+                onPeekDrag = onPeekDrag,
+                onPeekEnd = onPeekEnd,
+            )
+            Text(
+                "長押しすると超えた壁が広がります。指をその方向に動かして離すと詳しく見られます",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             // 凡例（バイト先ごとの合計）
             FlowRow(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -195,7 +248,7 @@ private fun SummaryCard(state: MeterUiState, walls: List<IncomeWall>) {
                     }
                 }
             } else {
-                Text("入れすぎてビーカーが割れました！すべての壁を超えています。必要な手続きを確認しましょう。", color = MaterialTheme.colorScheme.error)
+                Text("入れすぎて入れ物が割れました！すべての壁を超えています。必要な手続きを確認しましょう。", color = MaterialTheme.colorScheme.error)
             }
         }
     }
@@ -407,7 +460,7 @@ private fun AddIncomeDialog(
     }
 }
 
-private fun yen(value: Long) = "%,d円".format(value)
+internal fun yen(value: Long) = "%,d円".format(value)
 
 @Preview(showBackground = true, heightDp = 1000)
 @Composable
