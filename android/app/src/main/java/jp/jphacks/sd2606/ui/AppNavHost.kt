@@ -1,7 +1,6 @@
 package jp.jphacks.sd2606.ui
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -27,28 +26,35 @@ fun AppNavHost(vm: AppViewModel = viewModel()) {
     NavHost(navController = nav, startDestination = Routes.PROFILE) {
         composable(Routes.PROFILE) {
             ProfileScreen(
-                profile = state.profile,
-                onChange = vm::updateProfile,
+                catalog = state.catalog,
+                answers = state.answers,
+                onAnswer = vm::answer,
+                onRetry = vm::loadCatalog,
                 onSubmit = {
-                    vm.loadRecommendations()
+                    vm.submitInitial()
                     nav.navigate(Routes.RECOMMEND)
                 },
             )
         }
         composable(Routes.RECOMMEND) {
             RecommendScreen(
-                result = state.recommendations,
-                onRetry = vm::loadRecommendations,
+                state = state,
+                onAnswer = vm::answer,
+                onClearAnswers = {
+                    vm.clearAnswers()
+                    nav.popBackStack(Routes.PROFILE, inclusive = false)
+                },
+                onRetry = vm::loadCatalog,
                 onBack = { nav.popBackStack() },
                 onOpen = { id -> nav.navigate(Routes.flow(id)) },
             )
         }
         composable(Routes.FLOW) { entry ->
-            val id = entry.arguments?.getString("id").orEmpty()
-            LaunchedEffect(id) { vm.loadProcedure(id) }
             FlowScreen(
-                result = state.procedure,
-                onRetry = { vm.loadProcedure(id) },
+                state = state,
+                procedureId = entry.arguments?.getString("id").orEmpty(),
+                onAnswer = vm::answer,
+                onRetry = vm::loadCatalog,
                 onBack = { nav.popBackStack() },
             )
         }

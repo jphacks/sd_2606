@@ -3,6 +3,7 @@ package jp.jphacks.sd2606.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -23,7 +24,7 @@ import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BackTopBar(title: String, onBack: () -> Unit) {
+fun BackTopBar(title: String, onBack: () -> Unit, actions: @Composable RowScope.() -> Unit = {}) {
     TopAppBar(
         title = { Text(title) },
         navigationIcon = {
@@ -31,6 +32,7 @@ fun BackTopBar(title: String, onBack: () -> Unit) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
             }
         },
+        actions = actions,
     )
 }
 
@@ -45,7 +47,7 @@ fun <T> ResultContent(result: UiResult<T>, onRetry: () -> Unit, modifier: Modifi
                 Button(onClick = onRetry) { Text("再試行") }
             }
         }
-        UiResult.Loading, UiResult.Idle -> Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        UiResult.Loading -> Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
     }
