@@ -11,27 +11,33 @@ import kotlinx.serialization.json.longOrNull
 /** 条件の判定結果。未回答の項目があると UNKNOWN になる。 */
 enum class Tri { TRUE, FALSE, UNKNOWN }
 
-/** 該当すると判定できた手続き。 */
-data class Matched(val procedure: ProcedureDef, val reasons: List<String>)
+/**
+ * 一覧に出す手続き。required なら「必要な手続き」、そうでなければ「関係がありそうな手続き」。
+ * missing は「関係がありそう」のうち、答えると必須かどうか決まる項目（条件次第の未回答の条件）。
+ */
+data class Scored(
+    val procedure: ProcedureDef,
+    val required: Boolean,
+    val score: Double,
+    val reasons: List<String>,
+    val missing: List<String>,
+)
 
-/** まだ判定できない手続き。missing の項目に答えると、該当するかどうかが決まる。 */
-data class Pending(val procedure: ProcedureDef, val reasons: List<String>, val missing: List<String>)
+data class Evaluation(val required: List<Scored>, val likely: List<Scored>) {
+    fun find(id: String): Scored? = required.firstOrNull { it.procedure.id == id } ?: likely.firstOrNull { it.procedure.id == id }
 
-/** 答えると判定が進む質問と、その質問で判定できる手続き。 */
-data class PendingQuestion(val question: Question, val procedures: List<ProcedureDef>)
-
-data class Evaluation(val matched: List<Matched>, val pending: List<Pending>) {
-    fun statusOf(id: String): Tri = when {
-        matched.any { it.procedure.id == id } -> Tri.TRUE
-        pending.any { it.procedure.id == id } -> Tri.UNKNOWN
-        else -> Tri.FALSE
+    /** TRUE: 必要 / UNKNOWN: 関係がありそう / FALSE: 一覧に出ない */
+    fun statusOf(id: String): Tri = when (find(id)?.required) {
+        true -> Tri.TRUE
+        false -> Tri.UNKNOWN
+        null -> Tri.FALSE
     }
 }
 
 /**
  * 端末内でのルール判定（backend/app/rules/engine.py と同じ条件の意味）。
  *
- * 未回答の項目は「まだ分からない」として3値で判定し、判定に足りない項目だけを質問として返す。
+ * 未回答の項目は「まだ分からない」として3値で判定し、必須かどうかを決めるのに足りない項目だけを聞く。
  * これにより、最初は最小限の質問だけで始め、必要になった情報だけを後から聞ける。
  */
 object RuleEngine {
@@ -52,35 +58,49 @@ object RuleEngine {
         return derived + answers
     }
 
-    fun evaluate(procedures: List<ProcedureDef>, rawAnswers: Map<String, Answer>, today: LocalDate = LocalDate.now()): Evaluation {
+    /**
+     * 手続きごとに relations を見て、必要（必須）・関係がありそう（点数がしきい値以上）・出さない、に分ける。
+     *
+     * - きっかけに当てはまる行だけを数える
+     * - required の行があれば必須。conditional は conditions をすべて満たせば必須、満たさない条件があればその行は数えない、
+     *   未回答の条件があれば点数だけ数えて、その項目を missing（答えると必須かどうか決まる）にする
+     * - 必須でなければ、数えた行の点数の合計がしきい値以上なら「関係がありそう」。どちらも点数の高い順に並べる
+     */
+    fun evaluate(
+        procedures: List<ProcedureDef>,
+        rawAnswers: Map<String, Answer>,
+        threshold: Double,
+        today: LocalDate = LocalDate.now(),
+    ): Evaluation {
         val answers = withDerived(rawAnswers, today)
-        val matched = mutableListOf<Matched>()
-        val pending = mutableListOf<Pending>()
+        val required = mutableListOf<Scored>()
+        val likely = mutableListOf<Scored>()
         for (proc in procedures) {
-            val results = proc.match.map { clause -> clause to clause.`when`.map { it to check(it, answers[it.field]) } }
-            val trueReasons = results.filter { (_, r) -> r.all { it.second == Tri.TRUE } }.map { it.first.reason }
-            if (trueReasons.isNotEmpty()) {
-                matched += Matched(proc, trueReasons.distinct())
-                continue
+            var isRequired = false
+            val counted = mutableListOf<Relation>()
+            val missing = mutableListOf<String>()
+            for (rel in proc.relations) {
+                if (check(rel.trigger(), answers[rel.field]) != Tri.TRUE) continue
+                when (rel.flag) {
+                    "required" -> isRequired = true
+                    "conditional" -> {
+                        val results = rel.conditions.map { it to check(it, answers[it.field]) }
+                        if (results.any { it.second == Tri.FALSE }) continue
+                        val unknown = results.filter { it.second == Tri.UNKNOWN }.map { it.first.field }
+                        if (results.isNotEmpty() && unknown.isEmpty()) isRequired = true else missing += unknown
+                    }
+                }
+                counted += rel
             }
-            val unknown = results.filter { (_, r) -> r.none { it.second == Tri.FALSE } && r.any { it.second == Tri.UNKNOWN } }
-            if (unknown.isNotEmpty()) {
-                val missing = unknown.flatMap { (_, r) -> r.filter { it.second == Tri.UNKNOWN }.map { it.first.field } }
-                pending += Pending(proc, unknown.map { it.first.reason }.distinct(), missing.distinct())
+            val score = counted.sumOf { it.score }
+            val reasons = counted.sortedByDescending { it.score }.mapNotNull { it.reason }.distinct()
+            when {
+                isRequired -> required += Scored(proc, true, score, reasons, emptyList())
+                score >= threshold - 1e-9 -> likely += Scored(proc, false, score, reasons, missing.distinct())
             }
         }
-        return Evaluation(
-            matched.sortedByDescending { it.procedure.priority },
-            pending.sortedByDescending { it.procedure.priority },
-        )
+        return Evaluation(required.sortedByDescending { it.score }, likely.sortedByDescending { it.score })
     }
-
-    /** 未判定の手続きを、答えるべき質問ごとにまとめる。影響する手続きの優先度が高い質問から並べる。 */
-    fun pendingQuestions(evaluation: Evaluation, questions: List<Question>): List<PendingQuestion> = evaluation.pending
-        .flatMap { p -> p.missing.mapNotNull { questionFor(it, questions) }.map { it to p.procedure } }
-        .groupBy({ it.first }, { it.second })
-        .map { (q, procs) -> PendingQuestion(q, procs.distinct()) }
-        .sortedByDescending { pq -> pq.procedures.maxOf { it.priority } }
 
     /** 項目に答えるための質問（age なら生年月日の質問）。 */
     fun questionFor(field: String, questions: List<Question>): Question? =
@@ -91,6 +111,7 @@ object RuleEngine {
         is Answer.Single -> checkValue(cond, answer.value)
         is Answer.Multi -> checkValues(cond, answer.values)
         is Answer.Range -> checkRange(cond, answer.min, answer.max)
+        is Answer.Number -> checkRange(cond, answer.value, answer.value)
         is Answer.Date -> Tri.UNKNOWN // 日付は age などに計算してから判定する
     }
 

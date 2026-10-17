@@ -85,7 +85,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun AppUiState.evaluated(): AppUiState {
         val catalog = (catalog as? UiResult.Success)?.data ?: return this
-        return copy(evaluation = RuleEngine.evaluate(catalog.procedures, answers))
+        return copy(evaluation = RuleEngine.evaluate(catalog.procedures, answers, catalog.threshold))
     }
 
     private fun Throwable?.toMessage() =

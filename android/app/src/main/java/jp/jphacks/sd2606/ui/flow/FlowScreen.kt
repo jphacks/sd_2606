@@ -39,7 +39,6 @@ import jp.jphacks.sd2606.data.ProcedureDef
 import jp.jphacks.sd2606.data.Question
 import jp.jphacks.sd2606.data.RuleEngine
 import jp.jphacks.sd2606.data.SampleData
-import jp.jphacks.sd2606.data.Tri
 import jp.jphacks.sd2606.ui.AppUiState
 import jp.jphacks.sd2606.ui.BackTopBar
 import jp.jphacks.sd2606.ui.QuestionCard
@@ -76,28 +75,32 @@ fun FlowScreen(state: AppUiState, procedureId: String, onAnswer: (String, Answer
     }
 }
 
-/** この人にとって必要か（判定済み / 質問に答えると分かる / 対象外）。 */
+/** この人にとって必要か（必要 / 関係がありそう / 対象外）。関係がありそうなら、必須かどうか決まる質問を聞く。 */
 @Composable
 private fun Status(id: String, state: AppUiState, questions: List<Question>, onAnswer: (String, Answer?) -> Unit) {
     val evaluation = state.evaluation ?: return
+    val item = evaluation.find(id)
     Column(Modifier.padding(bottom = 16.dp).animateContentSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        when (evaluation.statusOf(id)) {
-            Tri.TRUE -> StatusCard("あなたに必要な手続きです", MaterialTheme.colorScheme.primaryContainer) {
-                evaluation.matched.first { it.procedure.id == id }.reasons.forEach { Text("・$it", style = MaterialTheme.typography.bodyMedium) }
+        when {
+            item == null -> StatusCard("いまの回答では対象外です", MaterialTheme.colorScheme.surfaceVariant) {
+                Text("参考として表示しています。", style = MaterialTheme.typography.bodySmall)
             }
-            Tri.UNKNOWN -> {
-                val pending = evaluation.pending.first { it.procedure.id == id }
-                pending.missing.mapNotNull { RuleEngine.questionFor(it, questions) }.distinct().forEach { q ->
+            item.required -> StatusCard("あなたに必要な手続きです", MaterialTheme.colorScheme.primaryContainer) {
+                item.reasons.forEach { Text("・$it", style = MaterialTheme.typography.bodyMedium) }
+            }
+            else -> {
+                StatusCard("関係がありそうな手続きです", MaterialTheme.colorScheme.secondaryContainer) {
+                    item.reasons.forEach { Text("・$it", style = MaterialTheme.typography.bodyMedium) }
+                    Text("条件しだいで必要になります。", style = MaterialTheme.typography.bodySmall)
+                }
+                item.missing.mapNotNull { RuleEngine.questionFor(it, questions) }.distinct().forEach { q ->
                     QuestionCard(
                         question = q,
                         answer = state.answers[q.field],
                         onAnswer = { onAnswer(q.field, it) },
-                        note = "この手続きが必要かどうかは、この質問で分かります。",
+                        note = "答えると、この手続きが必要かどうか確定します。",
                     )
                 }
-            }
-            Tri.FALSE -> StatusCard("いまの回答では対象外です", MaterialTheme.colorScheme.surfaceVariant) {
-                Text("参考として表示しています。", style = MaterialTheme.typography.bodySmall)
             }
         }
     }
@@ -172,7 +175,7 @@ private fun FlowScreenPreview() {
     val state = AppUiState(
         catalog = UiResult.Success(catalog),
         answers = SampleData.answers,
-        evaluation = RuleEngine.evaluate(catalog.procedures, SampleData.answers),
+        evaluation = RuleEngine.evaluate(catalog.procedures, SampleData.answers, catalog.threshold),
     )
     AppTheme { FlowScreen(state, SampleData.procedure.id, onAnswer = { _, _ -> }, onRetry = {}, onBack = {}) }
 }

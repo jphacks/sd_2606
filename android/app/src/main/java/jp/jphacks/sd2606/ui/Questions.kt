@@ -11,12 +11,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DatePicker
@@ -24,9 +31,12 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DisplayMode
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -38,6 +48,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 import jp.jphacks.sd2606.data.Answer
@@ -49,10 +61,34 @@ import jp.jphacks.sd2606.data.toAnswer
 /** 質問の種類に合った入力欄（日付なら日付の入力、それ以外は選択肢）。 */
 @Composable
 fun QuestionInput(question: Question, answer: Answer?, onAnswer: (Answer?) -> Unit) {
-    if (question.kind == "date") {
-        DateInput(answer as? Answer.Date, onAnswer)
-    } else {
-        QuestionChips(question, answer, onAnswer)
+    when (question.kind) {
+        "date" -> DateInput(answer as? Answer.Date, onAnswer)
+        "number" -> NumberInput(question, answer as? Answer.Number, onAnswer)
+        else -> QuestionChips(question, answer, onAnswer)
+    }
+}
+
+/**
+ * 数値の入力。入力の途中で判定が変わって画面が動かないよう、「決定」（またはキーボードの完了）で反映する。
+ * 空にして決定すると未回答に戻す。
+ */
+@Composable
+private fun NumberInput(question: Question, answer: Answer.Number?, onAnswer: (Answer?) -> Unit) {
+    val saved = answer?.let { (it.value / question.scale).toString() }.orEmpty()
+    var text by rememberSaveable(saved) { mutableStateOf(saved) }
+    val commit = { onAnswer(text.toLongOrNull()?.let { Answer.Number(it * question.scale) }) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        OutlinedTextField(
+            value = text,
+            onValueChange = { v -> text = v.filter(Char::isDigit).take(7) },
+            suffix = { Text(question.unit) },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { commit() }),
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(Modifier.width(8.dp))
+        Button(onClick = commit, enabled = text != saved) { Text("決定") }
     }
 }
 
@@ -100,7 +136,6 @@ fun QuestionCard(
     onAnswer: (Answer?) -> Unit,
     note: String?,
     modifier: Modifier = Modifier,
-    footer: @Composable () -> Unit = {},
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -114,27 +149,54 @@ fun QuestionCard(
             }
             note?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
             QuestionInput(question, answer, onAnswer)
-            footer()
         }
     }
 }
 
-/** この端末に保存している回答の一覧と消去。何を持っていて、何を送っていないかを見せる。 */
+/**
+ * この端末に保存している情報の一覧。受け付ける項目をすべて並べ（未入力も含む）、項目ごとに編集・削除できる。
+ * 何を持っていて、何を送っていないかを見せる。
+ */
 @Composable
-fun AnswersDialog(questions: List<Question>, answers: Map<String, Answer>, onDismiss: () -> Unit, onClear: () -> Unit) {
+fun AnswersDialog(
+    questions: List<Question>,
+    answers: Map<String, Answer>,
+    onAnswer: (String, Answer?) -> Unit,
+    onDismiss: () -> Unit,
+    onClear: () -> Unit,
+) {
+    var editing by rememberSaveable { mutableStateOf<String?>(null) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("端末に保存している情報") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                val answered = questions.filter { it.field in answers }
-                if (answered.isEmpty()) Text("まだ何も保存していません。")
-                answered.forEach { q ->
-                    Column {
-                        Text(q.text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(q.describe(answers.getValue(q.field)), style = MaterialTheme.typography.bodyLarge)
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                questions.forEach { q ->
+                    val answer = answers[q.field]
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(q.name, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                answer?.let { q.describe(it) } ?: "未入力",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = if (answer == null) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                        IconButton(onClick = { editing = if (editing == q.field) null else q.field }) {
+                            Icon(Icons.Default.Edit, contentDescription = "${q.name}を編集")
+                        }
+                        IconButton(onClick = { onAnswer(q.field, null) }, enabled = answer != null) {
+                            Icon(Icons.Default.Delete, contentDescription = "${q.name}を削除")
+                        }
                     }
+                    if (editing == q.field) {
+                        Column(Modifier.padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            QuestionInput(q, answer) { onAnswer(q.field, it) }
+                        }
+                    }
+                    HorizontalDivider()
                 }
+                Spacer(Modifier.size(4.dp))
                 PrivacyNote("サーバーには送っていません。判定はこの端末の中で行っています。")
             }
         },

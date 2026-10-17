@@ -23,6 +23,11 @@ sealed interface Answer {
     @SerialName("range")
     data class Range(val min: Long, val max: Long?) : Answer
 
+    /** 数値（年収は円、扶養家族は人数）。 */
+    @Serializable
+    @SerialName("number")
+    data class Number(val value: Long) : Answer
+
     /** 日付（生年月日など）。ISO 形式（2000-04-01）で持つ */
     @Serializable
     @SerialName("date")
@@ -39,13 +44,14 @@ fun Question.isSelected(choice: Choice, answer: Answer?): Boolean = when (answer
     is Answer.Single -> answer.value == choice.value
     is Answer.Multi -> choice.value in answer.values
     is Answer.Range -> answer.min == choice.min && answer.max == choice.max
-    is Answer.Date, null -> false
+    is Answer.Number, is Answer.Date, null -> false
 }
 
 /** 回答を画面に出す文字列にする（「あなたの回答」の一覧用）。 */
 fun Question.describe(answer: Answer): String = when (answer) {
     is Answer.Multi -> choices.filter { it.value in answer.values }.joinToString("、") { it.label }.ifEmpty { "なし" }
     is Answer.Date -> answer.describe()
+    is Answer.Number -> "%,d%s".format(answer.value / scale, unit)
     else -> choices.firstOrNull { isSelected(it, answer) }?.label ?: "（選択肢が変わりました）"
 }
 

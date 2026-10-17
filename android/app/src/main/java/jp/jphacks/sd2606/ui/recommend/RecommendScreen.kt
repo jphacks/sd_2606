@@ -1,9 +1,8 @@
 package jp.jphacks.sd2606.ui.recommend
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,18 +12,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Article
+import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.ManageAccounts
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,22 +38,23 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import jp.jphacks.sd2606.data.Answer
 import jp.jphacks.sd2606.data.Labels
-import jp.jphacks.sd2606.data.Matched
-import jp.jphacks.sd2606.data.PendingQuestion
+import jp.jphacks.sd2606.data.Question
 import jp.jphacks.sd2606.data.RuleEngine
 import jp.jphacks.sd2606.data.SampleData
+import jp.jphacks.sd2606.data.Scored
 import jp.jphacks.sd2606.ui.AnswersDialog
 import jp.jphacks.sd2606.ui.AppUiState
 import jp.jphacks.sd2606.ui.BackTopBar
 import jp.jphacks.sd2606.ui.PrivacyNote
-import jp.jphacks.sd2606.ui.QuestionCard
+import jp.jphacks.sd2606.ui.QuestionInput
 import jp.jphacks.sd2606.ui.ResultContent
 import jp.jphacks.sd2606.ui.UiResult
 import jp.jphacks.sd2606.ui.theme.AppTheme
 
 /**
- * おすすめ一覧。判定できた手続きと、「答えると分かる手続き」（判定に足りない質問）を並べる。
- * 質問に答えるとその場で判定し直し、手続きが上の一覧に移るか、対象外として消える。
+ * おすすめ一覧。「必要な手続き」（必須と判定）と「関係がありそうな手続き」（必須ではないが点数がしきい値以上）に分け、
+ * それぞれ点数の高い順に並べる。関係がありそうな手続きのうち、答えると必須かどうか決まるものには
+ * 「判定には生年月日が必要です」のように案内し、カードの中で入力できる。
  */
 @Composable
 fun RecommendScreen(
@@ -66,7 +68,7 @@ fun RecommendScreen(
     var showAnswers by rememberSaveable { mutableStateOf(false) }
     Scaffold(
         topBar = {
-            BackTopBar("関係がありそうな手続き", onBack) {
+            BackTopBar("あなたの手続き", onBack) {
                 IconButton(onClick = { showAnswers = true }) {
                     Icon(Icons.Default.ManageAccounts, contentDescription = "保存している回答")
                 }
@@ -75,7 +77,6 @@ fun RecommendScreen(
     ) { padding ->
         ResultContent(state.catalog, onRetry, Modifier.padding(padding)) { catalog ->
             val evaluation = state.evaluation ?: return@ResultContent
-            val questions = remember(evaluation, catalog) { RuleEngine.pendingQuestions(evaluation, catalog.questions) }
             LazyColumn(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -92,27 +93,26 @@ fun RecommendScreen(
                     }
                 }
 
-                item(key = "h-matched") { SectionTitle("あなたに必要な手続き（${evaluation.matched.size}件）") }
-                if (evaluation.matched.isEmpty()) {
-                    item(key = "none") { Text("いまの回答では、必要な手続きは見つかりませんでした。") }
+                item(key = "h-required") { SectionHeader("必要な手続き（${evaluation.required.size}件）", null) }
+                if (evaluation.required.isEmpty()) {
+                    item(key = "none") { Text("いまの回答では、必ず必要な手続きは見つかりませんでした。", style = MaterialTheme.typography.bodyMedium) }
                 }
-                items(evaluation.matched, key = { "m-${it.procedure.id}" }) { m ->
-                    RecommendationCard(m, onClick = { onOpen(m.procedure.id) }, Modifier.animateItem())
+                items(evaluation.required, key = { it.procedure.id }) { item ->
+                    ProcedureCard(item, catalog.questions, state.answers, onAnswer, onClick = { onOpen(item.procedure.id) }, Modifier.animateItem())
                 }
 
-                if (questions.isNotEmpty()) {
-                    item(key = "h-pending") {
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            SectionTitle("答えると分かる手続き")
-                            Text(
-                                "必要かどうかを決めるのに足りない情報だけを聞いています。答えたくなければそのままで構いません。",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+                if (evaluation.likely.isNotEmpty()) {
+                    item(key = "h-likely") {
+                        SectionHeader(
+                            "関係がありそうな手続き（${evaluation.likely.size}件）",
+                            buildString {
+                                append("関係の強い順に並べています。条件しだいで必要になります。")
+                                if (evaluation.likely.any { it.missing.isNotEmpty() }) append("情報を入れると、必要かどうか確定するものがあります（入力は任意）。")
+                            },
+                        )
                     }
-                    items(questions, key = { "q-${it.question.field}" }) { pq ->
-                        PendingQuestionCard(pq, state.answers[pq.question.field], onAnswer, onOpen, Modifier.animateItem())
+                    items(evaluation.likely, key = { it.procedure.id }) { item ->
+                        ProcedureCard(item, catalog.questions, state.answers, onAnswer, onClick = { onOpen(item.procedure.id) }, Modifier.animateItem())
                     }
                 }
             }
@@ -120,6 +120,7 @@ fun RecommendScreen(
                 AnswersDialog(
                     questions = catalog.questions,
                     answers = state.answers,
+                    onAnswer = onAnswer,
                     onDismiss = { showAnswers = false },
                     onClear = {
                         showAnswers = false
@@ -132,47 +133,37 @@ fun RecommendScreen(
 }
 
 @Composable
-private fun SectionTitle(text: String) {
-    Text(text, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun PendingQuestionCard(
-    pq: PendingQuestion,
-    answer: Answer?,
-    onAnswer: (String, Answer?) -> Unit,
-    onOpen: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    QuestionCard(
-        question = pq.question,
-        answer = answer,
-        onAnswer = { onAnswer(pq.question.field, it) },
-        note = "答えると、次の手続きが必要かどうか分かります（タップで内容を見られます）",
-        modifier = modifier,
-    ) {
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            pq.procedures.forEach { proc ->
-                AssistChip(
-                    onClick = { onOpen(proc.id) },
-                    label = { Text(proc.title) },
-                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.Article, contentDescription = null, Modifier.size(AssistChipDefaults.IconSize)) },
-                )
-            }
-        }
+private fun SectionHeader(title: String, note: String?) {
+    Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(title, style = MaterialTheme.typography.titleMedium)
+        note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }
 
 @Composable
-private fun RecommendationCard(item: Matched, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun ProcedureCard(
+    item: Scored,
+    questions: List<Question>,
+    answers: Map<String, Answer>,
+    onAnswer: (String, Answer?) -> Unit,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val proc = item.procedure
+    val missing = remember(item, questions) { item.missing.mapNotNull { RuleEngine.questionFor(it, questions) }.distinct() }
     Card(onClick = onClick, modifier = modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.padding(16.dp).animateContentSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 AssistChip(onClick = onClick, label = { Text(Labels.category[proc.category] ?: proc.category) })
                 Spacer(Modifier.width(8.dp))
-                Text(proc.title, style = MaterialTheme.typography.titleMedium)
+                Text(proc.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                if (!item.required) {
+                    Text(
+                        "関連度 ${"%.1f".format(item.score)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
             proc.deadline?.let {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -183,6 +174,32 @@ private fun RecommendationCard(item: Matched, onClick: () -> Unit, modifier: Mod
             }
             item.reasons.forEach { reason ->
                 Text("・$reason", style = MaterialTheme.typography.bodyMedium)
+            }
+            missing.forEach { q -> NeedInfo(q, answers[q.field]) { onAnswer(q.field, it) } }
+        }
+    }
+}
+
+/** 「判定には生年月日が必要です」の案内。「入力する」でその場に入力欄を開く。 */
+@Composable
+private fun NeedInfo(question: Question, answer: Answer?, onAnswer: (Answer?) -> Unit) {
+    var open by rememberSaveable(question.field) { mutableStateOf(false) }
+    Surface(
+        color = MaterialTheme.colorScheme.tertiaryContainer,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.EditNote, contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("判定には${question.name}が必要です", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                TextButton(onClick = { open = !open }) { Text(if (open) "閉じる" else "入力する") }
+            }
+            if (open) {
+                Column(Modifier.padding(end = 8.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    QuestionInput(question, answer, onAnswer)
+                }
             }
         }
     }
@@ -195,7 +212,7 @@ private fun RecommendScreenPreview() {
     val state = AppUiState(
         catalog = UiResult.Success(catalog),
         answers = SampleData.answers,
-        evaluation = RuleEngine.evaluate(catalog.procedures, SampleData.answers),
+        evaluation = RuleEngine.evaluate(catalog.procedures, SampleData.answers, catalog.threshold),
     )
     AppTheme { RecommendScreen(state, onAnswer = { _, _ -> }, onClearAnswers = {}, onRetry = {}, onBack = {}, onOpen = {}) }
 }
