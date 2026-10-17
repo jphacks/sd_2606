@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Savings
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -98,9 +99,9 @@ private fun categoryColors(category: String): Pair<Color, Color> {
 }
 
 /** 下部のナビゲーションバーで切り替える画面。 */
-enum class Tab { PROCEDURES, HISTORY }
+enum class Tab { PROCEDURES, METER, HISTORY }
 
-/** 「手続き」と「通知と履歴」を切り替える下部のナビゲーションバー。 */
+/** 「手続き」「バイト代」「通知と履歴」を切り替える下部のナビゲーションバー。 */
 @Composable
 fun AppBottomBar(selected: Tab, onSelect: (Tab) -> Unit) {
     NavigationBar {
@@ -109,6 +110,12 @@ fun AppBottomBar(selected: Tab, onSelect: (Tab) -> Unit) {
             onClick = { onSelect(Tab.PROCEDURES) },
             icon = { Icon(Icons.Default.Checklist, contentDescription = null) },
             label = { Text("手続き") },
+        )
+        NavigationBarItem(
+            selected = selected == Tab.METER,
+            onClick = { onSelect(Tab.METER) },
+            icon = { Icon(Icons.Default.Savings, contentDescription = null) },
+            label = { Text("バイト代") },
         )
         NavigationBarItem(
             selected = selected == Tab.HISTORY,

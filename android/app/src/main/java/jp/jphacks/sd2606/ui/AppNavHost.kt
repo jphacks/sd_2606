@@ -16,8 +16,10 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import jp.jphacks.sd2606.data.Answer
 import jp.jphacks.sd2606.ui.flow.FlowScreen
 import jp.jphacks.sd2606.ui.manage.ManageScreen
+import jp.jphacks.sd2606.ui.meter.MeterScreen
 import jp.jphacks.sd2606.ui.profile.ProfileScreen
 import jp.jphacks.sd2606.ui.recommend.RecommendScreen
 
@@ -25,6 +27,7 @@ private object Routes {
     const val PROFILE = "profile"
     const val RECOMMEND = "recommend"
     const val FLOW = "flow/{id}"
+    const val METER = "meter"
     const val MANAGE = "manage"
     fun flow(id: String) = "flow/$id"
 }
@@ -32,7 +35,7 @@ private object Routes {
 private const val SLIDE_MS = 300
 
 /** 下部のナビゲーションバーで切り替える画面。切り替えは横スライドではなくフェードにする */
-private val TAB_ROUTES = setOf(Routes.RECOMMEND, Routes.MANAGE)
+private val TAB_ROUTES = setOf(Routes.RECOMMEND, Routes.METER, Routes.MANAGE)
 
 private fun AnimatedContentTransitionScope<NavBackStackEntry>.isTabSwitch() =
     initialState.destination.route in TAB_ROUTES && targetState.destination.route in TAB_ROUTES
@@ -43,11 +46,22 @@ private fun AnimatedContentTransitionScope<NavBackStackEntry>.enter(direction: S
 private fun AnimatedContentTransitionScope<NavBackStackEntry>.exit(direction: SlideDirection): ExitTransition =
     if (isTabSwitch()) fadeOut(tween(SLIDE_MS)) else slideOutOfContainer(direction, tween(SLIDE_MS))
 
-/** ナビゲーションバーの切り替え。通知と履歴は手続きの上に重ね、戻ると手続きに戻る。 */
+/**
+ * ナビゲーションバーの切り替え。バイト代と通知と履歴は手続きの上に1枚だけ重ね、戻ると手続きに戻る
+ * （タブ同士を行き来しても画面が積み重ならないように、手続きまで戻してから重ねる）。
+ */
 private fun NavHostController.switchTab(tab: Tab) {
-    when (tab) {
-        Tab.PROCEDURES -> popBackStack(Routes.RECOMMEND, inclusive = false)
-        Tab.HISTORY -> navigate(Routes.MANAGE) { launchSingleTop = true }
+    val route = when (tab) {
+        Tab.PROCEDURES -> {
+            popBackStack(Routes.RECOMMEND, inclusive = false)
+            return
+        }
+        Tab.METER -> Routes.METER
+        Tab.HISTORY -> Routes.MANAGE
+    }
+    navigate(route) {
+        popUpTo(Routes.RECOMMEND)
+        launchSingleTop = true
     }
 }
 
@@ -95,6 +109,12 @@ fun AppNavHost(vm: AppViewModel = viewModel()) {
                 onRetry = vm::loadCatalog,
                 onBack = { nav.popBackStack() },
                 onOpen = { id -> nav.navigate(Routes.flow(id)) },
+                onTab = nav::switchTab,
+            )
+        }
+        composable(Routes.METER) {
+            MeterScreen(
+                birthDate = (state.answers["birth_date"] as? Answer.Date)?.let { runCatching { it.toLocalDate() }.getOrNull() },
                 onTab = nav::switchTab,
             )
         }
