@@ -23,10 +23,16 @@ steps:
       - {field: occupation, op: in, value: [unemployed, retired, self_employed, freelance]}
   - title: 任意継続・家族の扶養と保険料を比べる
     detail: 任意継続は退職から20日以内に申し込みます。家族の扶養なら保険料はかかりません。
+    details:
+      - 国保の保険料は、役所の窓口か市区町村のサイトで試算できます
+      - 任意継続の保険料は、前の勤務先の健康保険（協会けんぽ・健康保険組合）に聞きます
     when:
       - {field: occupation, op: in, value: [unemployed, retired, self_employed, freelance]}
   - title: 役所で国保の加入を届け出る
     detail: 14日以内に届け出ます。マイナポータルで届け出られる市区町村もあります。
+    details:
+      - 窓口の届出書（国民健康保険の資格取得届など。名前は市区町村で違う）に書きます
+      - 会社を辞めた人は、資格喪失証明書も持っていきます
     where: 市区町村の役所
     documents: [マイナンバーカード（または通知カード＋本人確認書類）]
   - title: 保険料を納める

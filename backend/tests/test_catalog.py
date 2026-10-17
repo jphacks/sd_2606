@@ -57,7 +57,7 @@ def test_step_placeholders_refer_to_answer_fields():
     fields = {f for q in build_catalog().questions for f in [q.field, *q.provides]}
     for p in load_procedures().values():
         for s in p.steps:
-            for name in re.findall(r"\{(\w+)\}", s.title + s.detail):
+            for name in re.findall(r"\{(\w+)\}", s.title + s.detail + "".join(s.details)):
                 assert name in fields, (p.id, name)
 
 

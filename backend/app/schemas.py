@@ -71,6 +71,9 @@ class FlowStep(BaseModel):
     detail: str
     where: str | None = None
     documents: list[str] = Field(default_factory=list, description="このステップで必要なもの。アプリは全ステップ分をまとめて一覧にする")
+    details: list[str] = Field(
+        default_factory=list, description="詳しい手順（箇条書き）。アプリでは最初は閉じておき、開くと表示する"
+    )
     when: list[Condition] = Field(
         default_factory=list,
         description="このステップの説明が当てはまる人の条件。満たさない条件があればアプリは表示しない（未回答なら表示する）",

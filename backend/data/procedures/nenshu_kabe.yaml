@@ -50,10 +50,16 @@ steps:
       - {field: supported_by, value: unknown}
   - title: 給与明細で年収を確かめる
     detail: 1〜12月の合計で、掛け持ちなら合算します。
+    details:
+      - 税金は交通費を除いて、健康保険は交通費を含めて数えます
+      - 掛け持ちしているなら、すべてのアルバイト先の分を足します
     documents: [給与明細]
   # 税金: 親・配偶者の年末調整
   - title: 親に年収を伝え、特定親族特別控除に切り替えてもらう
     detail: 親が勤務先の年末調整で申告します。
+    details:
+      - 1〜12月の給与の合計（交通費を除く）を伝えます
+      - 親が年末調整で「特定親族特別控除申告書」に書いて出します
     where: 親の勤務先
     when:
       - {field: supported_by, value: parent}
@@ -62,6 +68,9 @@ steps:
       - {field: annual_income, op: lte, value: 1970000}
   - title: 親に年収を伝え、扶養控除の申告を外してもらう
     detail: 親が勤務先の年末調整で申告します。
+    details:
+      - 1〜12月の給与の合計（交通費を除く）を伝えます
+      - 親が勤務先に出している扶養控除等申告書から、子の名前を消してもらいます
     where: 親の勤務先
     when:
       - {field: supported_by, value: parent}
@@ -69,6 +78,9 @@ steps:
       - {field: annual_income, op: gt, value: 1970000}
   - title: 親に年収を伝え、扶養控除の申告を外してもらう
     detail: 親が勤務先の年末調整で申告します。
+    details:
+      - 1〜12月の給与の合計（交通費を除く）を伝えます
+      - 親が勤務先に出している扶養控除等申告書から、子の名前を消してもらいます
     where: 親の勤務先
     when:
       - {field: supported_by, value: parent}
