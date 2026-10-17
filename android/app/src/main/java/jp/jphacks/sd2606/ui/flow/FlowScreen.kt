@@ -1,6 +1,11 @@
 package jp.jphacks.sd2606.ui.flow
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,22 +28,30 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.DoNotDisturbOn
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -64,8 +77,8 @@ import jp.jphacks.sd2606.ui.theme.AppTheme
 
 /**
  * 手続きの流れを縦のタイムラインで表示する画面。制度データは端末内にあるので通信しない。
- * 年齢や働き方で当てはまらない説明（ステップ）は省き、必要なものはステップをまとめて一覧にする。
- * まだ判定できていない手続きなら、上部で判定に必要な質問だけを聞く。終わった手続きは完了として記録できる。
+ * 年齢や働き方で当てはまらないステップは出さず、詳しい手順は押すと開く。
+ * 終わった手続きは完了として、関係ない手続きは「自分には関係ない」として記録できる。
  */
 @Composable
 fun FlowScreen(
@@ -73,6 +86,7 @@ fun FlowScreen(
     procedureId: String,
     onAnswer: (String, Answer?) -> Unit,
     onComplete: (String, Boolean) -> Unit,
+    onDismiss: (String, Boolean) -> Unit,
     onRetry: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -85,20 +99,20 @@ fun FlowScreen(
             }
             val item = state.evaluation?.find(proc.id)
             val steps = item?.steps ?: proc.steps.map { StepView(it, emptyList()) }
-            val hidden = proc.steps.size - steps.size
             val uriHandler = LocalUriHandler.current
             LazyColumn(contentPadding = PaddingValues(16.dp), modifier = Modifier.padding(padding)) {
                 item { Header(proc) }
-                item { Completion(state.completed[proc.id]) { onComplete(proc.id, it) } }
-                item { Status(item, state, catalog.questions, onAnswer) }
-                if (item != null && item.documents.isNotEmpty()) item { Documents(item) }
                 item {
-                    Text(
-                        if (hidden > 0) "手続きの流れ（あなたに当てはまらない説明${hidden}件を省いています）" else "手続きの流れ",
-                        style = MaterialTheme.typography.titleSmall,
-                        modifier = Modifier.padding(bottom = 12.dp),
+                    Actions(
+                        completedOn = state.completed[proc.id],
+                        dismissed = item?.dismissed == true,
+                        onComplete = { onComplete(proc.id, it) },
+                        onDismiss = { onDismiss(proc.id, it) },
                     )
                 }
+                item { Status(item, state, catalog.questions, onAnswer) }
+                if (item != null && item.documents.isNotEmpty()) item { Documents(item) }
+                item { Text("手続きの流れ", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(bottom = 12.dp)) }
                 if (steps.isEmpty()) {
                     item { Text("あなたに当てはまる手順はありません。", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 16.dp)) }
                 }
@@ -113,47 +127,59 @@ fun FlowScreen(
     }
 }
 
-/** 完了の記録。終わったら押して、完了した日を端末に残す。 */
+/** 完了の記録と「自分には関係ない」。どちらも端末に残し、元に戻せる。 */
 @Composable
-private fun Completion(completedOn: String?, onChange: (Boolean) -> Unit) {
-    Box(Modifier.padding(bottom = 16.dp)) {
+private fun Actions(completedOn: String?, dismissed: Boolean, onComplete: (Boolean) -> Unit, onDismiss: (Boolean) -> Unit) {
+    Column(Modifier.padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (completedOn != null) {
             OutlinedCard(Modifier.fillMaxWidth()) {
                 Row(Modifier.padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.width(12.dp))
                     Text(completedLabel(completedOn), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                    TextButton(onClick = { onChange(false) }) { Text("未完了に戻す") }
+                    TextButton(onClick = { onComplete(false) }) { Text("未完了に戻す") }
                 }
             }
-        } else {
-            Button(onClick = { onChange(true) }, modifier = Modifier.fillMaxWidth()) {
+        } else if (!dismissed) {
+            Button(onClick = { onComplete(true) }, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Outlined.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("申請などが終わったら、完了にする")
             }
         }
+        if (dismissed) {
+            OutlinedCard(Modifier.fillMaxWidth()) {
+                Row(Modifier.padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.DoNotDisturbOn, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.width(12.dp))
+                    Text("「関係ない」にしました", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                    TextButton(onClick = { onDismiss(false) }) { Text("元に戻す") }
+                }
+            }
+        } else if (completedOn == null) {
+            OutlinedButton(onClick = { onDismiss(true) }, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Outlined.DoNotDisturbOn, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("自分には関係ない（対象外にする）")
+            }
+        }
     }
 }
 
-/** この人にとって必要か（必要 / 関係がありそう / 対象外）。判定を変えうる情報が足りなければ、その質問を聞く。 */
+/**
+ * この人にとって必要か（必要 / 関係がありそう / 対象外）。見出しだけを出し、理由は押すと開く。
+ * 判定を変えうる情報が足りなければ、その質問を聞く。
+ */
 @Composable
 private fun Status(item: Scored?, state: AppUiState, questions: List<Question>, onAnswer: (String, Answer?) -> Unit) {
     item ?: return
     Column(Modifier.padding(bottom = 16.dp).animateContentSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        when (item.status) {
-            Status.REQUIRED -> StatusCard("あなたに必要な手続きです", MaterialTheme.colorScheme.primaryContainer) {
-                item.reasons.forEach { Text("・$it", style = MaterialTheme.typography.bodyMedium) }
-            }
-            Status.LIKELY -> StatusCard("関係がありそうな手続きです", MaterialTheme.colorScheme.secondaryContainer) {
-                item.reasons.forEach { Text("・$it", style = MaterialTheme.typography.bodyMedium) }
-                Text("条件しだいで必要になります。", style = MaterialTheme.typography.bodySmall)
-            }
-            Status.UNRELATED -> StatusCard("いまの回答では対象外です", MaterialTheme.colorScheme.surfaceVariant) {
-                item.reasons.forEach { Text("・$it", style = MaterialTheme.typography.bodyMedium) }
-                Text("参考として表示しています。", style = MaterialTheme.typography.bodySmall)
-            }
+        val (title, color) = when (item.status) {
+            Status.REQUIRED -> "あなたに必要な手続きです" to MaterialTheme.colorScheme.primaryContainer
+            Status.LIKELY -> "関係がありそうな手続きです" to MaterialTheme.colorScheme.secondaryContainer
+            Status.UNRELATED -> "いまの回答では対象外です" to MaterialTheme.colorScheme.surfaceVariant
         }
+        StatusCard(title, color, item.reasons)
         item.missing.mapNotNull { RuleEngine.questionFor(it, questions) }.distinct().forEach { q ->
             QuestionCard(
                 question = q,
@@ -165,12 +191,28 @@ private fun Status(item: Scored?, state: AppUiState, questions: List<Question>, 
     }
 }
 
+/** 見出しのカード。押すと理由の箇条書きが開く（最初は閉じている）。 */
 @Composable
-private fun StatusCard(title: String, color: Color, content: @Composable () -> Unit) {
-    Card(colors = CardDefaults.cardColors(containerColor = color), modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(title, style = MaterialTheme.typography.titleSmall)
-            content()
+private fun StatusCard(title: String, color: Color, reasons: List<String>) {
+    var open by rememberSaveable { mutableStateOf(false) }
+    Card(
+        onClick = { open = !open },
+        enabled = reasons.isNotEmpty(),
+        colors = CardDefaults.cardColors(containerColor = color, disabledContainerColor = color),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                if (reasons.isNotEmpty()) {
+                    Icon(if (open) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = if (open) "理由を閉じる" else "理由を開く")
+                }
+            }
+            AnimatedVisibility(visible = open, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+                Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    reasons.forEach { Text("・$it", style = MaterialTheme.typography.bodyMedium) }
+                }
+            }
         }
     }
 }
@@ -221,6 +263,7 @@ private fun HeaderRow(icon: ImageVector, label: String, text: String, color: Col
 @Composable
 private fun StepRow(number: Int, view: StepView, questions: List<Question>, answers: Map<String, Answer>, isLast: Boolean) {
     val step = view.step
+    var open by rememberSaveable(number, step.title) { mutableStateOf(false) }
     Row(Modifier.height(IntrinsicSize.Min)) {
         // 左側: 番号の丸と、次のステップへの線
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(40.dp)) {
@@ -256,12 +299,23 @@ private fun StepRow(number: Int, view: StepView, questions: List<Question>, answ
                     color = MaterialTheme.colorScheme.tertiary,
                 )
             }
-            // 「見込みの{annual_income}なら」のような箇所を、その人の回答に置き換える
+            // 「年収（{annual_income}）」のような箇所を、その人の回答に置き換える
             Text(RuleEngine.fillIn(step.detail, answers, questions), style = MaterialTheme.typography.bodyMedium)
             step.where?.let { Text("📍 $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
             if (step.documents.isNotEmpty()) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     step.documents.forEach { doc -> SuggestionChip(onClick = {}, label = { Text(doc) }) }
+                }
+            }
+            if (step.details.isNotEmpty()) {
+                TextButton(onClick = { open = !open }, contentPadding = PaddingValues(horizontal = 0.dp)) {
+                    Text(if (open) "詳しい手順を閉じる" else "詳しい手順")
+                    Icon(if (open) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = null, modifier = Modifier.size(18.dp))
+                }
+                AnimatedVisibility(visible = open, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        step.details.forEach { Text("・${RuleEngine.fillIn(it, answers, questions)}", style = MaterialTheme.typography.bodyMedium) }
+                    }
                 }
             }
         }
@@ -277,5 +331,7 @@ private fun FlowScreenPreview() {
         answers = SampleData.answers,
         evaluation = RuleEngine.evaluate(catalog.procedures, SampleData.answers, catalog.threshold),
     )
-    AppTheme { FlowScreen(state, SampleData.procedure.id, onAnswer = { _, _ -> }, onComplete = { _, _ -> }, onRetry = {}, onBack = {}) }
+    AppTheme {
+        FlowScreen(state, SampleData.procedure.id, onAnswer = { _, _ -> }, onComplete = { _, _ -> }, onDismiss = { _, _ -> }, onRetry = {}, onBack = {})
+    }
 }

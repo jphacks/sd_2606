@@ -9,6 +9,7 @@ import kotlinx.serialization.json.Json
  * 端末の中だけに保存するデータ。
  * - 回答: アプリ専用の領域に保存し、サーバーには送らない（allowBackup=false なのでクラウドのバックアップにも載らない）
  * - 完了の記録: 手続きの id と完了した日（ISO 形式）。回答と同じく端末の中だけ
+ * - 「自分には関係ない」にした手続きの id
  * - 制度データ: 通信できないときのために、前回受け取ったものを残しておく
  */
 class LocalStore(context: Context) {
@@ -32,11 +33,18 @@ class LocalStore(context: Context) {
         prefs.edit { putString(KEY_COMPLETED, json.encodeToString(completed)) }
     }
 
-    /** 回答と完了の記録を消す（制度データの控えは個人の情報ではないので残す）。 */
+    fun loadDismissed(): Set<String> = prefs.getStringSet(KEY_DISMISSED, null)?.toSet() ?: emptySet()
+
+    fun saveDismissed(ids: Set<String>) {
+        prefs.edit { putStringSet(KEY_DISMISSED, ids) }
+    }
+
+    /** 回答・完了の記録・「関係ない」の記録を消す（制度データの控えは個人の情報ではないので残す）。 */
     fun clearAll() {
         prefs.edit {
             remove(KEY_ANSWERS)
             remove(KEY_COMPLETED)
+            remove(KEY_DISMISSED)
         }
     }
 
@@ -49,5 +57,6 @@ class LocalStore(context: Context) {
     private companion object {
         const val KEY_ANSWERS = "answers"
         const val KEY_COMPLETED = "completed"
+        const val KEY_DISMISSED = "dismissed"
     }
 }

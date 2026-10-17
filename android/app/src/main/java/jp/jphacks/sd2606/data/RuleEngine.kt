@@ -31,6 +31,7 @@ data class Document(val name: String, val conditional: Boolean)
  * - reasons: 必要・関係がありそうなら当てはまった理由（点数の高い順）、対象外なら対象外の理由
  * - missing: 答えると判定が変わりうる項目（「判定には生年月日が必要です」の案内に使う）
  * - steps: 当てはまらない説明を除いたステップ
+ * - dismissed: 本人が「自分には関係ない」にした（ルールの判定にかかわらず対象外）
  */
 data class Scored(
     val procedure: ProcedureDef,
@@ -39,6 +40,7 @@ data class Scored(
     val reasons: List<String>,
     val missing: List<String>,
     val steps: List<StepView>,
+    val dismissed: Boolean = false,
 ) {
     val required: Boolean get() = status == Status.REQUIRED
 
@@ -97,11 +99,20 @@ object RuleEngine {
         rawAnswers: Map<String, Answer>,
         threshold: Double?,
         today: LocalDate = LocalDate.now(),
+        dismissed: Set<String> = emptySet(),
     ): Evaluation {
         val answers = withDerived(rawAnswers, today)
         val lower = threshold ?: Double.NEGATIVE_INFINITY
-        return Evaluation(procedures.map { judge(it, answers, lower) }.sortedByDescending { it.score })
+        val items = procedures.map { proc ->
+            val judged = judge(proc, answers, lower)
+            // 本人が「自分には関係ない」にしたものは、ルールの判定より優先して対象外にする
+            if (proc.id in dismissed) judged.copy(status = Status.UNRELATED, reasons = listOf(DISMISSED_REASON), missing = emptyList(), dismissed = true)
+            else judged
+        }
+        return Evaluation(items.sortedByDescending { it.score })
     }
+
+    const val DISMISSED_REASON = "自分で「関係ない」にしたため"
 
     private fun judge(proc: ProcedureDef, answers: Map<String, Answer>, lower: Double): Scored {
         var isRequired = false

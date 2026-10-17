@@ -58,6 +58,7 @@ fun AppNavHost(vm: AppViewModel = viewModel()) {
                     nav.popBackStack(Routes.PROFILE, inclusive = false)
                 },
                 onClearCompleted = vm::clearCompleted,
+                onClearDismissed = vm::clearDismissed,
                 onRetry = vm::loadCatalog,
                 onBack = { nav.popBackStack() },
                 onOpen = { id -> nav.navigate(Routes.flow(id)) },
@@ -69,6 +70,7 @@ fun AppNavHost(vm: AppViewModel = viewModel()) {
                 procedureId = entry.arguments?.getString("id").orEmpty(),
                 onAnswer = vm::answer,
                 onComplete = vm::setCompleted,
+                onDismiss = vm::setDismissed,
                 onRetry = vm::loadCatalog,
                 onBack = { nav.popBackStack() },
             )

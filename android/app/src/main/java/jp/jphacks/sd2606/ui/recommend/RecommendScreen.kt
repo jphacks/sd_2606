@@ -86,6 +86,7 @@ fun RecommendScreen(
     onComplete: (String, Boolean) -> Unit,
     onClearAll: () -> Unit,
     onClearCompleted: () -> Unit,
+    onClearDismissed: () -> Unit,
     onRetry: () -> Unit,
     onBack: () -> Unit,
     onOpen: (String) -> Unit,
@@ -202,8 +203,10 @@ fun RecommendScreen(
                     questions = catalog.questions,
                     answers = state.answers,
                     completedCount = state.completed.size,
+                    dismissedCount = state.dismissed.size,
                     onAnswer = onAnswer,
                     onClearCompleted = onClearCompleted,
+                    onClearDismissed = onClearDismissed,
                     onDismiss = { showAnswers = false },
                     onClear = {
                         showAnswers = false
@@ -281,17 +284,10 @@ private fun ProcedureCard(
             }
             proc.deadline?.let {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Schedule, contentDescription = "期限", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
+                    Icon(Icons.Default.Schedule, contentDescription = "期限", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.width(4.dp))
-                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    Text(it, style = MaterialTheme.typography.bodyMedium)
                 }
-            }
-            item.reasons.forEach { reason ->
-                Text(
-                    if (item.status == Status.UNRELATED) "・対象外: $reason" else "・$reason",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (item.status == Status.UNRELATED) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-                )
             }
             DocumentsLine(item)
             missing.forEach { q -> NeedInfo(q, answers[q.field]) { onAnswer(q, it) } }
@@ -397,6 +393,7 @@ private fun RecommendScreenPreview() {
             onComplete = { _, _ -> },
             onClearAll = {},
             onClearCompleted = {},
+            onClearDismissed = {},
             onRetry = {},
             onBack = {},
             onOpen = {},

@@ -227,4 +227,26 @@ class RuleEngineTest {
         )
         assertEquals("見込みの（年収は未入力）", RuleEngine.fillIn("見込みの{income}", emptyMap(), questions, today))
     }
+
+    @Test
+    fun dismissedProcedureIsUnrelatedRegardlessOfRules() {
+        // フリーランスの確定申告はルールでは必要だが、本人が「関係ない」にしたら対象外
+        val evaluation = RuleEngine.evaluate(catalog.procedures, mapOf(occupation("freelance")), catalog.threshold, today, dismissed = setOf("kakutei"))
+        val kakutei = evaluation.find("kakutei")!!
+        assertEquals(Status.UNRELATED, kakutei.status)
+        assertEquals(true, kakutei.dismissed)
+        assertEquals(listOf(RuleEngine.DISMISSED_REASON), kakutei.reasons)
+        assertEquals(emptyList<String>(), kakutei.missing)
+        // ほかの手続きには影響しない
+        assertEquals(false, evaluation.find("kokuho")!!.dismissed)
+    }
+
+    @Test
+    fun stepDetailsAreParsed() {
+        val proc = Json.decodeFromString<ProcedureDef>(
+            """{"id": "x", "title": "", "category": "tax", "summary": "",
+                "steps": [{"title": "出す", "detail": "1文", "details": ["窓口で書く", "郵送もできる"]}]}""",
+        )
+        assertEquals(listOf("窓口で書く", "郵送もできる"), proc.steps.single().details)
+    }
 }

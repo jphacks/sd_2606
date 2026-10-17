@@ -73,6 +73,8 @@ data class FlowStep(
     val where: String? = null,
     /** このステップで必要なもの（手続きの「必要なもの」は全ステップ分をまとめる） */
     val documents: List<String> = emptyList(),
+    /** 詳しい手順（箇条書き）。最初は閉じておき、開くと表示する */
+    val details: List<String> = emptyList(),
     /** この説明が当てはまる人の条件。満たさない条件があれば表示しない（未回答なら「当てはまる場合のみ」として表示） */
     @SerialName("when") val conditions: List<Condition> = emptyList(),
 )

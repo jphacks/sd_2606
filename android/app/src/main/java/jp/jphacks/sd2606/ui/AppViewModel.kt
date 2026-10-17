@@ -31,6 +31,8 @@ data class AppUiState(
     val answers: Map<String, Answer> = emptyMap(),
     /** 完了した手続き（id → 完了した日。ISO 形式） */
     val completed: Map<String, String> = emptyMap(),
+    /** 本人が「自分には関係ない」にした手続きの id */
+    val dismissed: Set<String> = emptySet(),
     /** catalog と answers から端末内で判定した結果 */
     val evaluation: Evaluation? = null,
 )
@@ -41,7 +43,9 @@ data class AppUiState(
  */
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val store = LocalStore(app)
-    private val _state = MutableStateFlow(AppUiState(answers = store.loadAnswers(), completed = store.loadCompleted()))
+    private val _state = MutableStateFlow(
+        AppUiState(answers = store.loadAnswers(), completed = store.loadCompleted(), dismissed = store.loadDismissed()),
+    )
     val state: StateFlow<AppUiState> = _state.asStateFlow()
 
     init {
@@ -96,10 +100,24 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(completed = emptyMap()) }
     }
 
-    /** 端末に保存している回答と完了の記録をすべて消す。 */
+    /** 「自分には関係ない」にする（対象外のグループに移す）か、元に戻す。 */
+    fun setDismissed(id: String, dismissed: Boolean) {
+        _state.update {
+            val ids = if (dismissed) it.dismissed + id else it.dismissed - id
+            store.saveDismissed(ids)
+            it.copy(dismissed = ids).evaluated()
+        }
+    }
+
+    fun clearDismissed() {
+        store.saveDismissed(emptySet())
+        _state.update { it.copy(dismissed = emptySet()).evaluated() }
+    }
+
+    /** 端末に保存している回答・完了の記録・「関係ない」の記録をすべて消す。 */
     fun clearAll() {
         store.clearAll()
-        _state.update { it.copy(answers = emptyMap(), completed = emptyMap()).evaluated() }
+        _state.update { it.copy(answers = emptyMap(), completed = emptyMap(), dismissed = emptySet()).evaluated() }
     }
 
     /**
@@ -115,7 +133,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun AppUiState.evaluated(): AppUiState {
         val catalog = (catalog as? UiResult.Success)?.data ?: return this
-        return copy(evaluation = RuleEngine.evaluate(catalog.procedures, answers, catalog.threshold))
+        return copy(evaluation = RuleEngine.evaluate(catalog.procedures, answers, catalog.threshold, dismissed = dismissed))
     }
 
     private fun Throwable?.toMessage() =

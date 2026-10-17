@@ -170,8 +170,10 @@ fun AnswersDialog(
     questions: List<Question>,
     answers: Map<String, Answer>,
     completedCount: Int,
+    dismissedCount: Int,
     onAnswer: (String, Answer?) -> Unit,
     onClearCompleted: () -> Unit,
+    onClearDismissed: () -> Unit,
     onDismiss: () -> Unit,
     onClear: () -> Unit,
 ) {
@@ -206,19 +208,9 @@ fun AnswersDialog(
                     }
                     HorizontalDivider()
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("完了の記録", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(
-                            if (completedCount > 0) "${completedCount}件" else "なし",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = if (completedCount == 0) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                    IconButton(onClick = onClearCompleted, enabled = completedCount > 0) {
-                        Icon(Icons.Default.Delete, contentDescription = "完了の記録を削除")
-                    }
-                }
+                RecordRow("完了の記録", completedCount, onClearCompleted)
+                HorizontalDivider()
+                RecordRow("「関係ない」にした手続き", dismissedCount, onClearDismissed)
                 HorizontalDivider()
                 Spacer(Modifier.size(4.dp))
                 PrivacyNote("サーバーには送っていません。判定はこの端末の中で行っています。")
@@ -226,11 +218,29 @@ fun AnswersDialog(
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("閉じる") } },
         dismissButton = {
-            TextButton(onClick = onClear, enabled = answers.isNotEmpty() || completedCount > 0) {
+            TextButton(onClick = onClear, enabled = answers.isNotEmpty() || completedCount > 0 || dismissedCount > 0) {
                 Text("すべて消去", color = MaterialTheme.colorScheme.error)
             }
         },
     )
+}
+
+/** 端末に残している記録の件数と、消すボタン。 */
+@Composable
+private fun RecordRow(label: String, count: Int, onClear: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                if (count > 0) "${count}件" else "なし",
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (count == 0) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface,
+            )
+        }
+        IconButton(onClick = onClear, enabled = count > 0) {
+            Icon(Icons.Default.Delete, contentDescription = "${label}を削除")
+        }
+    }
 }
 
 /** 日付の入力。ボタンを押すと日付の入力ダイアログ（カレンダーにも切り替え可）を開く。 */
