@@ -35,4 +35,6 @@ data class Income(
     @ColumnInfo(name = "paid_on") val paidOn: String,
     /** 支給額（円、交通費を除く） */
     val amount: Long,
+    /** 天引きされた所得税（給与明細の「所得税」欄、円）。戻ってくる額の目安に使う。分からなければ 0 */
+    @ColumnInfo(name = "withheld_tax", defaultValue = "0") val withheldTax: Long = 0,
 )

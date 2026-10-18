@@ -26,12 +26,16 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.QueryStats
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -83,6 +87,7 @@ fun MeterScreen(age: Int, onBack: () -> Unit, vm: MeterViewModel = viewModel()) 
 
     MeterContent(
         state = state,
+        age = age,
         walls = incomeWallsFor(age),
         onBack = onBack,
         onPreviousYear = vm::previousYear,
@@ -98,8 +103,8 @@ fun MeterScreen(age: Int, onBack: () -> Unit, vm: MeterViewModel = viewModel()) 
             newJobColorIndex = state.nextColorIndex,
             onHideJob = vm::hideJob,
             onDismiss = { showAdd = false },
-            onSave = { name, wage, colorIndex, date, amount ->
-                vm.addIncome(name, wage, colorIndex, date, amount)
+            onSave = { name, wage, colorIndex, date, amount, withheldTax ->
+                vm.addIncome(name, wage, colorIndex, date, amount, withheldTax)
                 showAdd = false
             },
         )
@@ -109,6 +114,8 @@ fun MeterScreen(age: Int, onBack: () -> Unit, vm: MeterViewModel = viewModel()) 
 @Composable
 private fun MeterContent(
     state: MeterUiState,
+    /** 表示している年の12月31日時点の年齢（税金の目安で 19〜22歳かどうかを見る） */
+    age: Int,
     walls: List<IncomeWall>,
     onBack: () -> Unit,
     onPreviousYear: () -> Unit,
@@ -118,6 +125,7 @@ private fun MeterContent(
 ) {
     // ビーカーの長押しで出す選択肢と詳細は、画面全体の上に重ねる
     val menu = rememberWallMenuState()
+    var showDiagnosis by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var overlayOrigin by remember { mutableStateOf(Offset.Zero) }
     Box(
@@ -152,6 +160,7 @@ private fun MeterContent(
                         },
                         onPeekDrag = menu::dragBy,
                         onPeekEnd = { scope.launch { menu.release() } },
+                        onDiagnose = { showDiagnosis = true },
                     )
                 }
                 item { CumulativeChart(state, walls) }
@@ -179,6 +188,9 @@ private fun MeterContent(
             nextWall = next,
             onClose = { scope.launch { menu.close() } },
         )
+        if (showDiagnosis) {
+            DiagnosisSheet(state, age, next, onDismiss = { showDiagnosis = false })
+        }
     }
 }
 
@@ -199,14 +211,23 @@ private fun SummaryCard(
     onPeekStart: (Offset) -> Unit,
     onPeekDrag: (Offset) -> Unit,
     onPeekEnd: () -> Unit,
+    onDiagnose: () -> Unit,
 ) {
     val total = state.total
     val next = walls.firstOrNull { total < it.amount }
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Column {
-                Text("${state.year}年の合計", style = MaterialTheme.typography.labelLarge)
-                Text(yen(total), style = MaterialTheme.typography.headlineMedium)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("${state.year}年の合計", style = MaterialTheme.typography.labelLarge)
+                    Text(yen(total), style = MaterialTheme.typography.headlineMedium)
+                }
+                // 判定・範囲・税金の目安は、診断シートにまとめて重ねて出す
+                FilledTonalButton(onClick = onDiagnose, contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
+                    Icon(Icons.Outlined.QueryStats, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+                    Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+                    Text("診断")
+                }
             }
             if (next != null) {
                 state.projection(next)?.let { ProjectionNote(it, next) }
@@ -299,7 +320,12 @@ private fun IncomeRow(income: Income, jobName: String, color: Color, onDelete: (
         Text(income.paidOn.substring(5).replace('-', '/'), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.width(48.dp))
         ColorDot(color)
         Text(jobName, modifier = Modifier.weight(1f))
-        Text(yen(income.amount), style = MaterialTheme.typography.titleSmall)
+        Column(horizontalAlignment = Alignment.End) {
+            Text(yen(income.amount), style = MaterialTheme.typography.titleSmall)
+            if (income.withheldTax > 0) {
+                Text("所得税 ${yen(income.withheldTax)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
         IconButton(onClick = onDelete) { Icon(Icons.Outlined.Delete, contentDescription = "削除") }
     }
 }
@@ -321,7 +347,7 @@ private fun AddIncomeDialog(
     newJobColorIndex: Int,
     onHideJob: (Job) -> Unit,
     onDismiss: () -> Unit,
-    onSave: (jobName: String, hourlyWage: Int?, colorIndex: Int, paidOn: LocalDate, amount: Long) -> Unit,
+    onSave: (jobName: String, hourlyWage: Int?, colorIndex: Int, paidOn: LocalDate, amount: Long, withheldTax: Long) -> Unit,
 ) {
     // 毎月の入力が数秒で済むよう、前回のバイト先と金額を最初から入れておく
     val lastJob = jobs.firstOrNull { it.id == last?.jobId } ?: jobs.lastOrNull()
@@ -329,6 +355,8 @@ private fun AddIncomeDialog(
     var wage by rememberSaveable { mutableStateOf(lastJob?.hourlyWage?.toString().orEmpty()) }
     var colorIndex by rememberSaveable { mutableIntStateOf(lastJob?.colorIndex ?: newJobColorIndex) }
     var amount by rememberSaveable { mutableStateOf(last?.amount?.toString().orEmpty()) }
+    // 天引きの所得税は月ごとに変わるので、前回の値は入れない
+    var withheld by rememberSaveable { mutableStateOf("") }
     var date by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
     var pickDate by remember { mutableStateOf(false) }
     val amountValue = amount.toLongOrNull()?.takeIf { it > 0 }
@@ -425,11 +453,22 @@ private fun AddIncomeDialog(
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 )
+                OutlinedTextField(
+                    value = withheld,
+                    onValueChange = { withheld = it.filter(Char::isDigit).take(7) },
+                    label = { Text("所得税（給与明細の天引き額・任意）") },
+                    supportingText = { Text("入れると、戻ってくる額の目安が出ます") },
+                    suffix = { Text("円") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                )
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { amountValue?.let { onSave(jobName, wage.toIntOrNull(), colorIndex, LocalDate.parse(date), it) } },
+                onClick = {
+                    amountValue?.let { onSave(jobName, wage.toIntOrNull(), colorIndex, LocalDate.parse(date), it, withheld.toLongOrNull() ?: 0L) }
+                },
                 enabled = jobName.isNotBlank() && amountValue != null,
             ) { Text("追加") }
         },
@@ -473,6 +512,6 @@ private fun MeterScreenPreview() {
         Income(id = 1, jobId = 1, paidOn = "2026-01-25", amount = 78_000),
     )
     AppTheme {
-        MeterContent(MeterUiState(2026, jobs, incomes), incomeWallsFor(20), onBack = {}, onPreviousYear = {}, onNextYear = {}, onAdd = {}, onDelete = {})
+        MeterContent(MeterUiState(2026, jobs, incomes), age = 20, walls = incomeWallsFor(20), onBack = {}, onPreviousYear = {}, onNextYear = {}, onAdd = {}, onDelete = {})
     }
 }
