@@ -78,7 +78,6 @@ fun ProfileScreen(
                         answers[q.field],
                         required = true,
                         onAnswer = { onAnswer(q.field, it) },
-                        note = if (q.field == "annual_income") RuleEngine.estimateRange(answers)?.let { "見込みの ±50%（${RuleEngine.describeRange(it)}）の範囲で当てはまりうる手続きも出します" } else null,
                     ) {
                         parts[q.field].orEmpty().forEach { part -> PartInput(part, answers[part.field]) { onAnswer(part.field, it) } }
                     }
