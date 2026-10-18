@@ -1,6 +1,6 @@
 # 税人（ぜいんちゅ）
 
-![税人（ぜいんちゅ） 公的手続きナビアプリ](docs/images/icon.png)
+![税人（ぜいんちゅ） 公的手続きナビアプリ](docs/images/title.png)
 
 ### ▶ [デモ動画を見る（YouTube・約1分）](https://www.youtube.com/shorts/-FG2OhZyUb4)
 
