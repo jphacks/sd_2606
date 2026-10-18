@@ -3,6 +3,7 @@ package jp.jphacks.sd2606.ui.meter
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,12 +17,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -33,6 +36,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -57,18 +61,41 @@ import jp.jphacks.sd2606.data.meter.takeHome
 /** 「診断」ボタンで画面の下から重ねて出す。判定・お金・グラフを見せ、税金の表は折りたたむ。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DiagnosisSheet(state: MeterUiState, age: Int, next: IncomeWall?, onDismiss: () -> Unit) {
+fun DiagnosisSheet(
+    state: MeterUiState,
+    age: Int,
+    next: IncomeWall?,
+    /** 制度データにある手続き（id → 名前）。ここに無い手続きはリンクを出さない */
+    procedures: Map<String, String>,
+    onWorkingStudentChange: (Boolean) -> Unit,
+    onOpenProcedure: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
-        DiagnosisContent(state, age, next)
+        DiagnosisContent(
+            state, age, next, procedures, onWorkingStudentChange,
+            // 手続きの画面に移るときはシートを閉じる
+            onOpenProcedure = { id ->
+                onDismiss()
+                onOpenProcedure(id)
+            },
+        )
     }
 }
 
 @Composable
-private fun DiagnosisContent(state: MeterUiState, age: Int, next: IncomeWall?) {
+private fun DiagnosisContent(
+    state: MeterUiState,
+    age: Int,
+    next: IncomeWall?,
+    procedures: Map<String, String>,
+    onWorkingStudentChange: (Boolean) -> Unit,
+    onOpenProcedure: (String) -> Unit,
+) {
     val projection = state.projection(null)
     val yearEnd = projection?.yearEnd
     val remainingMonths = if (projection != null) 12 - state.lastPaidMonth else 0
-    val d = diagnose(state.total, yearEnd, remainingMonths, age)
+    val d = diagnose(state.total, yearEnd, remainingMonths, age, state.workingStudent)
     var showTaxes by rememberSaveable { mutableStateOf(false) }
 
     Column(
@@ -87,6 +114,7 @@ private fun DiagnosisContent(state: MeterUiState, age: Int, next: IncomeWall?) {
         }
         VerdictCard(d)
         MoneyTiles(d, age, isProjection = yearEnd != null)
+        WorkingStudentSwitch(state.workingStudent, onWorkingStudentChange)
         TakeHomeChart(d, age)
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             when (d.verdict) {
@@ -99,12 +127,22 @@ private fun DiagnosisContent(state: MeterUiState, age: Int, next: IncomeWall?) {
             d.monthlyLimit?.takeIf { d.verdict == Verdict.OK || d.verdict == Verdict.CAUTION }?.let {
                 MoneyLine("12月まで 月 ", yen(it), " 以内なら入りません")
             }
+            // 勤労学生控除の段差は、163万円を超えそうなときだけ出す
+            d.studentDrop?.let { drop ->
+                MoneyLine("163万円を超えて勤労学生控除がなくなり、手取りが ", man(drop), " 減ります", LossColor)
+                Text(
+                    "${man(d.studentBreakEven ?: 0)}まで働くと戻ります。163万円以下に抑えれば控除が残ります",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Text(
                 "健康保険の扶養は、交通費を含めた「これから1年間の見込み」で判断されます。余裕をもって抑えましょう",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        ProcedureLinks(recommendedProcedures(d, state.withheldTotal), procedures, onOpenProcedure)
         Column {
             TextButton(onClick = { showTaxes = !showTaxes }) {
                 Text("税金などの目安", style = MaterialTheme.typography.titleSmall)
@@ -112,6 +150,72 @@ private fun DiagnosisContent(state: MeterUiState, age: Int, next: IncomeWall?) {
             }
             AnimatedVisibility(visible = showTaxes) {
                 TaxSummary(state, age, next)
+            }
+        }
+    }
+}
+
+/** 勤労学生控除を申告するかの切り替え。手取り・グラフ・判定・税金の表がすべてこれに合わせて変わる。 */
+@Composable
+private fun WorkingStudentSwitch(checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest, RoundedCornerShape(12.dp))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("勤労学生控除を申告する", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+            Text(
+                "年収163万円以下の学生なら住民税が安くなります。バイト先の扶養控除等申告書か、確定申告で申告します",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(checked = checked, onCheckedChange = onChange)
+    }
+}
+
+/** 判定に合わせて、やっておくといい手続き（id と、メーターから見た理由）。 */
+private fun recommendedProcedures(d: Diagnosis, withheld: Long): List<Pair<String, String>> = buildList {
+    when (d.verdict) {
+        Verdict.OK, Verdict.CAUTION -> add("nenshu_kabe" to "年収の壁と扶養の確かめ方")
+        Verdict.LOSS, Verdict.BEYOND -> {
+            add("fuyou_hazureru" to "扶養から外れるときの、親の勤務先への届け出")
+            add("kokuho_enroll" to "自分で国民健康保険に入る")
+        }
+    }
+    when {
+        d.studentDrop != null -> add("nenmatsu_chosei" to "163万円を超えたら、バイト先の書類の「勤労学生」の印を外します")
+        d.workingStudent -> add("nenmatsu_chosei" to "勤労学生控除は、バイト先の書類で申告します")
+    }
+    if (withheld > 0) add("kakutei_shinkoku" to "年末調整を受けないときは、確定申告で所得税を取り戻します")
+}
+
+/** 手続きの画面に飛ぶリンク。制度データに無い手続きは出さない。 */
+@Composable
+private fun ProcedureLinks(items: List<Pair<String, String>>, procedures: Map<String, String>, onOpen: (String) -> Unit) {
+    val shown = items.filter { (id, _) -> id in procedures }
+    if (shown.isEmpty()) return
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("やっておくといい手続き", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        shown.forEach { (id, reason) ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                    .clickable { onOpen(id) }
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(procedures.getValue(id), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text(reason, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             }
         }
     }
@@ -152,8 +256,8 @@ private fun VerdictCard(d: Diagnosis) {
 /** 手取りと引かれる額を大きな数字で並べ、その下に親の税金のことを1行で。 */
 @Composable
 private fun MoneyTiles(d: Diagnosis, age: Int, isProjection: Boolean) {
-    val net = takeHome(d.amount, age)
-    val parentIncrease = estimateTaxes(d.amount, age).parentTaxIncrease
+    val net = takeHome(d.amount, age, d.workingStudent)
+    val parentIncrease = estimateTaxes(d.amount, age, d.workingStudent).parentTaxIncrease
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             MoneyTile(
@@ -238,11 +342,11 @@ private fun TakeHomeChart(d: Diagnosis, age: Int) {
     val xMin = (minOf(d.safeLimit - 250_000L, d.amount - 100_000L).coerceAtLeast(0L) / 50_000L) * 50_000L
     val xMax = maxOf((d.parentUntil ?: d.breakEven) + 100_000L, d.amount + 100_000L)
     // 5,000円ごとに自分の手取りを計算する
-    val samples = remember(xMin, xMax, age) { (xMin..xMax step 5_000L).map { a -> a to takeHome(a, age) } }
+    val samples = remember(xMin, xMax, age, d.workingStudent) { (xMin..xMax step 5_000L).map { a -> a to takeHome(a, age, d.workingStudent) } }
     val yMin = samples.minOf { it.second }
     val yMax = samples.maxOf { it.second }
-    val drop = takeHome(d.safeLimit - 1, age) - takeHome(d.safeLimit, age)
-    val amountNet = takeHome(d.amount, age)
+    val drop = takeHome(d.safeLimit - 1, age, d.workingStudent) - takeHome(d.safeLimit, age, d.workingStudent)
+    val amountNet = takeHome(d.amount, age, d.workingStudent)
 
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Canvas(
@@ -262,7 +366,7 @@ private fun TakeHomeChart(d: Diagnosis, age: Int) {
             drawRect(ParentColor.copy(alpha = 0.16f), Offset(x(d.parentFrom), top), Size(x(parentEnd) - x(d.parentFrom), bottom - top))
             drawRect(LossColor.copy(alpha = 0.14f), Offset(x(d.safeLimit), top), Size(x(d.breakEven) - x(d.safeLimit), bottom - top))
             // 扶養を外れる直前の手取りの高さ（ここまで戻るところが働き損の終わり）
-            val baseY = y(takeHome(d.safeLimit - 1, age))
+            val baseY = y(takeHome(d.safeLimit - 1, age, d.workingStudent))
             drawLine(LossColor.copy(alpha = 0.6f), Offset(x(d.safeLimit), baseY), Offset(x(d.breakEven), baseY), 1.dp.toPx(), pathEffect = dash)
 
             val line = Path().apply {
@@ -276,7 +380,7 @@ private fun TakeHomeChart(d: Diagnosis, age: Int) {
             // 見込みの縦の点線が文字を横切るときは段差の左側に出す
             if (drop > 0) {
                 val layout = textMeasurer.measure("−${man(drop)}", dropStyle)
-                val labelTop = (y(takeHome(d.safeLimit, age)) + 12.dp.toPx()).coerceAtMost(bottom - layout.size.height - 2.dp.toPx())
+                val labelTop = (y(takeHome(d.safeLimit, age, d.workingStudent)) + 12.dp.toPx()).coerceAtMost(bottom - layout.size.height - 2.dp.toPx())
                 val rightLeft = x(d.safeLimit) + 4.dp.toPx()
                 val crossesMarker = x(d.amount) in rightLeft..(rightLeft + layout.size.width)
                 val labelLeft = if (crossesMarker) x(d.safeLimit) - 4.dp.toPx() - layout.size.width else rightLeft

@@ -116,6 +116,8 @@ fun AppNavHost(vm: AppViewModel = viewModel()) {
         composable(Routes.METER) {
             MeterScreen(
                 birthDate = (state.answers["birth_date"] as? Answer.Date)?.let { runCatching { it.toLocalDate() }.getOrNull() },
+                procedures = (state.catalog as? UiResult.Success)?.data?.procedures?.associate { it.id to it.title }.orEmpty(),
+                onOpenProcedure = { id -> nav.navigate(Routes.flow(id)) },
                 onTab = nav::switchTab,
             )
         }
