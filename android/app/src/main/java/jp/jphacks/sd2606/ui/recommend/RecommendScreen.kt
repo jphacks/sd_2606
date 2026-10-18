@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -27,6 +28,7 @@ import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.ManageAccounts
+import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -65,6 +67,7 @@ import jp.jphacks.sd2606.data.SampleData
 import jp.jphacks.sd2606.data.Scored
 import jp.jphacks.sd2606.data.SortOrder
 import jp.jphacks.sd2606.data.Status
+import jp.jphacks.sd2606.data.describe
 import jp.jphacks.sd2606.ui.AnswersDialog
 import jp.jphacks.sd2606.ui.AppBottomBar
 import jp.jphacks.sd2606.ui.AppUiState
@@ -188,6 +191,11 @@ fun RecommendScreen(
                 modifier = Modifier.padding(padding),
             ) {
                 item(key = "privacy") { PrivacyNote("判定はこの端末の中で行っています。答えた内容は送信していません。") }
+                catalog.questions.firstOrNull { it.field == "annual_income" }?.let { income ->
+                    item(key = "income") {
+                        IncomeBar(income, catalog.questions.filter { it.partOf == income.field }, state.answers, answerInCard)
+                    }
+                }
                 if (state.offline) {
                     item(key = "offline") {
                         Text(
@@ -263,6 +271,64 @@ fun RecommendScreen(
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
+/**
+ * 一覧の上部に常に出す年収の欄（「年収 130万円 見込み」）。「変更」でその場に金額と「見込み / 確定」の入力を開く。
+ * 年収は必須の基本情報なので、空にして決定しても未回答には戻さない。
+ */
+@Composable
+private fun IncomeBar(income: Question, parts: List<Question>, answers: Map<String, Answer>, onAnswer: (Question, Answer?) -> Unit) {
+    var open by rememberSaveable { mutableStateOf(false) }
+    Surface(
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp).animateContentSize()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(income.name, style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    answers[income.field]?.let { income.describe(it) } ?: "未入力",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                parts.forEach { part ->
+                    answers[part.field]?.let {
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            part.describe(it),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier
+                                .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
+                                .padding(horizontal = 6.dp, vertical = 2.dp),
+                        )
+                    }
+                }
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = { open = !open }) { Text(if (open) "閉じる" else "変更") }
+            }
+            if (open) {
+                Column(Modifier.padding(end = 12.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(income.text, style = MaterialTheme.typography.bodySmall)
+                    QuestionInput(income, answers[income.field], { if (it != null) onAnswer(income, it) })
+                    parts.forEach { part ->
+                        Text(part.text, style = MaterialTheme.typography.bodySmall)
+                        QuestionInput(part, answers[part.field], { onAnswer(part, it) })
+                    }
+                    Text(
+                        "変えると、下の手続きの判定がすぐに変わります。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun SortSelector(order: SortOrder, onChange: (SortOrder) -> Unit) {
     val labels = mapOf(SortOrder.RELEVANCE to "関連度順", SortOrder.DEADLINE to "期限順")

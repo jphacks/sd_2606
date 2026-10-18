@@ -59,14 +59,17 @@ data class ChatContext(val procedureId: String?, val profile: List<ProfileItem>,
             today: LocalDate = LocalDate.now(),
         ): ChatContext {
             val profile = buildList {
+                val parts = catalog.questions.filter { it.partOf != null }
                 for (q in catalog.questions) {
+                    if (q.partOf != null) continue // 親の項目の値に添える
                     val answer = answers[q.field] ?: continue
                     if (answer is Answer.Date) {
                         val birth = runCatching { answer.toLocalDate() }.getOrNull() ?: continue
                         val endOfYear = LocalDate.of(today.year, 12, 31)
                         add(ProfileItem("年齢", "${RuleEngine.ageOn(birth, today)}歳（今年の12月31日時点 ${RuleEngine.ageOn(birth, endOfYear)}歳）"))
                     } else {
-                        add(ProfileItem(q.name, q.describe(answer)))
+                        val extra = parts.filter { it.partOf == q.field }.mapNotNull { p -> answers[p.field]?.let { "（${p.describe(it)}）" } }
+                        add(ProfileItem(q.name, q.describe(answer) + extra.joinToString("")))
                     }
                 }
                 for (proc in catalog.procedures) {

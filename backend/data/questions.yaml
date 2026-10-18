@@ -7,6 +7,7 @@
 # - inline: true は最初の画面（「もっと詳しく」も含む）では聞かず、判定に必要になった手続きのカードの中でだけ、
 #   質問文をそのまま出して聞く。一部の人にしか関係しない「はい / いいえ」の事情（掛け持ちなど）に使う
 #   （yes / no は YAML の真偽値にならないよう引用符で囲む）
+# - part_of: その項目の欄の中で一緒に聞く（年収の「見込み / 確定」）。単独の質問としては出さない
 # - kind: number は数値を入力してもらう（unit は単位、scale は入力の単位。年収は万円で入れて円で保存）
 # - kind: range の選択肢は書かない。手続き YAML の条件の境目から自動で作るので、
 #   判定に必要な細かさでしか聞かない（いまは使っていない）
@@ -43,10 +44,19 @@
 - field: annual_income
   kind: number
   required: true        # 年収の壁（税金・扶養の基準）の判定と、説明の「見込みの〇万円なら」に使う
-  text: 今年（1〜12月）のアルバイト収入の見込みは？（税込み・交通費を除く・だいたいで可。なければ 0）
+  text: 今年（1〜12月）のアルバイト収入は？（税込み・交通費を除く。見込みならだいたいで可。なければ 0）
   label: 年収
   unit: 万円
   scale: 10000
+
+- field: income_basis
+  kind: single
+  part_of: annual_income  # 年収の欄の中で選ぶ（最初の画面と、手続きの一覧の上部）。判定には使わない
+  text: 年収は見込みですか、確定した額ですか？
+  label: 年収の種類
+  choices:
+    - {value: estimate, label: 見込み}
+    - {value: actual, label: 確定}
 
 - field: health_insurance
   kind: single

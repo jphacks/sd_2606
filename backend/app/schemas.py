@@ -44,6 +44,9 @@ class UserProfile(BaseModel):
     occupation: list[Occupation] = Field(default_factory=lambda: ["student"], description="働き方（複数可）。アプリの対象は学生なので省くと学生")
     part_time: Literal["yes", "no"] | None = Field(default=None, description="アルバイトをしているか（yes / no）")
     annual_income: int = Field(ge=0, description="年収（円）")
+    income_basis: Literal["estimate", "actual"] | None = Field(
+        default=None, description="年収が見込み（estimate）か、確定した額（actual）か。判定には使わず、表示と AI への説明に使う"
+    )
     health_insurance: HealthInsurance = "unknown"
     supported_by: SupportedBy | None = Field(default=None, description="誰の扶養に入っているか（税・健康保険）")
     prev_health_insurance: HealthInsurance | None = Field(default=None, description="就職する前に入っていた健康保険")
@@ -227,6 +230,9 @@ class Question(BaseModel):
     )
     none_if_empty: bool = Field(
         default=False, description="multi で何も選ばなかったとき、未回答ではなく「どれにも当てはまらない」として判定する"
+    )
+    part_of: str | None = Field(
+        default=None, description="この項目の欄の中で一緒に聞く（年収の「見込み / 確定」なら annual_income）。単独の質問としては出さない"
     )
     inline: bool = Field(
         default=False, description="true なら最初の画面では聞かず、判定に必要になった手続きのカードの中でだけ質問文をそのまま出して聞く"

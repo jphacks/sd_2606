@@ -28,6 +28,7 @@ class QuestionDef(BaseModel):
     label: str
     required: bool = False
     inline: bool = False
+    part_of: str | None = None
     none_if_empty: bool = False
     provides: list[str] = Field(default_factory=list, description="この回答からアプリが計算する項目")
     unit: str = ""
@@ -101,6 +102,8 @@ def load_question_defs(path: Path = QUESTIONS_FILE) -> list[QuestionDef]:
         for f in q.provides or [q.field]:
             if f not in UserProfile.model_fields:
                 raise ValueError(f"{path.name}: unknown field {f}")
+        if q.part_of and q.part_of not in {d.field for d in defs}:
+            raise ValueError(f"{path.name}: {q.field} の part_of（{q.part_of}）の項目がありません")
         if q.required and q.inline:
             raise ValueError(f"{path.name}: {q.field} は required と inline を両方にはできません")
         if q.kind in ("single", "multi") and not q.choices:
@@ -124,6 +127,7 @@ def build_catalog() -> Catalog:
                 label=q.label,
                 required=q.required,
                 inline=q.inline,
+                part_of=q.part_of,
                 none_if_empty=q.none_if_empty,
                 choices=choices,
                 unit=q.unit,

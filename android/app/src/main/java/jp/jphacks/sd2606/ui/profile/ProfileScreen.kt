@@ -58,7 +58,9 @@ fun ProfileScreen(
     Scaffold(topBar = { TopAppBar(title = { Text("あなたの状況を教えてください") }) }) { padding ->
         ResultContent(catalog, onRetry, Modifier.padding(padding)) { data ->
             val required = data.questions.filter { it.required }
-            val optional = data.questions.filter { !it.required && !it.inline } // inline は手続きのカードの中でだけ聞く
+            // inline は手続きのカードの中でだけ、part_of はその項目の欄の中で聞く
+            val optional = data.questions.filter { !it.required && !it.inline && it.partOf == null }
+            val parts = data.questions.filter { it.partOf != null }.groupBy { it.partOf }
             val missing = required.filter { it.field !in answers }
             Column(
                 modifier = Modifier
@@ -69,7 +71,11 @@ fun ProfileScreen(
             ) {
                 PrivacyNote("答えた内容はこの端末の中だけに保存し、サーバーには送りません。")
 
-                required.forEach { q -> QuestionBlock(q, answers[q.field], required = true) { onAnswer(q.field, it) } }
+                required.forEach { q ->
+                    QuestionBlock(q, answers[q.field], required = true, onAnswer = { onAnswer(q.field, it) }) {
+                        parts[q.field].orEmpty().forEach { part -> PartInput(part, answers[part.field]) { onAnswer(part.field, it) } }
+                    }
+                }
 
                 if (optional.isNotEmpty()) {
                     Surface(
@@ -94,7 +100,7 @@ fun ProfileScreen(
                         }
                     }
                     if (showOptional) {
-                        optional.forEach { q -> QuestionBlock(q, answers[q.field], required = false) { onAnswer(q.field, it) } }
+                        optional.forEach { q -> QuestionBlock(q, answers[q.field], required = false, onAnswer = { onAnswer(q.field, it) }) }
                     }
                 }
 
@@ -116,7 +122,13 @@ fun ProfileScreen(
 }
 
 @Composable
-private fun QuestionBlock(question: Question, answer: Answer?, required: Boolean, onAnswer: (Answer?) -> Unit) {
+private fun QuestionBlock(
+    question: Question,
+    answer: Answer?,
+    required: Boolean,
+    onAnswer: (Answer?) -> Unit,
+    parts: @Composable () -> Unit = {},
+) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(question.text, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f, fill = false))
@@ -134,6 +146,16 @@ private fun QuestionBlock(question: Question, answer: Answer?, required: Boolean
         }
         // 最初の画面は並びが動かないので、数値は入力のたびに反映する（「決定」を押し忘れて未入力にならないように）
         QuestionInput(question, answer, onAnswer, live = true)
+        parts()
+    }
+}
+
+/** 項目の欄の中で一緒に聞く質問（年収の「見込み / 確定」）。見出しは小さく出す。 */
+@Composable
+private fun PartInput(question: Question, answer: Answer?, onAnswer: (Answer?) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(question.text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        QuestionInput(question, answer, onAnswer)
     }
 }
 

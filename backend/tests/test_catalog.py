@@ -45,7 +45,7 @@ def test_basic_questions_are_required_and_others_optional():
     # アプリの対象は学生なので、働き方は聞かずアルバイトをしているかだけを聞く
     required = [q.field for q in build_catalog().questions if q.required]
     assert required == ["part_time", "birth_date", "supported_by", "annual_income"]
-    optional = {q.field for q in build_catalog().questions if not q.required and not q.inline}
+    optional = {q.field for q in build_catalog().questions if not q.required and not q.inline and not q.part_of}
     assert optional == {"health_insurance"}
 
 
@@ -159,3 +159,12 @@ def test_api_catalog():
     assert body["threshold"] is None  # 下限なし（-inf）。対象外でなければすべて出す
     assert {q["field"] for q in body["questions"]} >= {"part_time", "birth_date"}
     assert "life_events" not in {q["field"] for q in body["questions"]}
+
+
+def test_income_basis_is_asked_with_annual_income():
+    # 年収の「見込み / 確定」は年収の欄の中で選ぶ。判定には使わない
+    qs = {q.field: q for q in build_catalog().questions}
+    assert qs["income_basis"].part_of == "annual_income" and not qs["income_basis"].required
+    assert [c.value for c in qs["income_basis"].choices] == ["estimate", "actual"]
+    used = {c.field for p in load_procedures().values() for r in p.relations for c in (r, *r.when)}
+    assert "income_basis" not in used

@@ -59,4 +59,18 @@ class ChatContextTest {
         assertEquals(listOf(ProfileItem("アルバイト", "していない")), ctx.profile)
         assertEquals(emptyList<ProcedureState>(), ctx.procedures)
     }
+
+    @Test
+    fun incomeBasisIsAttachedToTheIncome() {
+        // 年収の「見込み / 確定」（part_of）は単独の項目にせず、年収の値に添える
+        val withBasis = catalog.copy(
+            questions = catalog.questions + Question(
+                field = "income_basis", kind = "single", text = "見込みか確定か", label = "年収の種類", partOf = "annual_income",
+                choices = listOf(Choice("見込み", "estimate"), Choice("確定", "actual")),
+            ),
+        )
+        val ctx = ChatContext.build(withBasis, answers + ("income_basis" to Answer.Single("actual")), null, emptyMap(), null, today)
+        assertEquals(ProfileItem("年収", "160万円（確定）"), ctx.profile.first { it.label == "年収" })
+        assertFalse(ctx.profile.any { it.label == "年収の種類" })
+    }
 }

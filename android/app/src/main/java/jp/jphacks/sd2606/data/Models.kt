@@ -147,6 +147,8 @@ data class Question(
     val required: Boolean = false,
     /** true なら最初の画面では聞かず、判定に必要になった手続きのカードの中でだけ質問文をそのまま出して聞く（掛け持ちなど） */
     val inline: Boolean = false,
+    /** この項目の欄の中で一緒に聞く（年収の「見込み / 確定」なら annual_income）。単独の質問としては出さない */
+    @SerialName("part_of") val partOf: String? = null,
     /** multi で何も選ばなかったとき、未回答ではなく「どれにも当てはまらない」とする */
     @SerialName("none_if_empty") val noneIfEmpty: Boolean = false,
     val choices: List<Choice> = emptyList(),
