@@ -37,15 +37,21 @@ data class Diagnosis(
     val parentUntil: Long?,
     /** 働き損ゾーンに入らないための、残りの月の1か月あたりの上限（今年でなければ null） */
     val monthlyLimit: Long?,
+    /** 勤労学生控除を申告する前提で計算したか */
+    val workingStudent: Boolean,
+    /** 勤労学生控除がなくなって、163万円で止めたときより手取りが減る額（申告していて、163万円を超えそうなときだけ） */
+    val studentDrop: Long? = null,
+    /** 勤労学生控除がなくなっても、163万円で止めたときの手取りに追いつく年収 */
+    val studentBreakEven: Long? = null,
 )
 
 /**
  * total: 今の合計、yearEnd: 今年の年末の見込み（今年でなければ null）、
  * remainingMonths: 今年の残りの月数（最後に給料が出た月の翌月から12月まで）。
  */
-fun diagnose(total: Long, yearEnd: Long?, remainingMonths: Int, age: Int): Diagnosis {
+fun diagnose(total: Long, yearEnd: Long?, remainingMonths: Int, age: Int, workingStudent: Boolean = true): Diagnosis {
     val safeLimit = healthInsuranceLimit(age)
-    val breakEven = breakEvenOf(safeLimit, age)
+    val breakEven = breakEvenOf(safeLimit, age, workingStudent)
     val amount = yearEnd ?: total
     val verdict = when {
         amount >= breakEven -> Verdict.BEYOND
@@ -59,6 +65,13 @@ fun diagnose(total: Long, yearEnd: Long?, remainingMonths: Int, age: Int): Diagn
         null
     }
     val student = age in 19..22
+    // 勤労学生控除の段差: 163万円を超えて、まだ手取りが追いついていないときだけ出す
+    val studentBreakEven = if (workingStudent) breakEvenOf(WORKING_STUDENT_INCOME_LIMIT + 1, age, workingStudent) else null
+    val studentDrop = if (studentBreakEven != null && amount > WORKING_STUDENT_INCOME_LIMIT && amount < studentBreakEven) {
+        takeHome(WORKING_STUDENT_INCOME_LIMIT, age, workingStudent) - takeHome(amount, age, workingStudent)
+    } else {
+        null
+    }
     return Diagnosis(
         verdict = verdict,
         total = total,
@@ -68,13 +81,16 @@ fun diagnose(total: Long, yearEnd: Long?, remainingMonths: Int, age: Int): Diagn
         parentFrom = if (student) 1_590_000L else 1_360_000L,
         parentUntil = if (student) 1_970_000L else null,
         monthlyLimit = monthlyLimit,
+        workingStudent = workingStudent,
+        studentDrop = studentDrop,
+        studentBreakEven = studentBreakEven,
     )
 }
 
-/** 自分の手取りが、扶養の基準の直前で働いたときに追いつく年収（1万円刻みで探す）。 */
-private fun breakEvenOf(safeLimit: Long, age: Int): Long {
-    val baseline = takeHome(safeLimit - 1, age)
-    var annual = safeLimit
-    while (annual < 5_000_000L && takeHome(annual, age) < baseline) annual += 10_000L
+/** 自分の手取りが、limit（壁）の直前で働いたときに追いつく年収（1万円刻みで探す）。 */
+private fun breakEvenOf(limit: Long, age: Int, workingStudent: Boolean): Long {
+    val baseline = takeHome(limit - 1, age, workingStudent)
+    var annual = limit
+    while (annual < 5_000_000L && takeHome(annual, age, workingStudent) < baseline) annual += 10_000L
     return annual
 }

@@ -1,5 +1,6 @@
 package jp.jphacks.sd2606.ui.meter
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -83,13 +84,23 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import kotlinx.coroutines.launch
+import androidx.compose.material.icons.outlined.Checklist
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.material3.Button
 
 /**
  * バイト代メーター。今年の給料を容器に積み、次の年収の壁までの残りを表示する。
  * 壁は表示している年の12月31日時点の年齢で選ぶ（生年月日が無いときは19〜22歳の特例を使わない）。
  */
 @Composable
-fun MeterScreen(birthDate: LocalDate?, onTab: (Tab) -> Unit, vm: MeterViewModel = viewModel()) {
+fun MeterScreen(
+    birthDate: LocalDate?,
+    /** 制度データにある手続き（id → 名前）。壁や診断から手続きの画面に飛ぶリンクに使う */
+    procedures: Map<String, String>,
+    onOpenProcedure: (String) -> Unit,
+    onTab: (Tab) -> Unit,
+    vm: MeterViewModel = viewModel(),
+) {
     val state by vm.state.collectAsStateWithLifecycle()
     var showAdd by rememberSaveable { mutableStateOf(false) }
     val age = birthDate?.let { RuleEngine.ageOn(it, LocalDate.of(state.year, 12, 31)) } ?: 0
@@ -97,12 +108,16 @@ fun MeterScreen(birthDate: LocalDate?, onTab: (Tab) -> Unit, vm: MeterViewModel 
     MeterContent(
         state = state,
         age = age,
-        walls = incomeWallsFor(age),
+        // 勤労学生控除の壁は、年末の見込みか今の合計が163万円を超えそうなときだけ出す
+        walls = incomeWallsFor(age, state.workingStudent, maxOf(state.total, state.projection(null)?.yearEnd ?: 0L)),
         onTab = onTab,
         onPreviousYear = vm::previousYear,
         onNextYear = vm::nextYear,
         onAdd = { showAdd = true },
         onDelete = vm::deleteIncome,
+        procedures = procedures,
+        onOpenProcedure = onOpenProcedure,
+        onWorkingStudentChange = vm::setWorkingStudent,
     )
     if (showAdd) {
         AddIncomeDialog(
@@ -132,16 +147,23 @@ private fun MeterContent(
     onNextYear: () -> Unit,
     onAdd: () -> Unit,
     onDelete: (Income) -> Unit,
+    procedures: Map<String, String> = emptyMap(),
+    onOpenProcedure: (String) -> Unit = {},
+    onWorkingStudentChange: (Boolean) -> Unit = {},
 ) {
     // ビーカーの長押しで出す選択肢と詳細は、画面全体の上に重ねる
     val menu = rememberWallMenuState()
     var showDiagnosis by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var overlayOrigin by remember { mutableStateOf(Offset.Zero) }
+    var overlayWidth by remember { mutableStateOf(0f) }
     Box(
         Modifier
             .fillMaxSize()
-            .onGloballyPositioned { overlayOrigin = it.positionInRoot() },
+            .onGloballyPositioned {
+                overlayOrigin = it.positionInRoot()
+                overlayWidth = it.size.width.toFloat()
+            },
     ) {
         Scaffold(
             topBar = { TopAppBar(title = { Text("バイト代メーター", fontWeight = FontWeight.Bold) }) },
@@ -172,6 +194,11 @@ private fun MeterContent(
                         onPeekDrag = menu::dragBy,
                         onPeekEnd = { scope.launch { menu.release() } },
                         onDiagnose = { showDiagnosis = true },
+                        onShowTodo = { position ->
+                            // 長押しと同じ十字を出すが、指を離しているので出したままにしてタップで選ばせる
+                            menu.show(walls.sortedBy { it.amount }, position - overlayOrigin, pinned = true, screenWidth = overlayWidth)
+                            scope.launch { menu.animateIn() }
+                        },
                     )
                 }
                 item { CumulativeChart(state, walls) }
@@ -197,10 +224,24 @@ private fun MeterContent(
             total = state.total,
             projection = next?.let { state.projection(it) },
             nextWall = next,
+            procedures = procedures,
+            // 手続きの画面に移るときは、重ねている詳細を閉じる
+            onOpenProcedure = { id ->
+                scope.launch { menu.close() }
+                onOpenProcedure(id)
+            },
             onClose = { scope.launch { menu.close() } },
         )
         if (showDiagnosis) {
-            DiagnosisSheet(state, age, next, onDismiss = { showDiagnosis = false })
+            DiagnosisSheet(
+                state = state,
+                age = age,
+                next = next,
+                procedures = procedures,
+                onWorkingStudentChange = onWorkingStudentChange,
+                onOpenProcedure = onOpenProcedure,
+                onDismiss = { showDiagnosis = false },
+            )
         }
     }
 }
@@ -223,6 +264,8 @@ private fun SummaryCard(
     onPeekDrag: (Offset) -> Unit,
     onPeekEnd: () -> Unit,
     onDiagnose: () -> Unit,
+    /** 「やること」ボタン: 押した位置（画面上）を中心に壁の選択肢を出す */
+    onShowTodo: (Offset) -> Unit,
 ) {
     val total = state.total
     val next = walls.firstOrNull { total < it.amount }
@@ -241,7 +284,7 @@ private fun SummaryCard(
                 }
             }
             if (next != null) {
-                state.projection(next)?.let { ProjectionNote(it, next) }
+                state.projection(next)?.let { ProjectionNote(it, next, onShowTodo) }
             }
             Beaker(
                 layers = state.layers,
@@ -252,11 +295,6 @@ private fun SummaryCard(
                 onPeekStart = onPeekStart,
                 onPeekDrag = onPeekDrag,
                 onPeekEnd = onPeekEnd,
-            )
-            Text(
-                "長押しすると壁が十字に広がります。指をその方向に動かして離すと詳しく見られます",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             // 凡例（バイト先ごとの合計）
             FlowRow(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -290,25 +328,30 @@ private fun SummaryCard(
 
 /** このペースで働き続けたときの見込み。超えそうなら警告として目立たせる。 */
 @Composable
-private fun ProjectionNote(projection: Projection, next: IncomeWall) {
+private fun ProjectionNote(projection: Projection, next: IncomeWall, onShowTodo: (Offset) -> Unit) {
     val month = projection.crossMonth
     if (month == null) {
-        Text(
-            "このペースなら、今年は「${next.shortTitle}」の壁を超えない見込みです（年末に約${projection.yearEnd / 10_000}万円）",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                "このペースなら、今年は「${next.shortTitle}」の壁を超えない見込みです（年末に約${projection.yearEnd / 10_000}万円）",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            TodoButton(onShowTodo)
+        }
         return
     }
     Row(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.errorContainer, RoundedCornerShape(12.dp))
             .padding(12.dp),
     ) {
         Icon(Icons.Outlined.WarningAmber, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
-        Column {
+        Column(Modifier.weight(1f)) {
             Text(
                 "このペースだと${month}月に「${next.shortTitle}」の壁を超えそう",
                 style = MaterialTheme.typography.titleSmall,
@@ -322,8 +365,31 @@ private fun ProjectionNote(projection: Projection, next: IncomeWall) {
                 )
             }
         }
+        TodoButton(onShowTodo)
     }
 }
+
+/**
+ * 「やること」ボタン（白地に、アプリの基本色の青緑の文字と枠。灰色のカードの上でも、淡い赤の警告の上でもなじむように）。押すと、ボタンの位置を中心に壁の選択肢を半円に出す（ビーカーの長押しと同じ選択肢）。
+ * 押した位置を知らせるため、ボタンの真ん中の画面上の位置を覚えておく。
+ */
+@Composable
+private fun TodoButton(onShowTodo: (Offset) -> Unit) {
+    var center by remember { mutableStateOf(Offset.Zero) }
+    Button(
+        onClick = { onShowTodo(center) },
+        colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = TodoColor),
+        border = BorderStroke(1.dp, TodoColor.copy(alpha = 0.5f)),
+        contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
+        modifier = Modifier.onGloballyPositioned { center = it.boundsInRoot().center },
+    ) {
+        Icon(Icons.Outlined.Checklist, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+        Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+        Text("やること")
+    }
+}
+
+private val TodoColor = Color(0xFF00796B)
 
 @Composable
 private fun IncomeRow(income: Income, jobName: String, color: Color, onDelete: () -> Unit) {

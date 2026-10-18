@@ -1,6 +1,7 @@
 package jp.jphacks.sd2606.ui.meter
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import java.time.LocalDate
@@ -33,6 +34,8 @@ data class MeterUiState(
     val jobs: List<Job> = emptyList(),
     /** 表示中の年の給料（新しい順） */
     val incomes: List<Income> = emptyList(),
+    /** 勤労学生控除（年収163万円以下の学生）を申告する前提で税金を計算するか */
+    val workingStudent: Boolean = true,
 ) {
     val total: Long get() = incomes.sumOf { it.amount }
 
@@ -92,12 +95,23 @@ class MeterViewModel(app: Application) : AndroidViewModel(app) {
     private val dao = MeterDatabase.get(app).meterDao()
     private val year = MutableStateFlow(LocalDate.now().year)
 
+    // 勤労学生控除を申告するかは、端末に保存して次に開いたときも使う
+    private val prefs = app.getSharedPreferences("meter", Context.MODE_PRIVATE)
+    private val workingStudent = MutableStateFlow(prefs.getBoolean(KEY_WORKING_STUDENT, true))
+
     @OptIn(ExperimentalCoroutinesApi::class)
     val state: StateFlow<MeterUiState> = year
         .flatMapLatest { y ->
-            combine(dao.jobs(), dao.incomesBetween("$y-01-01", "$y-12-31")) { jobs, incomes -> MeterUiState(y, jobs, incomes) }
+            combine(dao.jobs(), dao.incomesBetween("$y-01-01", "$y-12-31"), workingStudent) { jobs, incomes, ws ->
+                MeterUiState(y, jobs, incomes, ws)
+            }
         }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MeterUiState(year.value))
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MeterUiState(year.value, workingStudent = workingStudent.value))
+
+    fun setWorkingStudent(applied: Boolean) {
+        prefs.edit().putBoolean(KEY_WORKING_STUDENT, applied).apply()
+        workingStudent.value = applied
+    }
 
     fun previousYear() = year.update { it - 1 }
 
@@ -127,5 +141,9 @@ class MeterViewModel(app: Application) : AndroidViewModel(app) {
     /** もう追加しないバイト先を、給料を追加するときの一覧から外す（記録とメーターの表示は残す） */
     fun hideJob(job: Job) {
         viewModelScope.launch { dao.updateJob(job.copy(hidden = true)) }
+    }
+
+    private companion object {
+        const val KEY_WORKING_STUDENT = "working_student"
     }
 }
