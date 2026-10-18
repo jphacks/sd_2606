@@ -44,7 +44,7 @@ def test_basic_questions_are_required_and_others_optional():
     # 最初の画面で必ず答えてもらう基本情報。ほかは任意（必要になった手続きのカードでも聞く）
     # アプリの対象は学生なので、働き方は聞かずアルバイトをしているかだけを聞く
     required = [q.field for q in build_catalog().questions if q.required]
-    assert required == ["part_time", "birth_date", "supported_by", "annual_income"]
+    assert required == ["part_time", "birth_date", "supported_by", "annual_income", "income_basis"]
     optional = {q.field for q in build_catalog().questions if not q.required and not q.inline and not q.part_of}
     assert optional == {"health_insurance"}
 
@@ -53,7 +53,7 @@ def test_inline_questions_are_yes_no_and_used_by_some_procedure():
     # カードの中でだけ聞く質問は「はい / いいえ」で、どれかの手続きの判定に使われている
     used = {c.field for p in load_procedures().values() for r in p.relations for c in (r, *r.when)}
     inline = [q for q in build_catalog().questions if q.inline]
-    assert [q.field for q in inline] == ["multiple_jobs"]
+    assert [q.field for q in inline] == ["multiple_jobs", "side_job_over_200k"]
     for q in inline:
         assert not q.required and q.field in used
         assert [c.value for c in q.choices] == ["yes", "no"]
@@ -62,7 +62,8 @@ def test_inline_questions_are_yes_no_and_used_by_some_procedure():
 def test_required_single_choice_questions_offer_unknown():
     # 必須でも「わからない」を選べる（扶養は税金と健康保険で意味が違い、分からない人が多い）
     for q in build_catalog().questions:
-        if q.required and q.kind == "single" and q.field != "part_time":  # アルバイトの有無は本人が分かる
+        # アルバイトの有無と、年収の見込み / 確定（必ず選ぶ2択）は本人が分かる
+        if q.required and q.kind == "single" and q.field not in ("part_time", "income_basis"):
             assert "unknown" in {c.value for c in q.choices}, q.field
 
 
@@ -162,9 +163,9 @@ def test_api_catalog():
 
 
 def test_income_basis_is_asked_with_annual_income():
-    # 年収の「見込み / 確定」は年収の欄の中で選ぶ。判定には使わない
+    # 年収の「見込み / 確定」は年収の欄の中で必ず選ぶ。手続き YAML の条件には使わない（見込みの幅はアプリが判定に入れる）
     qs = {q.field: q for q in build_catalog().questions}
-    assert qs["income_basis"].part_of == "annual_income" and not qs["income_basis"].required
+    assert qs["income_basis"].part_of == "annual_income" and qs["income_basis"].required
     assert [c.value for c in qs["income_basis"].choices] == ["estimate", "actual"]
     used = {c.field for p in load_procedures().values() for r in p.relations for c in (r, *r.when)}
     assert "income_basis" not in used

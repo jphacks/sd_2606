@@ -73,6 +73,8 @@ data class Scored(
     val confirmed: Boolean = false,
     /** 当てはまらない条件を除いた、期限の前の通知 */
     val reminders: List<Reminder> = emptyList(),
+    /** 答えてはいるが幅のある回答（見込みの年収）のせいで、必要かどうか決まらない項目。「必要な場合があります」と出す */
+    val maybeRequiredBy: List<String> = emptyList(),
 ) {
     val required: Boolean get() = status == Status.REQUIRED
 
@@ -114,6 +116,27 @@ object RuleEngine {
         return derived + answers
     }
 
+    /** 年収を見込みで答えたときの判定の幅（±50%）。 */
+    const val ESTIMATE_LOW = 0.5
+    const val ESTIMATE_HIGH = 1.5
+
+    /** 年収が見込み（income_basis = estimate）なら、判定に使う幅（見込みの ±50%）。確定・未回答なら null。 */
+    fun estimateRange(answers: Map<String, Answer>): Answer.Range? {
+        if ((answers["income_basis"] as? Answer.Single)?.value != "estimate") return null
+        val income = (answers["annual_income"] as? Answer.Number)?.value ?: return null
+        return Answer.Range((income * ESTIMATE_LOW).toLong(), (income * ESTIMATE_HIGH).toLong())
+    }
+
+    /**
+     * 判定に使う回答。生年月日から年齢を計算し、見込みの年収は ±50% の幅（Range）にする。
+     * 幅が条件の境目をまたぐと、その条件は「分からない」になり、手続きは「関係がありそう」に入る。
+     * お金の目安（Amounts）は見込みの額そのもので計算するので、こちらは使わない。
+     */
+    fun forJudging(answers: Map<String, Answer>, today: LocalDate): Map<String, Answer> {
+        val derived = withDerived(answers, today)
+        return estimateRange(answers)?.let { derived + ("annual_income" to it) } ?: derived
+    }
+
     /**
      * 手続きごとに relations を見て、必要・関係がありそう・対象外に分ける。対象外も含めて全件を返す（点数の高い順）。
      *
@@ -131,18 +154,20 @@ object RuleEngine {
         dismissed: Set<String> = emptySet(),
         confirmed: Set<String> = emptySet(),
     ): Evaluation {
-        val answers = withDerived(rawAnswers, today)
+        val answers = forJudging(rawAnswers, today)
+        val widened = if (estimateRange(rawAnswers) != null) setOf("annual_income") else emptySet() // 見込みで幅を持たせた項目
         val lower = threshold ?: Double.NEGATIVE_INFINITY
         val items = procedures.map { proc ->
-            val judged = judge(proc, answers, lower)
+            val judged = judge(proc, answers, lower, widened)
             // 本人が「関係ない」「当てはまる」にしたものは、ルールの判定より優先する（両方あれば「関係ない」）。
             // 「当てはまる」では、ルールで当てはまった条件も理由に残す（対象外の理由は残さない）
             when (proc.id) {
-                in dismissed -> judged.copy(status = Status.UNRELATED, reasons = listOf(DISMISSED_REASON), missing = emptyList(), dismissed = true)
+                in dismissed -> judged.copy(status = Status.UNRELATED, reasons = listOf(DISMISSED_REASON), missing = emptyList(), maybeRequiredBy = emptyList(), dismissed = true)
                 in confirmed -> judged.copy(
                     status = Status.REQUIRED,
                     reasons = listOf(CONFIRMED_REASON) + if (judged.status == Status.UNRELATED) emptyList() else judged.reasons,
                     missing = emptyList(),
+                    maybeRequiredBy = emptyList(),
                     confirmed = true,
                 )
                 else -> judged
@@ -154,7 +179,7 @@ object RuleEngine {
     const val DISMISSED_REASON = "自分で「関係ない」にした"
     const val CONFIRMED_REASON = "自分で「当てはまる」にした"
 
-    private fun judge(proc: ProcedureDef, answers: Map<String, Answer>, lower: Double): Scored {
+    private fun judge(proc: ProcedureDef, answers: Map<String, Answer>, lower: Double, widened: Set<String> = emptySet()): Scored {
         var isRequired = false
         val excluded = mutableListOf<Relation>()
         val counted = mutableListOf<Relation>()
@@ -189,7 +214,10 @@ object RuleEngine {
                 "conditional" -> {
                     if (conditions.any { it.second == Tri.FALSE }) continue
                     val unknown = conditions.filter { it.second == Tri.UNKNOWN }.map { it.first.field }
-                    if (conditions.isNotEmpty() && unknown.isEmpty()) isRequired = true else canRequire += unknown
+                    // 未回答の条件は when の順に1つずつ聞く（「掛け持ち？」→「はい」なら「掛け持ち先の給与は20万円超？」）。
+                    // 答えてあるのに分からない条件（見込みの年収の幅）は、聞き直さず「必要な場合があります」に使う
+                    if (conditions.isNotEmpty() && unknown.isEmpty()) isRequired = true
+                    else canRequire += unknown.filter { it in widened } + listOfNotNull(unknown.firstOrNull { it !in widened })
                 }
             }
             counted += rel
@@ -204,17 +232,19 @@ object RuleEngine {
             Status.UNRELATED -> excluded.mapNotNull { it.reason }
             else -> counted.filter { it.score > 0 }.sortedByDescending { it.score }.mapNotNull { it.reason }
         }.distinct()
+        // 答えてあるのに分からない項目は、幅のある回答（見込みの年収）。聞き直さず「必要な場合があります」と出す
         val missing = when (status) {
             Status.REQUIRED -> emptyList()
             Status.UNRELATED -> canRequire.toList() // 対象外でも、答えると必要になることがある（必要が優先）
             Status.LIKELY -> (canRequire + canExclude).toList()
-        }
+        }.filter { it !in widened }
+        val maybeRequiredBy = if (status == Status.REQUIRED) emptyList() else canRequire.filter { it in widened }
         // 分岐で選ぶ値（nenkin_plan など）の条件は、選ぶまで当てはまらないものとして扱う
         val choices = choiceFields(listOf(proc))
         val reminders = proc.reminders.filter { r ->
             r.conditions.all { c -> check(c, answers[c.field]).let { it == Tri.TRUE || (it == Tri.UNKNOWN && c.field !in choices) } }
         }
-        return Scored(proc, status, score, reasons, missing, visibleSteps(proc, answers), reminders = reminders)
+        return Scored(proc, status, score, reasons, missing, visibleSteps(proc, answers), reminders = reminders, maybeRequiredBy = maybeRequiredBy)
     }
 
     fun reminderId(procedure: ProcedureDef, reminder: Reminder): String = "${procedure.id}:${reminder.label}"
@@ -261,7 +291,7 @@ object RuleEngine {
      * 金額は、分岐のある手続きなら選んだ選択肢の amounts、無ければ手続きの amounts。
      */
     fun flow(proc: ProcedureDef, rawAnswers: Map<String, Answer>, today: LocalDate = LocalDate.now()): Flow {
-        val answers = withDerived(rawAnswers, today)
+        val answers = forJudging(rawAnswers, today)
         val items = mutableListOf<FlowItem>()
         val chosen = mutableListOf<FlowOption>()
         var hasChoice = false
@@ -333,17 +363,35 @@ object RuleEngine {
     fun fillIn(text: String, rawAnswers: Map<String, Answer>, questions: List<Question>, today: LocalDate = LocalDate.now()): String {
         if ('{' !in text) return text
         val answers = withDerived(rawAnswers, today)
+        val estimate = estimateRange(rawAnswers)
         return placeholder.replace(text) { m ->
             val field = m.groupValues[1]
-            val question = questions.firstOrNull { it.field == field }
+            val question = questions.firstOrNull { it.field == field }?.let { displayQuestion(it, rawAnswers) }
             val answer = answers[field]
             when {
+                // 見込みの年収は、判定に使った幅も書く（「見込み 130万円（65万〜195万円で判定）」）
+                field == "annual_income" && question != null && estimate != null && answer != null ->
+                    "見込み ${question.describe(answer)}（${describeRange(estimate)}で判定）"
                 question != null && answer != null -> question.describe(answer)
                 answer is Answer.Range && answer.min == answer.max -> "${answer.min}歳" // 生年月日から計算した age・age_at_year_end
                 else -> "（${questionFor(field, questions)?.name ?: field}は未入力）"
             }
         }
     }
+
+    /** 「65万〜195万円」。見込みの年収の判定の幅を書く。 */
+    fun describeRange(range: Answer.Range): String {
+        fun man(v: Long) = "%,d万".format(Math.round(v / 10_000.0))
+        return "${man(range.min)}〜${man(range.max ?: range.min)}円"
+    }
+
+    /**
+     * 画面に出すときの質問。年収を「確定」で答えたなら、円単位で入力・表示する（見込みは万円のまま）。
+     * 保存する値はどちらも円。
+     */
+    fun displayQuestion(question: Question, answers: Map<String, Answer>): Question =
+        if (question.field == "annual_income" && (answers["income_basis"] as? Answer.Single)?.value == "actual") question.copy(unit = "円", scale = 1)
+        else question
 
     /** 項目に答えるための質問（age なら生年月日の質問）。 */
     fun questionFor(field: String, questions: List<Question>): Question? =

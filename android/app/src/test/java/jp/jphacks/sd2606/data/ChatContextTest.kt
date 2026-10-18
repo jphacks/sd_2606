@@ -70,7 +70,8 @@ class ChatContextTest {
             ),
         )
         val ctx = ChatContext.build(withBasis, answers + ("income_basis" to Answer.Single("actual")), null, emptyMap(), null, today)
-        assertEquals(ProfileItem("年収", "160万円（確定）"), ctx.profile.first { it.label == "年収" })
+        // 確定の年収は円で書く
+        assertEquals(ProfileItem("年収", "1,600,000円（確定）"), ctx.profile.first { it.label == "年収" })
         assertFalse(ctx.profile.any { it.label == "年収の種類" })
     }
 }

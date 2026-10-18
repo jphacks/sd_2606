@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 import jp.jphacks.sd2606.data.Answer
 import jp.jphacks.sd2606.data.Question
+import jp.jphacks.sd2606.data.RuleEngine
 import jp.jphacks.sd2606.data.describe
 import jp.jphacks.sd2606.data.isSelected
 import jp.jphacks.sd2606.data.toAnswer
@@ -84,7 +85,7 @@ private fun NumberInput(question: Question, answer: Answer.Number?, onAnswer: (A
         OutlinedTextField(
             value = text,
             onValueChange = { v ->
-                text = v.filter(Char::isDigit).take(7)
+                text = v.filter(Char::isDigit).take(9) // 円で入れるときは9桁まで
                 if (live) onAnswer(text.toLongOrNull()?.let { Answer.Number(it * question.scale) })
             },
             suffix = { Text(question.unit) },
@@ -183,7 +184,8 @@ fun AnswersDialog(
         title = { Text("端末に保存している情報") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                questions.forEach { q ->
+                questions.forEach { question ->
+                    val q = RuleEngine.displayQuestion(question, answers) // 確定の年収は円で出す
                     val answer = answers[q.field]
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {

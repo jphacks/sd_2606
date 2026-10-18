@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.ManageAccounts
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Schedule
@@ -276,8 +277,10 @@ fun RecommendScreen(
  * 年収は必須の基本情報なので、空にして決定しても未回答には戻さない。
  */
 @Composable
-private fun IncomeBar(income: Question, parts: List<Question>, answers: Map<String, Answer>, onAnswer: (Question, Answer?) -> Unit) {
+private fun IncomeBar(catalogIncome: Question, parts: List<Question>, answers: Map<String, Answer>, onAnswer: (Question, Answer?) -> Unit) {
     var open by rememberSaveable { mutableStateOf(false) }
+    val income = RuleEngine.displayQuestion(catalogIncome, answers) // 確定なら円
+    val range = RuleEngine.estimateRange(answers)
     Surface(
         color = MaterialTheme.colorScheme.secondaryContainer,
         shape = RoundedCornerShape(12.dp),
@@ -310,14 +313,22 @@ private fun IncomeBar(income: Question, parts: List<Question>, answers: Map<Stri
                 Spacer(Modifier.weight(1f))
                 TextButton(onClick = { open = !open }) { Text(if (open) "閉じる" else "変更") }
             }
+            range?.let {
+                Text(
+                    "見込みの ±50%（${RuleEngine.describeRange(it)}）の範囲で当てはまりうる手続きも出しています",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(end = 12.dp, bottom = 6.dp),
+                )
+            }
             if (open) {
                 Column(Modifier.padding(end = 12.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(income.text, style = MaterialTheme.typography.bodySmall)
-                    QuestionInput(income, answers[income.field], { if (it != null) onAnswer(income, it) })
                     parts.forEach { part ->
                         Text(part.text, style = MaterialTheme.typography.bodySmall)
-                        QuestionInput(part, answers[part.field], { onAnswer(part, it) })
+                        QuestionInput(part, answers[part.field], { if (it != null) onAnswer(part, it) })
                     }
+                    Text(income.text, style = MaterialTheme.typography.bodySmall)
+                    QuestionInput(income, answers[income.field], { if (it != null) onAnswer(income, it) })
                     Text(
                         "変えると、下の手続きの判定がすぐに変わります。",
                         style = MaterialTheme.typography.bodySmall,
@@ -405,6 +416,7 @@ private fun ProcedureCard(
             val amount = remember(item, answers) { Amounts.of(proc, answers).firstOrNull { it.first.card }?.second }
             amount?.let { AmountLine(it) }
             if (item.reasons.isNotEmpty()) ReasonList(item, questions, answers)
+            if (item.maybeRequiredBy.isNotEmpty()) MaybeRequired(item, answers)
             if (answered.isNotEmpty()) AnsweredList(proc.id, answered, answers, onAnswer)
             missing.forEach { q -> NeedInfo(q, answers[q.field]) { onAnswer(q, it) } }
             // 手続きの画面の下部と同じ並び（ProcedureActions）。ルールで対象外のものには出さない
@@ -461,6 +473,27 @@ private fun ReasonList(item: Scored, questions: List<Question>, answers: Map<Str
                         Text("・", style = MaterialTheme.typography.bodyMedium)
                         Text(reason, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                     }
+                }
+            }
+        }
+    }
+}
+
+/** 見込みの年収の幅（±50%）のせいで必要かどうか決まらない手続きの注意書き（「「確定申告をする」が必要な場合があります」）。 */
+@Composable
+fun MaybeRequired(item: Scored, answers: Map<String, Answer>, modifier: Modifier = Modifier) {
+    val range = RuleEngine.estimateRange(answers)
+    Surface(color = MaterialTheme.colorScheme.errorContainer, shape = RoundedCornerShape(12.dp), modifier = modifier.fillMaxWidth()) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(8.dp))
+            Column {
+                Text("「${item.procedure.title}」が必要な場合があります", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                range?.let {
+                    Text(
+                        "年収の見込み（${RuleEngine.describeRange(it)}）のどこに入るかで変わります。年収が確定したら「確定」にすると判定できます。",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
                 }
             }
         }

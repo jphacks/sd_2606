@@ -51,8 +51,9 @@
 
 - field: income_basis
   kind: single
-  part_of: annual_income  # 年収の欄の中で選ぶ（最初の画面と、手続きの一覧の上部）。判定には使わない
-  text: 年収は見込みですか、確定した額ですか？
+  part_of: annual_income  # 年収の欄の中で、金額より先に選ぶ（最初の画面と、手続きの一覧の上部）
+  required: true          # 見込みなら ±50% の幅で判定し（端末内）、確定なら円で入れてその額で判定する
+  text: 年収は見込みですか、確定した額ですか？（見込みは ±50% の幅で、当てはまりうる手続きも出します）
   label: 年収の種類
   choices:
     - {value: estimate, label: 見込み}
@@ -76,3 +77,12 @@
   choices:
     - {value: "yes", label: はい}
     - {value: "no", label: いいえ}
+
+- field: side_job_over_200k
+  kind: single
+  inline: true          # 掛け持ちに「はい」と答えた人に、続けて確定申告のカードの中で聞く
+  text: 年末調整を受けない方のバイト先（掛け持ち先）の給与は、今年20万円を超えますか？
+  label: 掛け持ち先の給与
+  choices:
+    - {value: "yes", label: 20万円を超える}
+    - {value: "no", label: 20万円以下}

@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import jp.jphacks.sd2606.data.Answer
 import jp.jphacks.sd2606.data.Catalog
 import jp.jphacks.sd2606.data.Question
+import jp.jphacks.sd2606.data.RuleEngine
 import jp.jphacks.sd2606.data.SampleData
 import jp.jphacks.sd2606.ui.PrivacyNote
 import jp.jphacks.sd2606.ui.QuestionInput
@@ -57,11 +58,11 @@ fun ProfileScreen(
     var showOptional by rememberSaveable { mutableStateOf(false) }
     Scaffold(topBar = { TopAppBar(title = { Text("あなたの状況を教えてください") }) }) { padding ->
         ResultContent(catalog, onRetry, Modifier.padding(padding)) { data ->
-            val required = data.questions.filter { it.required }
-            // inline は手続きのカードの中でだけ、part_of はその項目の欄の中で聞く
+            // inline は手続きのカードの中でだけ、part_of はその項目の欄の中で聞く（年収の「見込み / 確定」は必須の2択）
+            val required = data.questions.filter { it.required && it.partOf == null }
             val optional = data.questions.filter { !it.required && !it.inline && it.partOf == null }
             val parts = data.questions.filter { it.partOf != null }.groupBy { it.partOf }
-            val missing = required.filter { it.field !in answers }
+            val missing = data.questions.filter { it.required && it.field !in answers }
             Column(
                 modifier = Modifier
                     .padding(padding)
@@ -72,7 +73,13 @@ fun ProfileScreen(
                 PrivacyNote("答えた内容はこの端末の中だけに保存し、サーバーには送りません。")
 
                 required.forEach { q ->
-                    QuestionBlock(q, answers[q.field], required = true, onAnswer = { onAnswer(q.field, it) }) {
+                    QuestionBlock(
+                        RuleEngine.displayQuestion(q, answers), // 確定の年収は円で入れる
+                        answers[q.field],
+                        required = true,
+                        onAnswer = { onAnswer(q.field, it) },
+                        note = if (q.field == "annual_income") RuleEngine.estimateRange(answers)?.let { "見込みの ±50%（${RuleEngine.describeRange(it)}）の範囲で当てはまりうる手続きも出します" } else null,
+                    ) {
                         parts[q.field].orEmpty().forEach { part -> PartInput(part, answers[part.field]) { onAnswer(part.field, it) } }
                     }
                 }
@@ -127,6 +134,7 @@ private fun QuestionBlock(
     answer: Answer?,
     required: Boolean,
     onAnswer: (Answer?) -> Unit,
+    note: String? = null,
     parts: @Composable () -> Unit = {},
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -144,9 +152,11 @@ private fun QuestionBlock(
                 )
             }
         }
+        // 年収の「見込み / 確定」は、入力の単位（万円 / 円）が変わるので金額より先に選んでもらう
+        parts()
         // 最初の画面は並びが動かないので、数値は入力のたびに反映する（「決定」を押し忘れて未入力にならないように）
         QuestionInput(question, answer, onAnswer, live = true)
-        parts()
+        note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }
 
@@ -155,7 +165,7 @@ private fun QuestionBlock(
 private fun PartInput(question: Question, answer: Answer?, onAnswer: (Answer?) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(question.text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        QuestionInput(question, answer, onAnswer)
+        QuestionInput(question, answer, { if (it != null) onAnswer(it) }) // 必須の2択なので、選び直せるが外せない
     }
 }
 

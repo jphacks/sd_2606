@@ -84,6 +84,7 @@ import jp.jphacks.sd2606.ui.QuestionCard
 import jp.jphacks.sd2606.ui.ResultContent
 import jp.jphacks.sd2606.ui.UiResult
 import jp.jphacks.sd2606.ui.completedLabel
+import jp.jphacks.sd2606.ui.recommend.MaybeRequired
 import jp.jphacks.sd2606.ui.theme.AppTheme
 
 /**
@@ -224,6 +225,7 @@ private fun Status(item: Scored?, state: AppUiState, questions: List<Question>, 
             Status.UNRELATED -> "いまの回答では対象外です" to MaterialTheme.colorScheme.surfaceVariant
         }
         StatusCard(title, color, item.reasons.map { RuleEngine.fillIn(it, state.answers, questions) })
+        if (item.maybeRequiredBy.isNotEmpty()) MaybeRequired(item, state.answers)
         item.missing.mapNotNull { RuleEngine.questionFor(it, questions) }.distinct().forEach { q ->
             QuestionCard(
                 question = q,

@@ -69,7 +69,7 @@ data class ChatContext(val procedureId: String?, val profile: List<ProfileItem>,
                         add(ProfileItem("年齢", "${RuleEngine.ageOn(birth, today)}歳（今年の12月31日時点 ${RuleEngine.ageOn(birth, endOfYear)}歳）"))
                     } else {
                         val extra = parts.filter { it.partOf == q.field }.mapNotNull { p -> answers[p.field]?.let { "（${p.describe(it)}）" } }
-                        add(ProfileItem(q.name, q.describe(answer) + extra.joinToString("")))
+                        add(ProfileItem(q.name, RuleEngine.displayQuestion(q, answers).describe(answer) + extra.joinToString("")))
                     }
                 }
                 for (proc in catalog.procedures) {

@@ -45,7 +45,7 @@ class UserProfile(BaseModel):
     part_time: Literal["yes", "no"] | None = Field(default=None, description="アルバイトをしているか（yes / no）")
     annual_income: int = Field(ge=0, description="年収（円）")
     income_basis: Literal["estimate", "actual"] | None = Field(
-        default=None, description="年収が見込み（estimate）か、確定した額（actual）か。判定には使わず、表示と AI への説明に使う"
+        default=None, description="年収が見込み（estimate）か、確定した額（actual）か。見込みならアプリは ±50% の幅で判定する（このサーバーの判定は額そのもの）"
     )
     health_insurance: HealthInsurance = "unknown"
     supported_by: SupportedBy | None = Field(default=None, description="誰の扶養に入っているか（税・健康保険）")
@@ -53,6 +53,7 @@ class UserProfile(BaseModel):
     has_spouse: bool = False
     dependents: int = Field(default=0, ge=0, description="扶養している家族の人数")
     multiple_jobs: YesNo | None = Field(default=None, description="今年、給与をもらった勤務先が2か所以上あるか（掛け持ち）")
+    side_job_over_200k: YesNo | None = Field(default=None, description="年末調整を受けない方の勤務先（掛け持ち先）の給与が年20万円を超えるか")
 
     @field_validator("occupation", mode="before")
     @classmethod

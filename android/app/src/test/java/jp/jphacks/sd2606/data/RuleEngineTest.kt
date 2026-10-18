@@ -387,4 +387,41 @@ class RuleEngineTest {
         assertEquals("保険料を納める", chosen.single().describe(Answer.Single("pay")))
         assertEquals(emptyList<String>(), RuleEngine.answeredQuestions(withChoice, catalog.questions, emptyMap(), today).map { it.field })
     }
+
+    @Test
+    fun estimateIncomeIsJudgedWithin50PercentAndQuestionsComeOneByOne() {
+        // kakutei_shinkoku.yaml と同じ形: 178万円超で掛け持ち、掛け持ち先の給与が20万円超なら必要
+        val proc = Json.decodeFromString<ProcedureDef>(
+            """
+            {"id": "kakutei", "title": "確定申告をする", "category": "tax", "summary": "", "relations": [
+              {"field": "part_time", "value": "yes", "flag": "conditional", "score": 0.5, "reason": "掛け持ち",
+               "when": [{"field": "annual_income", "op": "gt", "value": 1780000}, {"field": "multiple_jobs", "value": "yes"},
+                        {"field": "side_job_over_200k", "value": "yes"}]}]}
+            """,
+        )
+        fun judge(vararg answers: Pair<String, Answer>) = RuleEngine.evaluate(listOf(proc), answers.toMap(), null, today).find("kakutei")!!
+        val partTime = "part_time" to Answer.Single("yes")
+        fun income(v: Long, basis: String) = arrayOf("annual_income" to Answer.Number(v), "income_basis" to Answer.Single(basis))
+        // 確定で130万円: 178万円以下と分かるので、掛け持ちは聞かない
+        judge(partTime, *income(1_300_000, "actual")).let {
+            assertEquals(Status.LIKELY, it.status)
+            assertEquals(emptyList<String>(), it.missing)
+            assertEquals(emptyList<String>(), it.maybeRequiredBy)
+        }
+        // 確定で200万円: 掛け持ちを聞き、「はい」なら次に掛け持ち先の給与を聞く。両方「はい」で必要
+        assertEquals(listOf("multiple_jobs"), judge(partTime, *income(2_000_000, "actual")).missing)
+        val yes = "multiple_jobs" to Answer.Single("yes")
+        assertEquals(listOf("side_job_over_200k"), judge(partTime, *income(2_000_000, "actual"), yes).missing)
+        assertEquals(Status.REQUIRED, judge(partTime, *income(2_000_000, "actual"), yes, "side_job_over_200k" to Answer.Single("yes")).status)
+        // 見込みで130万円（65万〜195万円）: 178万円をまたぐので「必要な場合があります」。年収は聞き直さず、掛け持ちは聞く
+        judge(partTime, *income(1_300_000, "estimate"), yes, "side_job_over_200k" to Answer.Single("yes")).let {
+            assertEquals(Status.LIKELY, it.status)
+            assertEquals(listOf("annual_income"), it.maybeRequiredBy)
+            assertEquals(emptyList<String>(), it.missing)
+        }
+        assertEquals(listOf("multiple_jobs"), judge(partTime, *income(1_300_000, "estimate")).missing)
+        // 見込みで100万円（50万〜150万円）: 178万円に届かないので聞かない
+        assertEquals(emptyList<String>(), judge(partTime, *income(1_000_000, "estimate")).missing)
+        assertEquals("65万〜195万円", RuleEngine.describeRange(RuleEngine.estimateRange(mapOf(*income(1_300_000, "estimate")))!!))
+    }
 }
