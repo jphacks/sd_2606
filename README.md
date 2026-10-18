@@ -59,15 +59,30 @@
 
 分からない項目は「まだ分からない」として判定し、判定に必要になった手続きのカードでだけ聞き直します。並びは関連度順と期限順を切り替えられます。
 
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=gnPkmL9fa1Q"><img src="https://img.youtube.com/vi/gnPkmL9fa1Q/hqdefault.jpg" width="60%" alt="動画: 4つの質問に答えて、あなたの手続きが出るまで"></a>
+</p>
+
 #### 2. 自分に当てはまった手順を、やる順に
 各手続きは「何を・どこで・いつ・何を持って」をステップごとのタイムラインで見せます。19〜22歳だけに必要な手順や親の扶養に入っている人だけの手順など、**当てはまらないステップは表示しません**。国民年金の「学生納付特例を使う／保険料を納める」のように、選ぶとその先の手順と金額の目安が出ます。
+
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=bZaXowbbu9s"><img src="https://img.youtube.com/vi/bZaXowbbu9s/hqdefault.jpg" width="60%" alt="動画: 国民年金の手続きのフロー"></a>
+</p>
 
 #### 3. バイト代メーターで年収の壁に気づく
 給料を支給日ごとに記録すると、今年の合計をビーカーに積み、**次の年収の壁まであといくらか**と **このペースだと何月に超えるか** を出します。税金の目安や、天引きされた所得税が戻る見込みも分かり、壁からその壁に関係する手続きへ移れます。
 
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=PvOR8koGM7Y"><img src="https://img.youtube.com/vi/PvOR8koGM7Y/hqdefault.jpg" width="60%" alt="動画: バイト代メーター"></a>
+</p>
 
 #### 4. AIチャットボットがユーザーの悩みに寄り添う
 Claude に、分からない手続きのことを質問できます。アプリが判定した結果と回答をあらかじめ AI に伝えるので、「私は20歳で年収は…」と書かなくてよく、質問の例を押すだけで聞けます。答えが本人の状況で変わるのにそれが分からないときは、場合分けで長く答えるのではなく **聞き返し**、選んだ答えは判定にも反映されます。
+
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=lTXtbVhLZYI"><img src="https://img.youtube.com/vi/lTXtbVhLZYI/hqdefault.jpg" width="60%" alt="動画: AIに質問"></a>
+</p>
 
 ### 解決出来ること
 - 「自分に何が関係あるのか」を調べる手間がなくなる
