@@ -45,6 +45,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -57,6 +58,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -69,7 +71,9 @@ import jp.jphacks.sd2606.data.meter.Income
 import jp.jphacks.sd2606.data.meter.IncomeWall
 import jp.jphacks.sd2606.data.meter.Job
 import jp.jphacks.sd2606.data.meter.incomeWallsFor
-import jp.jphacks.sd2606.ui.BackTopBar
+import jp.jphacks.sd2606.data.RuleEngine
+import jp.jphacks.sd2606.ui.AppBottomBar
+import jp.jphacks.sd2606.ui.Tab
 import jp.jphacks.sd2606.ui.theme.AppTheme
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.foundation.layout.fillMaxSize
@@ -79,17 +83,21 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import kotlinx.coroutines.launch
 
-/** バイト代メーター。今年の給料を容器に積み、次の年収の壁までの残りを表示する。 */
+/**
+ * バイト代メーター。今年の給料を容器に積み、次の年収の壁までの残りを表示する。
+ * 壁は表示している年の12月31日時点の年齢で選ぶ（生年月日が無いときは19〜22歳の特例を使わない）。
+ */
 @Composable
-fun MeterScreen(age: Int, onBack: () -> Unit, vm: MeterViewModel = viewModel()) {
+fun MeterScreen(birthDate: LocalDate?, onTab: (Tab) -> Unit, vm: MeterViewModel = viewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
     var showAdd by rememberSaveable { mutableStateOf(false) }
+    val age = birthDate?.let { RuleEngine.ageOn(it, LocalDate.of(state.year, 12, 31)) } ?: 0
 
     MeterContent(
         state = state,
         age = age,
         walls = incomeWallsFor(age),
-        onBack = onBack,
+        onTab = onTab,
         onPreviousYear = vm::previousYear,
         onNextYear = vm::nextYear,
         onAdd = { showAdd = true },
@@ -111,13 +119,14 @@ fun MeterScreen(age: Int, onBack: () -> Unit, vm: MeterViewModel = viewModel()) 
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MeterContent(
     state: MeterUiState,
     /** 表示している年の12月31日時点の年齢（税金の目安で 19〜22歳かどうかを見る） */
     age: Int,
     walls: List<IncomeWall>,
-    onBack: () -> Unit,
+    onTab: (Tab) -> Unit,
     onPreviousYear: () -> Unit,
     onNextYear: () -> Unit,
     onAdd: () -> Unit,
@@ -134,7 +143,8 @@ private fun MeterContent(
             .onGloballyPositioned { overlayOrigin = it.positionInRoot() },
     ) {
         Scaffold(
-            topBar = { BackTopBar("バイト代メーター", onBack) },
+            topBar = { TopAppBar(title = { Text("バイト代メーター", fontWeight = FontWeight.Bold) }) },
+            bottomBar = { AppBottomBar(Tab.METER, onTab) },
             floatingActionButton = {
                 ExtendedFloatingActionButton(onClick = onAdd, icon = { Icon(Icons.Filled.Add, contentDescription = null) }, text = { Text("給料を追加") })
             },
@@ -512,6 +522,6 @@ private fun MeterScreenPreview() {
         Income(id = 1, jobId = 1, paidOn = "2026-01-25", amount = 78_000),
     )
     AppTheme {
-        MeterContent(MeterUiState(2026, jobs, incomes), age = 20, walls = incomeWallsFor(20), onBack = {}, onPreviousYear = {}, onNextYear = {}, onAdd = {}, onDelete = {})
+        MeterContent(MeterUiState(2026, jobs, incomes), age = 20, walls = incomeWallsFor(20), onTab = {}, onPreviousYear = {}, onNextYear = {}, onAdd = {}, onDelete = {})
     }
 }

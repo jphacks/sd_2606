@@ -1,0 +1,31 @@
+id: fuyou_kojo
+title: 配偶者控除・扶養控除を申告する
+category: tax
+summary: 家族を扶養していると、所得税・住民税が軽くなる控除を受けられます。
+deadline: 年末調整（11〜12月）か翌年の確定申告
+due: {month: 11, day: 30}
+office: 勤務先・税務署
+relations:
+  - {field: dependents, op: gt, value: 0, flag: required, score: 0.8, reason: "扶養している家族 {dependents}"}
+  - {field: occupation, op: in, value: [employee, self_employed, freelance], flag: conditional, score: 0.3, reason: "働き方 {occupation}"}
+  - {field: age, op: gte, value: 30, flag: conditional, score: 0.2, reason: "年齢 {age}（30歳以上）"}
+  - {field: occupation, value: student, flag: conditional, score: -0.5}   # 家族を扶養している学生は少ない
+  - {field: dependents, value: 0, flag: unrelated, score: -1.0, reason: "扶養している家族 {dependents}"}
+steps:
+  - title: 家族の年収を確かめる
+    detail: 控除を受けられるかは家族の収入で決まります。扶養控除の対象は16歳以上の家族です。
+  - title: 扶養控除等申告書に家族を書いて出す
+    detail: 勤務先に出します。家族が増えたり減ったりしたら出し直します。
+    where: 勤務先
+    documents: [給与所得者の扶養控除等（異動）申告書, 配偶者控除等申告書（配偶者がいる人）]
+    when:
+      - {field: occupation, op: in, value: [employee, part_time]}
+  - title: 確定申告書の控除の欄に書く
+    detail: 翌年2〜3月の確定申告で申告します。
+    where: e-Tax・税務署
+    when:
+      - {field: occupation, op: in, value: [self_employed, freelance, retired, unemployed]}
+reminders:
+  - {label: 扶養控除の申告（年末調整）, month: 11, day: 30}
+links:
+  - {label: 国税庁 配偶者控除, url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1191.htm"}

@@ -1,0 +1,39 @@
+id: iryohi_kojo
+title: 医療費控除を申告する
+category: tax
+summary: 1年間の医療費が10万円（所得200万円未満なら所得の5%）を超えたら、確定申告で税金が戻ります。
+deadline: 翌年の確定申告（5年以内なら出せる）
+due: {month: 3, day: 15}
+office: 税務署（e-Tax で出せる）
+relations:
+  # 医療費が年10万円などを超えるかで決まるので、必須にはしない
+  - {field: age, op: gte, value: 60, flag: conditional, score: 0.4, reason: "年齢 {age}（60歳以上）"}
+  - {field: occupation, op: in, value: [employee, self_employed, freelance, retired, part_time], flag: conditional, score: 0.2, reason: "働き方 {occupation}（所得税を納める働き方）"}
+  - {field: occupation, value: student, flag: conditional, score: -0.3}   # 所得税を納めていない学生が多い
+  - {field: annual_income, op: lte, value: 1780000, flag: conditional, score: -0.3}   # 給与だけなら所得税がかからない
+steps:
+  - title: 医療費の領収書と医療費通知を集める
+    detail: 家族の分も合算できます。
+    documents: [医療費の領収書, 健康保険の医療費通知]
+  - title: 医療費控除の明細書を作る
+    detail: 確定申告書等作成コーナーで入力できます（マイナポータルから自動入力も可）。
+    details:
+      - 確定申告書等作成コーナーで、医療費を受診した人と病院ごとに入力します
+      - 健康保険の医療費通知を使うと、その分の入力を省けます
+      - マイナポータル連携なら、医療費の情報が自動で入ります
+    where: 確定申告書等作成コーナー
+  - title: 確定申告をする
+    detail: 年末調整では受けられないので、自分で申告します。
+    where: e-Tax・税務署
+    documents: [源泉徴収票]
+    when:
+      - {field: occupation, op: in, value: [employee, part_time]}
+  - title: 確定申告書に明細書を付けて出す
+    detail: いつもの確定申告と一緒に出します。
+    where: e-Tax・税務署
+    when:
+      - {field: occupation, op: in, value: [self_employed, freelance, retired]}
+reminders:
+  - {label: 医療費控除の申告（確定申告の期限）, month: 3, day: 15}
+links:
+  - {label: 国税庁 医療費控除, url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1120.htm"}

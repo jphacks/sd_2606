@@ -65,6 +65,8 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.retrofit.kotlinx.serialization)
 
+    testImplementation(libs.junit)
+
     // バイト代メーター（端末内 DB）
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)

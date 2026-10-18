@@ -7,28 +7,20 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
-import retrofit2.http.Body
 import retrofit2.http.GET
-import retrofit2.http.POST
-import retrofit2.http.Path
 
+/** サーバーからは制度データを受け取るだけ。ユーザーの回答を送る API は無い。 */
 interface ApiService {
-    @POST("api/recommendations")
-    suspend fun recommendations(@Body profile: UserProfile): RecommendationResponse
-
-    @GET("api/procedures/{id}")
-    suspend fun procedure(@Path("id") id: String): Procedure
+    @GET("api/catalog")
+    suspend fun catalog(): Catalog
 }
 
 object ApiClient {
-    private val json = Json {
-        ignoreUnknownKeys = true
-        encodeDefaults = true
-    }
+    private val json = Json { ignoreUnknownKeys = true }
 
-    // LLM の生成を待つので読み取りタイムアウトを長めにする
     private val http = OkHttpClient.Builder()
-        .readTimeout(60, TimeUnit.SECONDS)
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(20, TimeUnit.SECONDS)
         .build()
 
     val service: ApiService = Retrofit.Builder()

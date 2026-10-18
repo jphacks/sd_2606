@@ -1,0 +1,45 @@
+id: fuyou_hairu
+title: 家族の扶養に入る（健康保険）
+category: insurance
+summary: 収入が少なくなったら、親や配偶者の健康保険の扶養に入れます。
+deadline: 扶養に入る日から5日以内（家族の勤務先を通じて）
+due: {days: 5}
+office: 家族（親・配偶者）の勤務先
+relations:
+  - {field: occupation, value: unemployed, flag: conditional, score: 0.6, reason: "働き方 無職・求職中"}
+  - {field: occupation, value: part_time, flag: conditional, score: 0.3, reason: "働き方 パート・アルバイト"}
+  - {field: occupation, value: retired, flag: conditional, score: 0.3, reason: "働き方 退職済み"}
+  - {field: occupation, value: employee, flag: unrelated, score: -1.0, reason: "働き方 会社員・公務員"}
+  - {field: supported_by, op: in, value: [parent, spouse], flag: unrelated, score: -1.0, reason: "{supported_by}"}
+  - {field: health_insurance, value: dependent, flag: unrelated, score: -1.0, reason: "健康保険 {health_insurance}"}
+  - {field: age, op: gte, value: 75, flag: unrelated, score: -1.0, reason: "年齢 {age}（75歳以上）"}
+steps:
+  - title: 収入が150万円未満か確かめる
+    detail: これから1年間の収入で判断します。同居なら家族の収入の半分未満も条件です。
+    when:
+      - {field: age_at_year_end, op: in, value: [19, 20, 21, 22]}
+  - title: 収入が130万円未満か確かめる
+    detail: これから1年間の収入で判断します。同居なら家族の収入の半分未満も条件です。
+    when:
+      - {field: age_at_year_end, op: not_in, value: [19, 20, 21, 22]}
+      - {field: age, op: lt, value: 60}
+  - title: 収入が180万円未満か確かめる
+    detail: 年金を含めた、これから1年間の収入で判断します。同居なら家族の収入の半分未満も条件です。
+    when:
+      - {field: age, op: gte, value: 60}
+  - title: 家族に「被扶養者（異動）届」を出してもらう
+    detail: 家族の勤務先に5日以内に出します。配偶者の扶養なら、国民年金の第3号の届出も一緒にします。
+    details:
+      - 家族が勤務先に「扶養に入れたい」と伝えると、届出書を用意してもらえます
+      - 収入が分かる書類（離職票・退職証明書など）を家族に渡します
+      - 配偶者の扶養なら、同じ届で国民年金の第3号の届出もします
+    where: 家族の勤務先
+    documents: [健康保険 被扶養者（異動）届（家族の勤務先が用意）, 退職日や収入が分かる書類（離職票・退職証明書など）, マイナンバーが分かるもの]
+  - title: 国保をやめる届出をする
+    detail: 扶養に入ってから14日以内に、役所で届け出ます。
+    where: 市区町村の役所
+    when:
+      - {field: health_insurance, value: national}
+links:
+  - {label: 日本年金機構 被扶養者にするとき・異動があったときの手続き, url: "https://www.nenkin.go.jp/service/kounen/tekiyo/hihokensha1/20141202.html"}
+  - {label: 日本年金機構 19歳以上23歳未満の方の被扶養者認定の年間収入要件, url: "https://www.nenkin.go.jp/oshirase/taisetu/2025/202508/0819.html"}

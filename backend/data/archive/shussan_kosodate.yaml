@@ -1,0 +1,39 @@
+id: shussan_kosodate
+title: 出産・子育ての給付を受ける
+category: benefit
+summary: 出産すると、出産育児一時金と児童手当を受け取れます。
+deadline: 出生届は14日以内、児童手当は15日以内
+due: {days: 14}
+office: 市区町村の役所・加入している健康保険
+relations:
+  - {field: age, op: gte, value: 25, flag: conditional, score: 0.3, reason: "年齢 {age}（25歳以上）"}
+  - {field: age, op: gte, value: 45, flag: conditional, score: -0.4}   # 25歳以上の加点を打ち消す
+  - {field: occupation, value: student, flag: conditional, score: -0.3}
+steps:
+  - title: 出生届を出す
+    detail: 生まれた日を含めて14日以内に役所へ出します。
+    details:
+      - 出生証明書の欄は、出産した病院が書きます
+    where: 市区町村の役所
+    documents: [出生届（出生証明書つき）, 母子健康手帳]
+  - title: 児童手当を申請する
+    detail: 生まれた翌日から15日以内に申請します。公務員は勤務先に申請します。
+    details:
+      - 役所の窓口か、マイナポータルの電子申請で申請できます
+    where: 市区町村の役所（公務員は勤務先）
+    documents: [請求者の健康保険の資格確認書類, 請求者名義の口座が分かるもの, マイナンバーカード]
+  - title: 子どもを勤務先の健康保険の扶養に入れる
+    detail: 配偶者の扶養に入っているなら、配偶者の勤務先に届け出ます。
+    where: 勤務先
+    when:
+      - {field: health_insurance, op: in, value: [employer, dependent]}
+  - title: 子どもを国保に入れる
+    detail: 出生届と一緒に届け出ます。
+    where: 市区町村の役所
+    when:
+      - {field: health_insurance, value: national}
+  - title: 出産育児一時金を受け取る
+    detail: 多くの病院では病院に直接支払われます。差額があれば申請します。
+    where: 出産した病院・加入している健康保険
+links:
+  - {label: こども家庭庁 児童手当, url: "https://www.cfa.go.jp/policies/kokoseido/jidouteate"}

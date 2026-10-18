@@ -1,33 +1,85 @@
 id: kokumin_nenkin
-title: 国民年金（第1号被保険者）の手続き
+title: 国民年金の手続き
 category: pension
-summary: 20〜59歳で厚生年金に入っていない人は、国民年金の第1号被保険者として自分で手続きし、保険料を納めます。
-priority: 90
-deadline: 該当した日から14日以内
-office: 住んでいる市区町村の役所（国民年金の窓口）
-match:
-  - reason: 退職して厚生年金から外れるため
+summary: 20歳になると学生も国民年金に入ります。保険料は、学生納付特例で待ってもらうか、毎月納めるかを選びます。
+deadline: 学生納付特例は毎年度（4月〜翌3月）申請。2年1か月前までさかのぼれる
+due: {month: 4, day: 30}
+office: 市区町村の役所・年金事務所・マイナポータル
+relations:
+  # 20歳以上の学生は全員が入る（保険料を納めるか学生納付特例を使うかは、フローの分岐で選ぶ）
+  - {field: age_at_year_end, value: 20, flag: required, score: 1.0, reason: "年末の年齢 {age_at_year_end}（今年20歳になる）"}
+  - field: age
+    op: gte
+    value: 20
+    flag: conditional
+    score: 0.9
+    reason: "年齢 {age}（20歳以上）"
     when:
-      - {field: life_events, op: contains, value: resign}
-      - {field: age, op: gte, value: 20}
       - {field: age, op: lt, value: 60}
-  - reason: 自営業・フリーランス・無職の20〜59歳は国民年金に加入するため
-    when:
-      - {field: occupation, op: in, value: [self_employed, freelance, unemployed]}
-      - {field: age, op: gte, value: 20}
-      - {field: age, op: lt, value: 60}
-  - reason: 20歳になると国民年金への加入が必要になるため
-    when:
-      - {field: life_events, op: contains, value: turn_20}
+  - {field: age_at_year_end, op: lt, value: 20, flag: unrelated, score: -1.0, reason: "年末の年齢 {age_at_year_end}（20歳未満）"}
 steps:
-  - title: 届け出に必要なものをそろえる
-    detail: 退職した場合は、退職日が分かる書類（離職票や退職証明書など）を用意します。20歳になった人には日本年金機構から書類が届きます。
-    documents: [基礎年金番号が分かるもの, 退職日が分かる書類, マイナンバーカード]
-  - title: 役所またはマイナポータルで届け出る
-    detail: 第1号被保険者への種別変更（または資格取得）を届け出ます。
-    where: 市区町村役所・マイナポータル
-  - title: 保険料を納める（難しければ免除・猶予を申請）
-    detail: 収入が少ない・失業した場合は、保険料の免除や納付猶予を申請できます。未納のままにすると将来の年金や障害年金に影響します。
-    where: 市区町村役所・年金事務所
+  - title: 届いた「国民年金加入のお知らせ」を確かめる
+    detail: 20歳の誕生日から約2週間で、基礎年金番号通知書と一緒に届きます。加入の届出は要りません。
+    documents: [国民年金加入のお知らせ, 基礎年金番号通知書]
+    when:
+      - {field: age_at_year_end, op: lte, value: 20}
+  - choice:
+      field: nenkin_plan
+      title: 保険料をどうするか選ぶ
+      options:
+        - value: tokurei
+          label: 学生納付特例を使う
+          detail: 在学中は保険料を納めずに済みます。10年以内なら後から納められます。
+          steps:
+            - title: 学生証のコピーか在学証明書を用意する
+              detail: どちらか1つを用意します。
+              documents: [学生証のコピーまたは在学証明書, 基礎年金番号が分かるもの]
+            - title: 学生納付特例を申請する
+              detail: マイナポータル・役所・年金事務所のどれかで出します。学校で受け付けていることもあります。
+              details:
+                - マイナポータルなら、「学生納付特例」を検索し、画面に沿って入力して送信します
+                - 窓口・郵送なら、申請書に学生証のコピーか在学証明書を付けて、役所の国民年金窓口か年金事務所に出します
+                - 学校が学生納付特例事務法人なら、学校の窓口でも出せます
+              where: マイナポータル・市区町村の役所・年金事務所
+              documents: [国民年金保険料学生納付特例申請書（窓口・郵送の場合）]
+            - title: 毎年4月に申請し直す
+              detail: 続けて受けるには毎年度の申請が要ります。案内のはがきが届くこともあります。
+            - title: （任意）就職したら追納する
+              detail: 待ってもらった分を10年以内に納めると、将来の年金が満額に近づきます。
+          amounts:
+            - {kind: nenkin_tokurei}
+        - value: pay
+          label: 保険料を納める
+          detail: 毎月納めます。納めた分だけ将来の年金が増え、まとめて前納すると割引があります。
+          steps:
+            - title: 保険料を納める
+              detail: 届いた納付書か口座振替で、翌月末までに納めます。
+              details:
+                - 納付書は、コンビニ・金融機関・スマホ決済アプリで使えます
+                - 口座振替は「国民年金保険料口座振替納付（変更）申出書」を金融機関か年金事務所に出します
+                - 6か月・1年・2年分をまとめて前納すると割引になります
+              documents: [国民年金保険料の納付書]
+            - title: 親が払うなら、親の年末調整で申告してもらう
+              detail: 親が学生の保険料を払うと、親の社会保険料控除になります。
+              details:
+                - 11月ごろ届く「社会保険料（国民年金保険料）控除証明書」を親に渡します
+              when:
+                - {field: supported_by, value: parent}
+          amounts:
+            - {kind: nenkin}
+reminders:
+  - label: 学生納付特例の申請（4月から新しい年度）
+    month: 4
+    day: 30
+    when:
+      - {field: nenkin_plan, value: tokurei}
+  - label: 国民年金保険料の納付期限（毎月末）
+    day: 31
+    when:
+      - {field: nenkin_plan, value: pay}
+amounts:
+  - {kind: nenkin, card: true}   # 一覧のカードに出す代表的な金額（保険料の月額）
 links:
-  - {label: 日本年金機構 国民年金の加入手続き, url: "https://www.nenkin.go.jp/service/kokunen/kanyu/20140710.html"}
+  - {label: 日本年金機構 学生納付特例制度, url: "https://www.nenkin.go.jp/service/kokunen/menjo/20150514.html"}
+  - {label: 日本年金機構 20歳到達時の国民年金の手続き, url: "https://www.nenkin.go.jp/service/kokunen/kanyu/hatachi-tetsuduki.html"}
+  - {label: 日本年金機構 国民年金保険料の額, url: "https://www.nenkin.go.jp/faq/kokunen/seido/hokenryo/seidosetsumei/20150331.html"}

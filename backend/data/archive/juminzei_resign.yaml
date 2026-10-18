@@ -1,0 +1,34 @@
+id: juminzei_resign
+title: 退職後の住民税を納める
+category: tax
+summary: 会社を辞めた後の住民税は、届く納付書で自分で納めます。
+deadline: 納付書の期限まで
+office: 市区町村の役所（住民税の窓口）
+relations:
+  - {field: occupation, value: unemployed, flag: conditional, score: 0.7, reason: "働き方 無職・求職中"}
+  - {field: occupation, value: retired, flag: conditional, score: 0.5, reason: "働き方 退職済み"}
+  - {field: occupation, op: in, value: [self_employed, freelance], flag: conditional, score: 0.4, reason: "働き方 {occupation}"}
+  - {field: occupation, value: student, flag: conditional, score: -0.3}   # 会社を辞めた学生は少ない
+  - {field: occupation, value: employee, flag: unrelated, score: -1.0, reason: "働き方 会社員・公務員"}
+steps:
+  - title: 前の勤務先に残りの住民税の扱いを聞く
+    detail: 1〜5月に辞めたら、最後の給与からまとめて引かれることが多いです。
+    where: 前の勤務先
+  - title: 届いた納付書で納める
+    detail: 年4回（6・8・10・翌1月）に分けて納めます。
+    details:
+      - コンビニ・金融機関・スマホ決済アプリで納められます（使える方法は市区町村で違う）
+    documents: [住民税の納付書（市区町村から届く）]
+  - title: 払えなければ役所に相談する
+    detail: 減免や分割に応じる市区町村があります。
+    where: 市区町村の役所
+    when:
+      - {field: occupation, op: in, value: [unemployed, part_time, student]}
+reminders:
+  - {label: 住民税の納期（1期・6月末）, month: 6, day: 30}
+  - {label: 住民税の納期（2期・8月末）, month: 8, day: 31}
+  - {label: 住民税の納期（3期・10月末）, month: 10, day: 31}
+  - {label: 住民税の納期（4期・1月末）, month: 1, day: 31}
+amounts:
+  - {kind: juminzei, card: true}
+links: []

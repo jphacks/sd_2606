@@ -1,0 +1,56 @@
+# 判定に使う項目を、ユーザーにどう聞くか（書き方は docs/procedures.md）。
+#
+# - アプリの対象は学生。働き方は聞かず、アルバイトをしているかだけを聞く
+# - required: true は最初の画面で必ず答えてもらう基本情報（アルバイト・生年月日・扶養の状況・年収）。多くの手続きの判定が変わる項目に限る
+# - それ以外は任意。最初の画面の「もっと詳しく（任意）」と、判定にその項目が必要になった手続きのカードで聞く
+# - label は項目の短い名前。手続きの一覧で「判定には（label）が必要です」と案内するのに使う
+# - kind: number は数値を入力してもらう（unit は単位、scale は入力の単位。年収は万円で入れて円で保存）
+# - kind: range の選択肢は書かない。手続き YAML の条件の境目から自動で作るので、
+#   判定に必要な細かさでしか聞かない（いまは使っていない）
+# - kind: date は日付を選んでもらう。provides の項目は、アプリがその日付から端末内で計算する
+# - 手続き YAML の条件で使う項目は、すべてここに書くこと（テストで確認している）
+
+- field: part_time
+  kind: single
+  required: true        # アプリの対象は学生。アルバイトの有無で、年末調整・確定申告・年収の壁が関係するかが決まる
+  text: アルバイトをしていますか？
+  label: アルバイト
+  choices:
+    - {value: "yes", label: している}
+    - {value: "no", label: していない}
+
+- field: birth_date
+  kind: date
+  required: true        # 年齢と働き方で、どの手続きがどれだけ関係するかが大きく変わる
+  text: 生年月日は？
+  label: 生年月日
+  # age: 今日時点の年齢 / age_at_year_end: その年の12月31日時点の年齢（所得税の控除などの判定用）
+  provides: [age, age_at_year_end]
+
+- field: supported_by
+  kind: single
+  required: true        # このアプリの軸（本人と家族の両方に関わる扶養）。分からなければ「わからない」を選べる
+  text: 親の扶養に入っていますか？（税金か健康保険のどちらかで）
+  label: 扶養の状況
+  choices:
+    - {value: parent, label: 親の扶養に入っている}
+    - {value: none, label: 入っていない}
+    - {value: unknown, label: わからない}
+
+- field: annual_income
+  kind: number
+  required: true        # 年収の壁（税金・扶養の基準）の判定と、説明の「見込みの〇万円なら」に使う
+  text: 今年（1〜12月）のアルバイト収入の見込みは？（税込み・交通費を除く・だいたいで可。なければ 0）
+  label: 年収
+  unit: 万円
+  scale: 10000
+
+- field: health_insurance
+  kind: single
+  text: いま入っている健康保険は？
+  label: 加入している健康保険
+  choices:
+    - {value: employer, label: 勤務先の保険}
+    - {value: national, label: 国民健康保険}
+    - {value: dependent, label: 家族の扶養}
+    - {value: unknown, label: わからない}

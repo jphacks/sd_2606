@@ -9,6 +9,7 @@ lifecycle = "2.11.0"
 navigationCompose = "2.10.2"
 kotlinxSerialization = "1.9.0"
 retrofit = "3.0.0"
+junit = "4.13.2"
 # KSP 2.3 以降は Kotlin の版と独立（AGP 9 の内蔵 Kotlin に対応）
 ksp = "2.3.12"
 room = "2.8.5"
@@ -28,6 +29,7 @@ androidx-compose-material-icons-extended = { group = "androidx.compose.material"
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
 retrofit-kotlinx-serialization = { group = "com.squareup.retrofit2", name = "converter-kotlinx-serialization", version.ref = "retrofit" }
+junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }

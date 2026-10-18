@@ -1,35 +1,48 @@
 id: kakutei_shinkoku
-title: 所得税の確定申告
+title: 確定申告をする
 category: tax
-summary: 1年間（1〜12月）の所得と税額を計算して税務署に申告し、所得税を納めます（還付を受ける場合もあります）。
-priority: 80
-deadline: 翌年2月16日〜3月15日（土日祝の場合は翌平日）
-office: 住所地の税務署（e-Tax で自宅から提出可能）
-match:
-  - reason: 自営業・フリーランスは自分で所得を申告する必要があるため
-    when:
-      - {field: occupation, op: in, value: [self_employed, freelance]}
-  - reason: 副業の所得が年20万円を超える場合は確定申告が必要なため
-    when:
-      - {field: life_events, op: contains, value: side_job}
-  - reason: 年収が2,000万円を超える会社員は年末調整の対象外になるため
-    when:
-      - {field: occupation, op: eq, value: employee}
-      - {field: annual_income, op: gt, value: 20000000}
-  - reason: 年の途中で退職して再就職していない場合、払いすぎた税金が戻る可能性があるため
-    when:
-      - {field: life_events, op: contains, value: resign}
+summary: アルバイトの掛け持ちや年の途中で辞めた人は、確定申告で引かれすぎた税金が戻ることがあります。
+deadline: 翌年2月16日〜3月15日（還付だけなら5年以内）
+due: {month: 3, day: 15}
+office: 税務署（e-Tax で自宅から出せる）
+relations:
+  - {field: part_time, value: "yes", flag: conditional, score: 0.4, reason: "アルバイト {part_time}"}
+  - {field: annual_income, op: gt, value: 1780000, flag: conditional, score: 0.3, reason: "年収 {annual_income}（178万円超。あなたに所得税がかかる）"}
+  - {field: annual_income, value: 0, flag: conditional, score: -0.5}   # 収入がなければ、納める税金も戻る税金もない
+  - {field: part_time, value: "no", flag: unrelated, score: -1.0, reason: "アルバイト {part_time}"}
 steps:
-  - title: 収入と経費の資料を集める
-    detail: 源泉徴収票、売上・経費の記録、控除の証明書（社会保険料・生命保険料など）をまとめます。
-    documents: [源泉徴収票, 帳簿・領収書, 控除証明書]
-  - title: 申告書を作る
-    detail: 国税庁「確定申告書等作成コーナー」で画面の案内に沿って入力すると、税額が自動計算されます。
+  - title: 源泉徴収票を集める
+    detail: 今年給与をもらったアルバイト先すべてからもらいます。
+    documents: [源泉徴収票（給与をもらったアルバイト先すべて）]
+  - title: 控除の証明書を集める
+    detail: 国民年金を自分で納めた人は、その控除証明書も用意します。
+    documents: [国民年金保険料の控除証明書（納めた人）]
+  - title: 確定申告書を作る
+    detail: 国税庁の「確定申告書等作成コーナー」で入力すると、税額が計算されます。
+    details:
+      - 「作成開始」を押し、収入の種類で「給与」を選びます
+      - 源泉徴収票の数字を画面の欄に入れると、戻る税金が計算されます
+      - 学生なら「勤労学生控除」も選びます
     where: 確定申告書等作成コーナー（Web）
-  - title: 提出する
-    detail: マイナンバーカードがあれば e-Tax でスマホから提出できます。郵送・税務署への持参も可能です。
+  - title: e-Tax か税務署で提出する
+    detail: マイナンバーカードがあればスマホから出せます。
+    details:
+      - スマホなら、マイナンバーカードを読み取って送信します
+      - 印刷して郵送するか、税務署の窓口に出すこともできます
     where: e-Tax・税務署
-  - title: 納税する（または還付を受け取る）
-    detail: 納付は3月15日まで。振替納税なら4月中旬ごろ引き落とし。還付の場合は1か月半ほどで口座に振り込まれます。
+    documents: [マイナンバーカード（ない場合はマイナンバーが分かる書類と本人確認書類の写し）]
+  - title: 還付金の振込先を書く
+    detail: 1か月半ほどで振り込まれます。
+    documents: [還付金を受け取る本人名義の口座]
+  - title: 3月15日までに納税する
+    detail: 所得税がかかる人は、口座振替・クレジットカード・コンビニなどで納めます。
+    when:
+      - {field: annual_income, op: gt, value: 1780000}
+reminders:
+  - {label: 確定申告の期限, month: 3, day: 15}
+amounts:
+  - {kind: shotokuzei, card: true}
 links:
   - {label: 国税庁 確定申告書等作成コーナー, url: "https://www.keisan.nta.go.jp/"}
+  - {label: 国税庁 No.1900 給与所得者で確定申告が必要な人, url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1900.htm"}
+  - {label: 国税庁 No.2030 還付申告, url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/2030.htm"}

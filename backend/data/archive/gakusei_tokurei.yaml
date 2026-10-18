@@ -1,0 +1,49 @@
+id: gakusei_tokurei
+title: 国民年金の学生納付特例
+category: pension
+summary: 学生は、申請すると在学中の国民年金保険料の納付を待ってもらえます。
+deadline: 毎年度（4月〜翌3月）申請。2年1か月前までさかのぼれる
+office: 市区町村の役所・年金事務所・マイナポータル
+relations:
+  - field: occupation
+    value: student
+    flag: conditional
+    score: 0.9
+    reason: "働き方 学生、年齢 {age}（20歳以上）"
+    when:
+      - {field: age, op: gte, value: 20}
+  - field: age_at_year_end
+    value: 20
+    flag: conditional
+    score: 0.5
+    reason: "働き方 学生、年末の年齢 {age_at_year_end}（今年20歳になる）"
+    when:
+      - {field: occupation, value: student}
+  - {field: occupation, op: ne, value: student, flag: unrelated, score: -1.0, reason: "働き方 {occupation}（学生ではない）"}
+  - {field: age_at_year_end, op: lt, value: 20, flag: unrelated, score: -1.0, reason: "年末の年齢 {age_at_year_end}（20歳未満）"}
+steps:
+  - title: 20歳になったら届く申請書を待つ
+    detail: 誕生日から約2週間で、加入のお知らせと一緒に届きます。
+    when:
+      - {field: age, op: lt, value: 20}
+  - title: 学生証のコピーか在学証明書を用意する
+    detail: どちらか1つを用意します。
+    documents: [学生証のコピーまたは在学証明書, 基礎年金番号が分かるもの]
+  - title: 申請書を出す
+    detail: マイナポータル・役所・年金事務所のどれかで出します。学校が受け付けていることもあります。
+    details:
+      - マイナポータルなら、「学生納付特例」を検索し、画面に沿って入力して送信します
+      - 窓口・郵送なら、申請書に学生証のコピーか在学証明書を付けて、役所の国民年金窓口か年金事務所に出します
+      - 学校が学生納付特例事務法人なら、学校の窓口でも出せます
+    where: マイナポータル・市区町村の役所・年金事務所
+    documents: [国民年金保険料学生納付特例申請書（窓口・郵送の場合）]
+  - title: 毎年4月に申請し直す
+    detail: 続けて受けるには毎年度の申請が要ります。案内のはがきが届くこともあります。
+  - title: （任意）10年以内に追納する
+    detail: 就職して余裕ができたら、待ってもらった分を納められます。
+reminders:
+  - {label: 学生納付特例の申請（4月から新しい年度）, month: 4, day: 30}
+amounts:
+  - {kind: nenkin, card: true}
+links:
+  - {label: 日本年金機構 学生納付特例制度, url: "https://www.nenkin.go.jp/service/kokunen/menjo/20150514.html"}

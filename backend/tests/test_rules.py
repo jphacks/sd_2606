@@ -7,45 +7,108 @@ from app.schemas import UserProfile
 client = TestClient(app)
 
 
+def student(age: int = 20, income: int = 0, part_time: str = "yes", supported_by: str = "parent", **kw) -> UserProfile:
+    """アプリの対象の学生。年末の年齢は、省けば今日の年齢と同じ。"""
+    kw.setdefault("age_at_year_end", age)
+    return UserProfile(age=age, annual_income=income, part_time=part_time, supported_by=supported_by, **kw)
+
+
 def ids(profile: UserProfile) -> list[str]:
     return [r.procedure_id for r in recommend(profile)]
 
 
-def test_all_procedure_files_load():
-    assert len(load_procedures()) >= 10
+def by_id(profile: UserProfile) -> dict:
+    return {r.procedure_id: r for r in recommend(profile)}
 
 
-def test_resigned_employee_gets_insurance_and_pension():
-    result = ids(UserProfile(age=28, occupation="unemployed", annual_income=0, life_events=["resign"]))
-    assert {"kokuho_enroll", "kokumin_nenkin", "juminzei_resign"} <= set(result)
-    assert result[0] == "kokuho_enroll"  # 優先度が最も高い
+def test_procedures_are_for_students():
+    # 学生に関係する手続きだけを配信する（会社員・自営業・退職者向けは data/archive/）
+    assert set(load_procedures()) == {
+        "nenshu_kabe", "fuyou_hazureru", "kokumin_nenkin", "kakutei_shinkoku", "nenmatsu_chosei", "kokuho_enroll", "hikkoshi",
+    }
 
 
-def test_student_gets_tokurei_only_after_20():
-    assert "gakusei_tokurei" in ids(UserProfile(age=20, occupation="student", annual_income=0))
-    assert "gakusei_tokurei" not in ids(UserProfile(age=19, occupation="student", annual_income=0))
+def test_every_procedure_has_deadline_for_sorting():
+    assert all(p.due is not None for p in load_procedures().values())
 
 
-def test_employee_without_events_gets_nothing_special():
-    assert ids(UserProfile(age=35, occupation="employee", annual_income=5_000_000, health_insurance="employer")) == []
+def test_required_comes_first_then_by_score():
+    result = recommend(student(age=20, income=1_600_000))
+    flags = [r.required for r in result]
+    assert flags == sorted(flags, reverse=True)
+    likely = [r.score for r in result if not r.required]
+    assert likely == sorted(likely, reverse=True)
 
 
-def test_reasons_are_collected():
-    rec = recommend(UserProfile(age=30, occupation="freelance", annual_income=4_000_000, life_events=["start_business"]))
-    kaigyo = next(r for r in rec if r.procedure_id == "kaigyo_todoke")
-    assert len(kaigyo.reasons) == 2
+def test_nenkin_is_required_from_20():
+    # 今年20歳になる学生は、誕生日の前でも国民年金が必須（学生納付特例を使うか納めるかはフローで選ぶ）
+    assert by_id(student(age=19, age_at_year_end=20))["kokumin_nenkin"].required
+    assert by_id(student(age=21))["kokumin_nenkin"].required
+    # 年末でも19歳なら対象外
+    assert "kokumin_nenkin" not in ids(student(age=18, age_at_year_end=19))
+
+
+def test_part_time_decides_year_end_adjustment_and_tax_return():
+    assert by_id(student(income=800_000))["nenmatsu_chosei"].score > 0
+    no_job = ids(student(income=0, part_time="no"))
+    assert "nenmatsu_chosei" not in no_job and "kakutei_shinkoku" not in no_job and "nenshu_kabe" not in no_job
+
+
+def test_parent_dependency_threshold_depends_on_age_at_year_end():
+    def hazureru(age: int, income: int):
+        return by_id(student(age=age, income=income)).get("fuyou_hazureru")
+
+    # 19〜22歳: 136万円以下なら対象外（扶養のまま）、136万円を超えると親の税金の控除が変わる、150万円以上で健康保険も外れる
+    assert hazureru(20, 1_300_000) is None
+    assert hazureru(20, 1_400_000).required
+    assert hazureru(20, 1_500_000).required
+    # それ以外: 130万円未満なら対象外、130万円以上で健康保険の扶養から外れる
+    assert hazureru(18, 1_250_000) is None
+    assert hazureru(18, 1_300_000).required
+
+
+def test_national_health_insurance_after_leaving_parent():
+    assert "kokuho_enroll" not in ids(student(age=20, income=1_400_000))
+    assert by_id(student(age=20, income=1_500_000))["kokuho_enroll"].required
+    # すでに国保に入っていれば対象外
+    assert "kokuho_enroll" not in ids(student(age=20, income=1_500_000, health_insurance="national"))
+
+
+def test_income_wall_is_required_only_when_parent_must_act():
+    def kabe(income: int):
+        return by_id(student(age=20, income=income))["nenshu_kabe"]
+
+    # 基準より低ければ、やることは無いので「関係がありそう」
+    assert not kabe(800_000).required
+    # 136万円を超えると親の税金の控除が変わり、親が申告し直す
+    assert kabe(1_400_000).required
+
+
+def test_unrelated_reasons_are_not_shown_as_reasons():
+    rec = by_id(student(age=22, income=800_000))
+    # {part_time} {supported_by} は回答の表記に置き換える
+    assert rec["nenshu_kabe"].reasons == ["アルバイト している", "親の扶養に入っている"]
+
+
+def test_reasons_are_filled_with_the_profile():
+    rec = by_id(student(age=20, income=1_600_000))
+    assert "年収 160万円（150万円以上）、年末の年齢 20歳（19〜22歳）" in rec["fuyou_hazureru"].reasons
+    assert "年収 160万円（119万円超。あなたに住民税がかかる）" in rec["nenshu_kabe"].reasons
+    assert all("{" not in r for item in rec.values() for r in item.reasons)
 
 
 def test_api_recommendations_without_llm():
-    res = client.post("/api/recommendations", json={"age": 22, "occupation": "student", "annual_income": 800000})
+    res = client.post(
+        "/api/recommendations",
+        json={"age": 20, "age_at_year_end": 20, "part_time": "yes", "supported_by": "parent", "annual_income": 800000},
+    )
     assert res.status_code == 200
-    body = res.json()
-    assert body["items"][0]["procedure_id"] == "gakusei_tokurei"
+    assert res.json()["items"][0]["procedure_id"] == "kokumin_nenkin"
 
 
 def test_api_procedure_detail():
     res = client.get("/api/procedures/kokuho_enroll")
     assert res.status_code == 200
     assert len(res.json()["steps"]) > 0
-    assert "match" not in res.json()
+    assert "relations" not in res.json()
     assert client.get("/api/procedures/nope").status_code == 404
