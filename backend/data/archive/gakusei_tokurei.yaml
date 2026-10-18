@@ -9,18 +9,18 @@ relations:
     value: student
     flag: conditional
     score: 0.9
-    reason: 20歳以上の学生である
+    reason: "働き方 学生、年齢 {age}（20歳以上）"
     when:
       - {field: age, op: gte, value: 20}
   - field: age_at_year_end
     value: 20
     flag: conditional
     score: 0.5
-    reason: 学生で、今年20歳になる
+    reason: "働き方 学生、年末の年齢 {age_at_year_end}（今年20歳になる）"
     when:
       - {field: occupation, value: student}
-  - {field: occupation, op: ne, value: student, flag: unrelated, score: -1.0, reason: 学生ではない}
-  - {field: age_at_year_end, op: lt, value: 20, flag: unrelated, score: -1.0, reason: 年末の時点で20歳未満}
+  - {field: occupation, op: ne, value: student, flag: unrelated, score: -1.0, reason: "働き方 {occupation}（学生ではない）"}
+  - {field: age_at_year_end, op: lt, value: 20, flag: unrelated, score: -1.0, reason: "年末の年齢 {age_at_year_end}（20歳未満）"}
 steps:
   - title: 20歳になったら届く申請書を待つ
     detail: 誕生日から約2週間で、加入のお知らせと一緒に届きます。
@@ -43,5 +43,7 @@ steps:
     detail: 就職して余裕ができたら、待ってもらった分を納められます。
 reminders:
   - {label: 学生納付特例の申請（4月から新しい年度）, month: 4, day: 30}
+amounts:
+  - {kind: nenkin, card: true}
 links:
   - {label: 日本年金機構 学生納付特例制度, url: "https://www.nenkin.go.jp/service/kokunen/menjo/20150514.html"}

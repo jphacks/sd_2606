@@ -1,41 +1,61 @@
 id: kokuho_enroll
 title: 国民健康保険に入る
 category: insurance
-summary: 勤務先の健康保険にも家族の扶養にも入っていない人が入る健康保険です。
-deadline: 資格を得た日（退職日の翌日など）から14日以内
+summary: 親の健康保険の扶養から外れた学生は、自分で国民健康保険に入ります。
+deadline: 扶養から外れた日から14日以内
 due: {days: 14}
 office: 市区町村の役所（国民健康保険の窓口）
 relations:
-  # 会社を辞めた後は国保・任意継続・家族の扶養から選ぶので、必須にはしない
-  - {field: occupation, op: in, value: [self_employed, freelance], flag: conditional, score: 0.8, reason: 自営業・フリーランスである}
-  - {field: occupation, value: unemployed, flag: conditional, score: 0.7, reason: 無職・求職中である}
-  - {field: occupation, value: retired, flag: conditional, score: 0.5, reason: 退職している}
-  - {field: occupation, value: part_time, flag: conditional, score: 0.3, reason: パート・アルバイトで働いている}
-  - {field: occupation, value: employee, flag: unrelated, score: -1.0, reason: 会社員・公務員である}
-  - {field: health_insurance, op: in, value: [national, dependent], flag: unrelated, score: -1.0, reason: すでに国保か家族の扶養に入っている}
-  - {field: age, op: gte, value: 75, flag: unrelated, score: -1.0, reason: 75歳以上}
+  # 親の扶養から外れる年収（19〜22歳は150万円以上、それ以外は130万円以上）なら必須
+  - field: annual_income
+    op: gte
+    value: 1500000
+    flag: conditional
+    score: 0.8
+    reason: "年収 {annual_income}（150万円以上）、年末の年齢 {age_at_year_end}（19〜22歳）"
+    when:
+      - {field: age_at_year_end, op: in, value: [19, 20, 21, 22]}
+      - {field: health_insurance, op: not_in, value: [national, employer]}   # すでに国保などに入っていれば不要
+  - field: annual_income
+    op: gte
+    value: 1300000
+    flag: conditional
+    score: 0.8
+    reason: "年収 {annual_income}（130万円以上）、年末の年齢 {age_at_year_end}（19〜22歳以外）"
+    when:
+      - {field: age_at_year_end, op: not_in, value: [19, 20, 21, 22]}
+      - {field: health_insurance, op: not_in, value: [national, employer]}   # すでに国保などに入っていれば不要
+  - {field: supported_by, value: none, flag: conditional, score: 0.5, reason: "{supported_by}"}
+  - {field: health_insurance, op: in, value: [national, employer], flag: unrelated, score: -1.0, reason: "健康保険 {health_insurance}"}
+  - field: annual_income
+    op: lt
+    value: 1500000
+    flag: unrelated
+    score: -1.0
+    reason: "年収 {annual_income}（150万円未満）、{supported_by}"
+    when:
+      - {field: supported_by, value: parent}
+      - {field: age_at_year_end, op: in, value: [19, 20, 21, 22]}
+  - field: annual_income
+    op: lt
+    value: 1300000
+    flag: unrelated
+    score: -1.0
+    reason: "年収 {annual_income}（130万円未満）、{supported_by}"
+    when:
+      - {field: supported_by, value: parent}
+      - {field: age_at_year_end, op: not_in, value: [19, 20, 21, 22]}
 steps:
-  - title: 前の勤務先から「資格喪失証明書」をもらう
-    detail: 前の勤務先か健康保険組合に頼みます。
-    where: 前の勤務先
-    documents: [健康保険資格喪失証明書]
-    when:
-      - {field: occupation, op: in, value: [unemployed, retired, self_employed, freelance]}
-  - title: 任意継続・家族の扶養と保険料を比べる
-    detail: 任意継続は退職から20日以内に申し込みます。家族の扶養なら保険料はかかりません。
-    details:
-      - 国保の保険料は、役所の窓口か市区町村のサイトで試算できます
-      - 任意継続の保険料は、前の勤務先の健康保険（協会けんぽ・健康保険組合）に聞きます
-    when:
-      - {field: occupation, op: in, value: [unemployed, retired, self_employed, freelance]}
   - title: 役所で国保の加入を届け出る
-    detail: 14日以内に届け出ます。マイナポータルで届け出られる市区町村もあります。
+    detail: 親の扶養から外れた日から14日以内に届け出ます。マイナポータルで届け出られる市区町村もあります。
     details:
       - 窓口の届出書（国民健康保険の資格取得届など。名前は市区町村で違う）に書きます
-      - 会社を辞めた人は、資格喪失証明書も持っていきます
+      - 親の勤務先から「資格喪失証明書」をもらえたら、一緒に持っていきます
     where: 市区町村の役所
-    documents: [マイナンバーカード（または通知カード＋本人確認書類）]
+    documents: [マイナンバーカード（または通知カード＋本人確認書類）, 健康保険資格喪失証明書（もらえたら）]
   - title: 保険料を納める
-    detail: 届いた納付書か口座振替で納めます。収入が減ったときは減免を相談できます。
+    detail: 届いた納付書か口座振替で納めます。金額は市区町村と前年の所得で決まります。
+    details:
+      - 前年の所得が少なければ、保険料が軽くなることがあります（申請が要らない市区町村が多い）
 links:
   - {label: 厚生労働省 国民健康保険, url: "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/iryouhoken/koukikourei/index_00002.html"}

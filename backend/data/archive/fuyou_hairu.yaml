@@ -6,13 +6,13 @@ deadline: 扶養に入る日から5日以内（家族の勤務先を通じて）
 due: {days: 5}
 office: 家族（親・配偶者）の勤務先
 relations:
-  - {field: occupation, value: unemployed, flag: conditional, score: 0.6, reason: 無職・求職中である}
-  - {field: occupation, value: part_time, flag: conditional, score: 0.3, reason: パート・アルバイトで働いている}
-  - {field: occupation, value: retired, flag: conditional, score: 0.3, reason: 退職している}
-  - {field: occupation, value: employee, flag: unrelated, score: -1.0, reason: 会社員・公務員である}
-  - {field: supported_by, op: in, value: [parent, spouse], flag: unrelated, score: -1.0, reason: すでに家族の扶養に入っている}
-  - {field: health_insurance, value: dependent, flag: unrelated, score: -1.0, reason: すでに家族の扶養に入っている}
-  - {field: age, op: gte, value: 75, flag: unrelated, score: -1.0, reason: 75歳以上}
+  - {field: occupation, value: unemployed, flag: conditional, score: 0.6, reason: "働き方 無職・求職中"}
+  - {field: occupation, value: part_time, flag: conditional, score: 0.3, reason: "働き方 パート・アルバイト"}
+  - {field: occupation, value: retired, flag: conditional, score: 0.3, reason: "働き方 退職済み"}
+  - {field: occupation, value: employee, flag: unrelated, score: -1.0, reason: "働き方 会社員・公務員"}
+  - {field: supported_by, op: in, value: [parent, spouse], flag: unrelated, score: -1.0, reason: "{supported_by}"}
+  - {field: health_insurance, value: dependent, flag: unrelated, score: -1.0, reason: "健康保険 {health_insurance}"}
+  - {field: age, op: gte, value: 75, flag: unrelated, score: -1.0, reason: "年齢 {age}（75歳以上）"}
 steps:
   - title: 収入が150万円未満か確かめる
     detail: これから1年間の収入で判断します。同居なら家族の収入の半分未満も条件です。

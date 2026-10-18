@@ -7,6 +7,12 @@ from app.schemas import UserProfile
 client = TestClient(app)
 
 
+def student(age: int = 20, income: int = 0, part_time: str = "yes", supported_by: str = "parent", **kw) -> UserProfile:
+    """アプリの対象の学生。年末の年齢は、省けば今日の年齢と同じ。"""
+    kw.setdefault("age_at_year_end", age)
+    return UserProfile(age=age, annual_income=income, part_time=part_time, supported_by=supported_by, **kw)
+
+
 def ids(profile: UserProfile) -> list[str]:
     return [r.procedure_id for r in recommend(profile)]
 
@@ -15,104 +21,62 @@ def by_id(profile: UserProfile) -> dict:
     return {r.procedure_id: r for r in recommend(profile)}
 
 
-def test_all_procedure_files_load():
-    assert len(load_procedures()) >= 10
+def test_procedures_are_for_students():
+    # 学生に関係する手続きだけを配信する（会社員・自営業・退職者向けは data/archive/）
+    assert set(load_procedures()) == {
+        "nenshu_kabe", "fuyou_hazureru", "kokumin_nenkin", "kakutei_shinkoku", "nenmatsu_chosei", "kokuho_enroll", "hikkoshi",
+    }
 
 
-def test_every_procedure_has_deadline_for_sorting_or_none():
-    # 期限順の並べ替え: due は days か month（と day）のどちらか。期限が書いてあるものの多くに due を付けている
-    procs = load_procedures().values()
-    assert sum(p.due is not None for p in procs) >= 12
-
-
-def test_unemployed_person_gets_required_and_likely_procedures():
-    rec = by_id(UserProfile(age=28, age_at_year_end=28, occupation="unemployed", annual_income=0))
-    # 必須: 国民年金（条件次第の条件をすべて満たした）
-    assert rec["kokumin_nenkin"].required
-    # 関係がありそう: 国保（任意継続・家族の扶養も選べるので必須にはしない）
-    assert not rec["kokuho_enroll"].required and rec["kokuho_enroll"].score >= 0.7
-    assert {"juminzei_resign", "nini_keizoku", "fuyou_hairu", "nenkin_menjo", "kakutei_shinkoku"} <= rec.keys()
+def test_every_procedure_has_deadline_for_sorting():
+    assert all(p.due is not None for p in load_procedures().values())
 
 
 def test_required_comes_first_then_by_score():
-    result = recommend(UserProfile(age=28, occupation="unemployed", annual_income=0))
+    result = recommend(student(age=20, income=1_600_000))
     flags = [r.required for r in result]
     assert flags == sorted(flags, reverse=True)
     likely = [r.score for r in result if not r.required]
     assert likely == sorted(likely, reverse=True)
 
 
-def test_unrelated_row_excludes_procedure():
-    # 会社員は国保・国民年金・任意継続の対象外
-    result = ids(UserProfile(age=30, occupation="employee", annual_income=5_000_000, health_insurance="employer"))
-    assert not {"kokuho_enroll", "kokumin_nenkin", "nini_keizoku"} & set(result)
+def test_nenkin_is_required_from_20():
+    # 今年20歳になる学生は、誕生日の前でも国民年金が必須（学生納付特例を使うか納めるかはフローで選ぶ）
+    assert by_id(student(age=19, age_at_year_end=20))["kokumin_nenkin"].required
+    assert by_id(student(age=21))["kokumin_nenkin"].required
+    # 年末でも19歳なら対象外
+    assert "kokumin_nenkin" not in ids(student(age=18, age_at_year_end=19))
 
 
-def test_threshold_is_minus_infinity_so_zero_score_procedures_are_listed():
-    # 関係する行が1つも無い（点数 0）手続きも、対象外でなければ出す
-    rec = by_id(UserProfile(age=40, occupation="employee", annual_income=5_000_000, health_insurance="employer"))
-    assert rec["hikkoshi"].score == 0 and not rec["hikkoshi"].required
-
-
-def test_age_turning_20_this_year():
-    # 今年20歳になる学生: 国民年金と学生納付特例が必須（誕生日の前でも）
-    rec = by_id(UserProfile(age=19, age_at_year_end=20, occupation="student", annual_income=0))
-    assert rec["kokumin_nenkin"].required and rec["gakusei_tokurei"].required
-    # 年末でも19歳なら国民年金は対象外
-    assert "kokumin_nenkin" not in ids(UserProfile(age=18, age_at_year_end=19, occupation="student", annual_income=0))
-
-
-def test_conditional_row_is_not_counted_when_condition_fails():
-    # 65歳の無職: 国民年金の加入は60歳まで（対象外）
-    assert "kokumin_nenkin" not in ids(UserProfile(age=65, age_at_year_end=65, occupation="unemployed", annual_income=0))
-
-
-def test_student_gets_tokurei_only_after_20():
-    assert by_id(UserProfile(age=20, age_at_year_end=20, occupation="student", annual_income=0))["gakusei_tokurei"].required
-    assert "gakusei_tokurei" not in ids(UserProfile(age=18, age_at_year_end=18, occupation="student", annual_income=0))
+def test_part_time_decides_year_end_adjustment_and_tax_return():
+    assert by_id(student(income=800_000))["nenmatsu_chosei"].score > 0
+    no_job = ids(student(income=0, part_time="no"))
+    assert "nenmatsu_chosei" not in no_job and "kakutei_shinkoku" not in no_job and "nenshu_kabe" not in no_job
 
 
 def test_parent_dependency_threshold_depends_on_age_at_year_end():
     def hazureru(age: int, income: int):
-        return by_id(
-            UserProfile(age=age, age_at_year_end=age, occupation="part_time", annual_income=income, supported_by="parent")
-        ).get("fuyou_hazureru")
+        return by_id(student(age=age, income=income)).get("fuyou_hazureru")
 
     # 19〜22歳: 136万円以下なら対象外（扶養のまま）、136万円を超えると親の税金の控除が変わる、150万円以上で健康保険も外れる
     assert hazureru(20, 1_300_000) is None
     assert hazureru(20, 1_400_000).required
     assert hazureru(20, 1_500_000).required
     # それ以外: 130万円未満なら対象外、130万円以上で健康保険の扶養から外れる
-    assert hazureru(24, 1_250_000) is None
-    assert hazureru(24, 1_300_000).required
+    assert hazureru(18, 1_250_000) is None
+    assert hazureru(18, 1_300_000).required
 
 
-def test_employee_gets_year_end_adjustment_as_required():
-    rec = by_id(UserProfile(age=35, occupation="employee", annual_income=5_000_000, health_insurance="employer"))
-    assert rec["nenmatsu_chosei"].required
+def test_national_health_insurance_after_leaving_parent():
+    assert "kokuho_enroll" not in ids(student(age=20, income=1_400_000))
+    assert by_id(student(age=20, income=1_500_000))["kokuho_enroll"].required
+    # すでに国保に入っていれば対象外
+    assert "kokuho_enroll" not in ids(student(age=20, income=1_500_000, health_insurance="national"))
 
 
-def test_multiple_occupations():
-    # 会社員でフリーランスの副業もしている人は、確定申告は必要だが国保・国民年金への加入は不要
-    result = ids(
-        UserProfile(age=30, occupation=["employee", "freelance"], annual_income=5_000_000, health_insurance="employer")
-    )
-    assert "kakutei_shinkoku" in result
-    assert "kokuho_enroll" not in result and "kokumin_nenkin" not in result
-    # 学生でアルバイトもしている20歳は学生納付特例の対象
-    assert "gakusei_tokurei" in ids(UserProfile(age=20, occupation=["student", "part_time"], annual_income=800_000))
-
-
-def test_unrelated_reasons_are_not_shown_as_reasons():
-    rec = by_id(UserProfile(age=22, age_at_year_end=22, occupation="student", annual_income=800_000, supported_by="parent"))
-    assert rec["nenshu_kabe"].reasons == ["学生である", "家族の扶養に入っている"]  # 対象外の理由（会社員である など）は出さない
-
-
-def test_income_wall_is_required_only_when_family_must_act():
+def test_income_wall_is_required_only_when_parent_must_act():
     def kabe(income: int):
-        return by_id(
-            UserProfile(age=20, age_at_year_end=20, occupation="part_time", annual_income=income, supported_by="parent")
-        )["nenshu_kabe"]
+        return by_id(student(age=20, income=income))["nenshu_kabe"]
 
     # 基準より低ければ、やることは無いので「関係がありそう」
     assert not kabe(800_000).required
@@ -120,11 +84,26 @@ def test_income_wall_is_required_only_when_family_must_act():
     assert kabe(1_400_000).required
 
 
+def test_unrelated_reasons_are_not_shown_as_reasons():
+    rec = by_id(student(age=22, income=800_000))
+    # {part_time} {supported_by} は回答の表記に置き換える
+    assert rec["nenshu_kabe"].reasons == ["アルバイト している", "親の扶養に入っている"]
+
+
+def test_reasons_are_filled_with_the_profile():
+    rec = by_id(student(age=20, income=1_600_000))
+    assert "年収 160万円（150万円以上）、年末の年齢 20歳（19〜22歳）" in rec["fuyou_hazureru"].reasons
+    assert "年収 160万円（119万円超。あなたに住民税がかかる）" in rec["nenshu_kabe"].reasons
+    assert all("{" not in r for item in rec.values() for r in item.reasons)
+
+
 def test_api_recommendations_without_llm():
-    res = client.post("/api/recommendations", json={"age": 22, "occupation": "student", "annual_income": 800000})
+    res = client.post(
+        "/api/recommendations",
+        json={"age": 20, "age_at_year_end": 20, "part_time": "yes", "supported_by": "parent", "annual_income": 800000},
+    )
     assert res.status_code == 200
-    body = res.json()
-    assert body["items"][0]["procedure_id"] == "gakusei_tokurei"
+    assert res.json()["items"][0]["procedure_id"] == "kokumin_nenkin"
 
 
 def test_api_procedure_detail():

@@ -1,13 +1,12 @@
 id: hikkoshi
 title: 引越しの住所変更
 category: registration
-summary: 別の市区町村に引越すときは、転出届と転入届を出します。
+summary: 進学などで別の市区町村に引越すときは、転出届と転入届を出します。
 deadline: 転入届は引越してから14日以内
 due: {days: 14}
 office: 旧住所と新住所の市区町村の役所
 relations:
-  - {field: age, op: lt, value: 30, flag: conditional, score: 0.4, reason: 30歳未満}
-  - {field: occupation, value: student, flag: conditional, score: 0.2, reason: 学生である}
+  - {field: age, op: lt, value: 30, flag: conditional, score: 0.4, reason: "年齢 {age}（30歳未満）"}
 steps:
   - title: 転出届を出す
     detail: マイナポータルからオンラインで出せます（同じ市区町村の中なら不要）。
@@ -19,7 +18,6 @@ steps:
     detail: 引越してから14日以内に新住所の役所へ。マイナンバーカードの住所も変えます。
     details:
       - 転入届は窓口で出します（オンラインでは出せません）
-      - 一緒に引越す家族のマイナンバーカードも持っていきます
     where: 新住所の役所
     documents: [転出証明書（オンライン転出なら不要）, マイナンバーカード, 本人確認書類]
   - title: 国保の住所変更をする
@@ -27,9 +25,6 @@ steps:
     where: 新住所の役所
     when:
       - {field: health_insurance, value: national}
-  - title: 勤務先に新住所を伝える
-    detail: 健康保険・年金・住民税の住所は勤務先を通じて変わります。
-    where: 勤務先
-    when:
-      - {field: occupation, value: employee}
+  - title: アルバイト先と学校に新住所を伝える
+    detail: 源泉徴収票や学校からの書類が新住所に届くようにします。
 links: []

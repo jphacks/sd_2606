@@ -10,13 +10,13 @@ relations:
     value: employee
     flag: conditional
     score: 0.6
-    reason: 会社員・公務員で、就職前は国保に入っていた
+    reason: "働き方 会社員・公務員、就職前の健康保険 {prev_health_insurance}"
     when:
       - {field: prev_health_insurance, value: national}
-  - {field: age, op: lt, value: 26, flag: conditional, score: 0.2, reason: 26歳未満}
+  - {field: age, op: lt, value: 26, flag: conditional, score: 0.2, reason: "年齢 {age}（26歳未満）"}
   - {field: age, op: gte, value: 30, flag: conditional, score: -0.3}   # 就職から年数がたっている人が多い
-  - {field: occupation, op: ne, value: employee, flag: unrelated, score: -1.0, reason: 会社員・公務員ではない}
-  - {field: prev_health_insurance, op: in, value: [employer, dependent], flag: unrelated, score: -1.0, reason: 就職前は国保ではなかった}
+  - {field: occupation, op: ne, value: employee, flag: unrelated, score: -1.0, reason: "働き方 {occupation}（会社員・公務員ではない）"}
+  - {field: prev_health_insurance, op: in, value: [employer, dependent], flag: unrelated, score: -1.0, reason: "就職前の健康保険 {prev_health_insurance}"}
 steps:
   - title: 勤務先から保険の資格確認書を受け取る
     detail: 資格確認書か「資格情報のお知らせ」をもらいます。

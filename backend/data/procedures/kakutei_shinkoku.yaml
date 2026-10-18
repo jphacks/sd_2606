@@ -1,73 +1,48 @@
 id: kakutei_shinkoku
 title: 確定申告をする
 category: tax
-summary: 1年間の所得を税務署に申告して、所得税を納めるか、払いすぎた分を取り戻します。
+summary: アルバイトの掛け持ちや年の途中で辞めた人は、確定申告で引かれすぎた税金が戻ることがあります。
 deadline: 翌年2月16日〜3月15日（還付だけなら5年以内）
 due: {month: 3, day: 15}
 office: 税務署（e-Tax で自宅から出せる）
 relations:
-  - {field: occupation, op: in, value: [self_employed, freelance], flag: required, score: 0.9, reason: 自営業・フリーランスである}
-  - {field: occupation, value: unemployed, flag: conditional, score: 0.5, reason: 無職・求職中である}
-  - {field: occupation, value: retired, flag: conditional, score: 0.4, reason: 退職している}
-  - {field: occupation, value: part_time, flag: conditional, score: 0.3, reason: パート・アルバイトで働いている}
-  - field: occupation
-    value: employee
-    flag: conditional
-    score: 0.3
-    reason: "会社員・公務員で、年収が2,000万円を超えている"
-    when:
-      - {field: annual_income, op: gt, value: 20000000}
-  - {field: occupation, value: employee, flag: conditional, score: -0.3}   # 会社員の多くは年末調整で済む
-  - {field: occupation, value: student, flag: conditional, score: -0.3}
+  - {field: part_time, value: "yes", flag: conditional, score: 0.4, reason: "アルバイト {part_time}"}
+  - {field: annual_income, op: gt, value: 1780000, flag: conditional, score: 0.3, reason: "年収 {annual_income}（178万円超。あなたに所得税がかかる）"}
   - {field: annual_income, value: 0, flag: conditional, score: -0.5}   # 収入がなければ、納める税金も戻る税金もない
+  - {field: part_time, value: "no", flag: unrelated, score: -1.0, reason: "アルバイト {part_time}"}
 steps:
   - title: 源泉徴収票を集める
-    detail: 今年給与をもらった勤務先すべてからもらいます。
-    documents: [源泉徴収票（給与をもらった勤務先すべて）]
-    when:
-      - {field: occupation, op: in, value: [employee, part_time, unemployed, student]}
-  - title: 売上と経費をまとめる
-    detail: 帳簿をつけ、領収書を保管します。
-    documents: [帳簿・領収書]
-    when:
-      - {field: occupation, op: in, value: [self_employed, freelance]}
-  - title: 年金の源泉徴収票を用意する
-    detail: 1月ごろに届きます。
-    documents: [公的年金等の源泉徴収票]
-    when:
-      - {field: occupation, value: retired}
+    detail: 今年給与をもらったアルバイト先すべてからもらいます。
+    documents: [源泉徴収票（給与をもらったアルバイト先すべて）]
   - title: 控除の証明書を集める
-    detail: 国民年金・国保・生命保険料などの証明書です。
-    documents: [控除証明書（国民年金保険料・生命保険料など）]
+    detail: 国民年金を自分で納めた人は、その控除証明書も用意します。
+    documents: [国民年金保険料の控除証明書（納めた人）]
   - title: 確定申告書を作る
     detail: 国税庁の「確定申告書等作成コーナー」で入力すると、税額が計算されます。
     details:
-      - 国税庁の「確定申告書等作成コーナー」で「作成開始」を押し、収入の種類を選びます
-      - 源泉徴収票の数字を画面の欄に入れると、税額が計算されます
-      - マイナポータル連携にすると、控除証明書などの内容が自動で入ります
+      - 「作成開始」を押し、収入の種類で「給与」を選びます
+      - 源泉徴収票の数字を画面の欄に入れると、戻る税金が計算されます
+      - 学生なら「勤労学生控除」も選びます
     where: 確定申告書等作成コーナー（Web）
   - title: e-Tax か税務署で提出する
     detail: マイナンバーカードがあればスマホから出せます。
     details:
       - スマホなら、マイナンバーカードを読み取って送信します
       - 印刷して郵送するか、税務署の窓口に出すこともできます
-      - 書面で出すときは、マイナンバーカードの写し（ない場合は通知カードなどと本人確認書類の写し）を付けます
     where: e-Tax・税務署
     documents: [マイナンバーカード（ない場合はマイナンバーが分かる書類と本人確認書類の写し）]
-  - title: 3月15日までに納税する
-    detail: 振替納税なら4月中旬の引き落としです。
-    details:
-      - 口座からの引き落とし（振替納税・ダイレクト納付）、クレジットカード、コンビニ、スマホ決済で納められます
-    when:
-      - {field: occupation, op: in, value: [self_employed, freelance, retired, employee]}
   - title: 還付金の振込先を書く
     detail: 1か月半ほどで振り込まれます。
     documents: [還付金を受け取る本人名義の口座]
+  - title: 3月15日までに納税する
+    detail: 所得税がかかる人は、口座振替・クレジットカード・コンビニなどで納めます。
     when:
-      - {field: occupation, op: in, value: [unemployed, part_time, student, retired]}
+      - {field: annual_income, op: gt, value: 1780000}
 reminders:
   - {label: 確定申告の期限, month: 3, day: 15}
+amounts:
+  - {kind: shotokuzei, card: true}
 links:
   - {label: 国税庁 確定申告書等作成コーナー, url: "https://www.keisan.nta.go.jp/"}
-  - {label: 国税庁 No.1910 中途退職で年末調整を受けていないとき, url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1910.htm"}
+  - {label: 国税庁 No.1900 給与所得者で確定申告が必要な人, url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1900.htm"}
   - {label: 国税庁 No.2030 還付申告, url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/2030.htm"}

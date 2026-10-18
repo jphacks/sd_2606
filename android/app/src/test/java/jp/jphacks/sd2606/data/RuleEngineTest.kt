@@ -305,4 +305,37 @@ class RuleEngineTest {
         val employee = RuleEngine.evaluate(procs, mapOf(occupation("employee", "freelance")), catalog.threshold, today, dismissed = setOf("kakutei"))
         assertEquals(emptyList<String>(), RuleEngine.upcomingReminders(employee, emptySet(), today, includeLikely = true).map { it.reminder.label })
     }
+
+    @Test
+    fun flowStopsAtUnansweredChoiceAndShowsAmountsAfterIt() {
+        val proc = Json.decodeFromString<ProcedureDef>(
+            """{"id": "nenkin", "title": "", "category": "pension", "summary": "",
+                "amounts": [{"kind": "nenkin", "card": true}],
+                "relations": [{"field": "age", "op": "gte", "value": 0, "flag": "conditional", "score": 0.1, "reason": "x"}],
+                "reminders": [{"label": "特例の申請", "month": 4, "day": 30, "when": [{"field": "plan", "value": "tokurei"}]}],
+                "steps": [
+                  {"title": "お知らせを確かめる", "detail": ""},
+                  {"choice": {"field": "plan", "title": "保険料をどうするか", "options": [
+                    {"value": "tokurei", "label": "特例", "detail": "",
+                     "steps": [{"title": "申請する", "detail": "", "documents": ["学生証"]}], "amounts": [{"kind": "nenkin_tokurei"}]},
+                    {"value": "pay", "label": "納める", "detail": "",
+                     "steps": [{"title": "納める", "detail": ""}], "amounts": [{"kind": "nenkin"}]}]}}]}""",
+        )
+        // 選ぶまでは分岐で止まり、金額も期限も出さない
+        val before = RuleEngine.flow(proc, emptyMap(), today)
+        assertEquals(false, before.decided)
+        assertEquals(listOf("お知らせを確かめる"), before.steps.map { it.step.title })
+        assertEquals(null, (before.items.last() as FlowItem.Choice).selected)
+        assertEquals(emptyList<AmountSpec>(), before.amounts)
+        assertEquals(emptyList<Reminder>(), RuleEngine.evaluate(listOf(proc), emptyMap(), null, today).items.single().reminders)
+        // 選ぶと、その選択肢のステップが続き（番号も続く）、選択肢の金額だけを出す
+        val after = RuleEngine.flow(proc, mapOf("plan" to Answer.Single("tokurei")), today)
+        assertEquals(true, after.decided)
+        assertEquals(listOf(1, 2), after.items.filterIsInstance<FlowItem.Step>().map { it.number })
+        assertEquals(listOf("nenkin_tokurei"), after.amounts.map { it.kind })
+        assertEquals(listOf("学生証"), RuleEngine.documentsOf(after.steps).map { it.name })
+        assertEquals(setOf("plan"), RuleEngine.choiceFields(listOf(proc)))
+        val withPlan = RuleEngine.evaluate(listOf(proc), mapOf("plan" to Answer.Single("tokurei")), null, today)
+        assertEquals(listOf("特例の申請"), withPlan.items.single().reminders.map { it.label })
+    }
 }

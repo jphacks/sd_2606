@@ -36,6 +36,21 @@ data class ReminderView(
     val likely: Boolean = false,
 )
 
+/**
+ * 手続きの画面に並べるフローの1行。
+ * - Step: 番号つきのステップ
+ * - Choice: 分岐。selected が null ならまだ選んでいない（その先は出さない）
+ */
+sealed interface FlowItem {
+    data class Step(val view: StepView, val number: Int) : FlowItem
+    data class Choice(val choice: FlowChoice, val selected: FlowOption?) : FlowItem
+}
+
+/** 手続きのフロー。decided は分岐をすべて選び終えた（金額を出す）。amounts は出すお金の目安。 */
+data class Flow(val items: List<FlowItem>, val decided: Boolean, val amounts: List<AmountSpec>) {
+    val steps: List<StepView> get() = items.filterIsInstance<FlowItem.Step>().map { it.view }
+}
+
 /** 必要なもの1つ。conditional なら、当てはまるか分からないステップでだけ使う。 */
 data class Document(val name: String, val conditional: Boolean)
 
@@ -62,10 +77,7 @@ data class Scored(
     val required: Boolean get() = status == Status.REQUIRED
 
     /** 表示するステップの必要なものをまとめた一覧（同じものは1つにする）。 */
-    val documents: List<Document>
-        get() = steps.flatMap { s -> s.step.documents.map { Document(it, s.unknown.isNotEmpty()) } }
-            .groupBy { it.name }
-            .map { (name, docs) -> Document(name, docs.all { it.conditional }) }
+    val documents: List<Document> get() = RuleEngine.documentsOf(steps)
 }
 
 data class Evaluation(val items: List<Scored>) {
@@ -197,7 +209,11 @@ object RuleEngine {
             Status.UNRELATED -> canRequire.toList() // 対象外でも、答えると必要になることがある（必要が優先）
             Status.LIKELY -> (canRequire + canExclude).toList()
         }
-        val reminders = proc.reminders.filter { r -> r.conditions.none { check(it, answers[it.field]) == Tri.FALSE } }
+        // 分岐で選ぶ値（nenkin_plan など）の条件は、選ぶまで当てはまらないものとして扱う
+        val choices = choiceFields(listOf(proc))
+        val reminders = proc.reminders.filter { r ->
+            r.conditions.all { c -> check(c, answers[c.field]).let { it == Tri.TRUE || (it == Tri.UNKNOWN && c.field !in choices) } }
+        }
         return Scored(proc, status, score, reasons, missing, visibleSteps(proc, answers), reminders = reminders)
     }
 
@@ -225,8 +241,59 @@ object RuleEngine {
         }.filter { it.due.isBefore(until) }.sortedBy { it.due }
     }
 
+    /** 必要なものを、表示するステップの分だけまとめる（同じものは1つにする）。 */
+    fun documentsOf(steps: List<StepView>): List<Document> =
+        steps.flatMap { s -> s.step.documents.map { Document(it, s.unknown.isNotEmpty()) } }
+            .groupBy { it.name }
+            .map { (name, docs) -> Document(name, docs.all { it.conditional }) }
+
+    /** 手続きの分岐で選ぶ値の項目（回答と一緒に端末に保存する）。 */
+    fun choiceFields(procedures: List<ProcedureDef>): Set<String> {
+        fun walk(steps: List<FlowStep>): List<String> =
+            steps.flatMap { s -> listOfNotNull(s.choice?.field) + s.choice?.options.orEmpty().flatMap { walk(it.steps) } }
+        return procedures.flatMap { walk(it.steps) }.toSet()
+    }
+
+    /**
+     * 手続きの画面に並べるフロー。当てはまるステップに番号を付けて並べ、分岐では選んだ選択肢のステップを続ける。
+     * まだ選んでいない分岐があれば、そこで止める（decided = false。金額も出さない）。
+     * 金額は、分岐のある手続きなら選んだ選択肢の amounts、無ければ手続きの amounts。
+     */
+    fun flow(proc: ProcedureDef, rawAnswers: Map<String, Answer>, today: LocalDate = LocalDate.now()): Flow {
+        val answers = withDerived(rawAnswers, today)
+        val items = mutableListOf<FlowItem>()
+        val chosen = mutableListOf<FlowOption>()
+        var hasChoice = false
+        var number = 0
+        fun walk(steps: List<FlowStep>): Boolean {
+            for (view in stepsFor(steps, answers)) {
+                val choice = view.step.choice
+                if (choice == null) {
+                    items += FlowItem.Step(view, ++number)
+                    continue
+                }
+                hasChoice = true
+                val selected = choice.options.firstOrNull { (answers[choice.field] as? Answer.Single)?.value == it.value }
+                items += FlowItem.Choice(choice, selected)
+                if (selected == null) return false
+                chosen += selected
+                if (!walk(selected.steps)) return false
+            }
+            return true
+        }
+        val decided = walk(proc.steps)
+        val amounts = when {
+            !decided -> emptyList()
+            hasChoice -> chosen.flatMap { it.amounts }
+            else -> proc.amounts
+        }
+        return Flow(items, decided, amounts)
+    }
+
+    private fun visibleSteps(proc: ProcedureDef, answers: Map<String, Answer>): List<StepView> = stepsFor(proc.steps, answers)
+
     /** 当てはまらない条件のあるステップを除く。未回答の条件だけなら「当てはまる場合のみ」として残す。 */
-    private fun visibleSteps(proc: ProcedureDef, answers: Map<String, Answer>): List<StepView> = proc.steps.mapNotNull { step ->
+    private fun stepsFor(steps: List<FlowStep>, answers: Map<String, Answer>): List<StepView> = steps.mapNotNull { step ->
         val results = step.conditions.map { it.field to check(it, answers[it.field]) }
         if (results.any { it.second == Tri.FALSE }) null
         else StepView(step, results.filter { it.second == Tri.UNKNOWN }.map { it.first }.distinct())

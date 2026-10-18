@@ -147,7 +147,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * 画面に出ない情報を持ち続けないため。
      */
     private fun Map<String, Answer>.known(catalog: Catalog): Map<String, Answer> {
-        val fields = catalog.questions.map { it.field }.toSet()
+        val fields = catalog.questions.map { it.field }.toSet() + RuleEngine.choiceFields(catalog.procedures)
         val kept = filterKeys { it in fields }
         if (kept.size != size) store.saveAnswers(kept)
         return kept

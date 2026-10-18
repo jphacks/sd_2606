@@ -1,52 +1,36 @@
 id: nenmatsu_chosei
 title: 年末調整の書類を出す
 category: tax
-summary: 勤務先が12月に1年分の所得税を精算します。そのための書類を勤務先に出します。
-deadline: 11〜12月ごろ（勤務先が指定する日）
+summary: アルバイト先が12月に1年分の所得税を精算します。そのための書類をアルバイト先に出します。
+deadline: 11〜12月ごろ（アルバイト先が指定する日）
 due: {month: 11, day: 30}
-office: 勤務先（アルバイト先を含む）
+office: アルバイト先
 relations:
-  - field: occupation
-    value: employee
-    flag: conditional
-    score: 1.0
-    reason: 会社員・公務員である
-    when:
-      - {field: annual_income, op: lte, value: 20000000}
-  - {field: occupation, value: part_time, flag: conditional, score: 0.7, reason: パート・アルバイトで働いている}
-  - {field: occupation, op: not_in, value: [employee, part_time], flag: unrelated, score: -1.0, reason: 会社員・パート・アルバイトではない}
-  - {field: annual_income, op: gt, value: 20000000, flag: unrelated, score: -1.0, reason: "年収が2,000万円を超えている"}
+  - {field: part_time, value: "yes", flag: conditional, score: 0.7, reason: "アルバイト {part_time}"}
+  - {field: part_time, value: "no", flag: unrelated, score: -1.0, reason: "アルバイト {part_time}"}
 steps:
   - title: 扶養控除等申告書を出す
-    detail: 入社したら、最初の給与の前に勤務先に出します。
+    detail: 働き始めたら、最初の給与の前にアルバイト先に出します。
     details:
-      - 勤務先から渡される用紙（電子の場合はアプリ）に、住所・マイナンバー・扶養している家族を書きます
-      - 扶養している家族がいなければ、家族の欄は空けておきます
-    where: 勤務先
+      - アルバイト先から渡される用紙（電子の場合はアプリ）に、住所・マイナンバーを書きます
+      - 学生なら「勤労学生」の欄に印を付けます（住民税が安くなることがあります）
+    where: アルバイト先
     documents: [給与所得者の扶養控除等（異動）申告書]
-  - title: 掛け持ちなら、申告書は主な勤務先1か所だけに出す
-    detail: ほかの勤務先では税金が多めに引かれ、確定申告で戻ります。
-    when:
-      - {field: occupation, value: part_time}
-  - title: 前の勤務先の源泉徴収票を出す
-    detail: 今年ほかの勤務先から給与をもらった人だけ出します。
-    details:
-      - 前の勤務先に頼むと、退職から1か月以内に発行されます
-    where: 勤務先
-    documents: [前の勤務先の源泉徴収票（今年ほかの勤務先があった人）]
+  - title: 掛け持ちなら、申告書は主なアルバイト先1か所だけに出す
+    detail: ほかのアルバイト先では税金が多めに引かれ、確定申告で戻ります。
   - title: 11〜12月に年末調整の書類を出す
-    detail: 国民年金を自分で払った人は、控除証明書も付けます。
+    detail: 国民年金を自分で納めた人は、控除証明書も付けます。
     details:
       - 基礎控除申告書には、今年の給与の合計額を書きます
-      - 生命保険・地震保険に入っていれば、届いた控除証明書を保険料控除申告書に付けます
-      - 国民年金を自分で払った人は、11月ごろ届く控除証明書を付けます
-    where: 勤務先
-    documents: [基礎控除申告書, 保険料控除申告書, 国民年金保険料の控除証明書（払った人）]
+      - 国民年金を自分で納めた人は、11月ごろ届く控除証明書を付けます
+    where: アルバイト先
+    documents: [基礎控除申告書, 国民年金保険料の控除証明書（納めた人）]
   - title: 源泉徴収票を受け取って保管する
-    detail: 年明けに渡されます。転職や確定申告で使います。
+    detail: 年明けに渡されます。確定申告や就職のときに使います。
 reminders:
-  - {label: 年末調整の書類（勤務先の締め切りも確認）, month: 11, day: 30}
+  - {label: 年末調整の書類（アルバイト先の締め切りも確認）, month: 11, day: 30}
+amounts:
+  - {kind: shotokuzei, card: true}
 links:
   - {label: 国税庁 No.2665 年末調整の対象となる人, url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/gensen/2665.htm"}
-  - {label: 国税庁 No.2674 中途就職者の年末調整, url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/gensen/2674.htm"}
-  - {label: 国税庁 給与所得者（従業員）の方へ（令和8年分）, url: "https://www.nta.go.jp/users/gensen/nencho/index/kyuyosyotokusya.htm"}
+  - {label: 国税庁 No.1175 勤労学生控除, url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1175.htm"}

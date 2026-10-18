@@ -70,6 +70,8 @@ import jp.jphacks.sd2606.ui.AppUiState
 import jp.jphacks.sd2606.ui.BackTopBar
 import jp.jphacks.sd2606.ui.CategoryChip
 import jp.jphacks.sd2606.ui.PrivacyNote
+import jp.jphacks.sd2606.data.Amounts
+import jp.jphacks.sd2606.ui.AmountLine
 import jp.jphacks.sd2606.ui.ProcedureActions
 import jp.jphacks.sd2606.ui.QuestionInput
 import jp.jphacks.sd2606.ui.ResultContent
@@ -332,7 +334,9 @@ private fun ProcedureCard(
                     Text(it, style = MaterialTheme.typography.bodyMedium)
                 }
             }
-            if (item.reasons.isNotEmpty()) ReasonList(item)
+            val amount = remember(item, answers) { Amounts.of(proc, answers).firstOrNull { it.first.card }?.second }
+            amount?.let { AmountLine(it) }
+            if (item.reasons.isNotEmpty()) ReasonList(item, questions, answers)
             missing.forEach { q -> NeedInfo(q, answers[q.field]) { onAnswer(q, it) } }
             // 手続きの画面の下部と同じ並び（ProcedureActions）。ルールで対象外のものには出さない
             if (item.status != Status.UNRELATED || item.dismissed) {
@@ -356,10 +360,11 @@ private fun ProcedureCard(
 
 /**
  * 判定の理由の箇条書き。必要・関係がありそうなら当てはまった条件、対象外なら対象外の理由。
+ * 理由の {annual_income} などは本人の回答に置き換える（「年収 140万円（130万円以上）」）。
  * 関係がありそうな手続きは、自分で振り分ける手がかりになるので常に出す。それ以外は見出しだけ出し、押すと開く。
  */
 @Composable
-private fun ReasonList(item: Scored) {
+private fun ReasonList(item: Scored, questions: List<Question>, answers: Map<String, Answer>) {
     val collapsible = item.status != Status.LIKELY
     var open by rememberSaveable(item.procedure.id) { mutableStateOf(false) }
     val title = if (item.status == Status.UNRELATED) "対象外の理由" else "当てはまる条件"
@@ -382,7 +387,7 @@ private fun ReasonList(item: Scored) {
         }
         AnimatedVisibility(visible = !collapsible || open, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
             Column(Modifier.padding(top = 2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                item.reasons.forEach { reason ->
+                item.reasons.map { RuleEngine.fillIn(it, answers, questions) }.forEach { reason ->
                     Row {
                         Text("・", style = MaterialTheme.typography.bodyMedium)
                         Text(reason, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))

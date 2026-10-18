@@ -1,151 +1,113 @@
 id: fuyou_hazureru
 title: 親の扶養から外れる
 category: insurance
-summary: 就職したときや収入が基準を超えたとき、親が勤務先に届け出ます。
+summary: アルバイトの年収が基準を超えたとき、親が勤務先に届け出て、自分は国保に入ります。
 deadline: 外れた日から5日以内（親の勤務先を通じて）。税金は親の年末調整まで
 due: {days: 5}
 office: 親の勤務先
 relations:
-  - field: occupation
-    value: employee
-    flag: conditional
-    score: 0.9
-    reason: 親の扶養に入っていて、会社員・公務員になった
-    when:
-      - {field: supported_by, value: parent}
+  # 健康保険: 19〜22歳は150万円以上、それ以外は130万円以上。税金: 136万円を超えると親の控除の申告が変わる
   - field: annual_income
     op: gte
     value: 1500000
     flag: conditional
-    score: 0.6
-    reason: 19〜22歳で、年収が150万円以上
+    score: 0.8
+    reason: "年収 {annual_income}（150万円以上）、年末の年齢 {age_at_year_end}（19〜22歳）"
     when:
       - {field: supported_by, value: parent}
       - {field: age_at_year_end, op: in, value: [19, 20, 21, 22]}
-      - {field: occupation, op: ne, value: employee}   # 会社員は上の行で判定する
   - field: annual_income
     op: gte
     value: 1300000
     flag: conditional
-    score: 0.6
-    reason: 年収が130万円以上
+    score: 0.8
+    reason: "年収 {annual_income}（130万円以上）、年末の年齢 {age_at_year_end}（19〜22歳以外）"
     when:
       - {field: supported_by, value: parent}
       - {field: age_at_year_end, op: not_in, value: [19, 20, 21, 22]}
-      - {field: occupation, op: ne, value: employee}
   - field: annual_income
     op: gt
     value: 1360000
     flag: conditional
     score: 0.5
-    reason: 19〜22歳で、年収が136万円を超えている
+    reason: "年収 {annual_income}（136万円超）、年末の年齢 {age_at_year_end}（19〜22歳）"
     when:
       - {field: supported_by, value: parent}
       - {field: age_at_year_end, op: in, value: [19, 20, 21, 22]}
-      - {field: occupation, op: ne, value: employee}
-  - {field: occupation, op: in, value: [part_time, student], flag: conditional, score: 0.3, reason: 学生かパート・アルバイトである}
-  - {field: age, op: lt, value: 26, flag: conditional, score: 0.2, reason: 26歳未満}
-  - {field: age, op: gte, value: 30, flag: conditional, score: -0.8}   # 親の扶養に入っている人は少ない
-  - {field: supported_by, op: in, value: [spouse, none], flag: unrelated, score: -1.0, reason: 親の扶養に入っていない}
+  - {field: part_time, value: "yes", flag: conditional, score: 0.3, reason: "アルバイト {part_time}"}
+  - {field: supported_by, value: none, flag: unrelated, score: -1.0, reason: "{supported_by}"}
   - field: annual_income
     op: lte
     value: 1360000
     flag: unrelated
     score: -1.0
-    reason: 19〜22歳で、年収が136万円以下
+    reason: "年収 {annual_income}（136万円以下）、年末の年齢 {age_at_year_end}（19〜22歳）"
     when:
       - {field: age_at_year_end, op: in, value: [19, 20, 21, 22]}
-      - {field: occupation, op: ne, value: employee}
   - field: annual_income
     op: lt
     value: 1300000
     flag: unrelated
     score: -1.0
-    reason: 年収が130万円未満
+    reason: "年収 {annual_income}（130万円未満）、年末の年齢 {age_at_year_end}（19〜22歳以外）"
     when:
       - {field: age_at_year_end, op: not_in, value: [19, 20, 21, 22]}
-      - {field: occupation, op: ne, value: employee}
 steps:
-  - title: 入社日を親に伝える
-    detail: 自分の健康保険に入った日に、親の扶養から外れます。
-    when:
-      - {field: occupation, value: employee}
-  # 健康保険: 会社員はいつも、ほかは年収が基準以上のとき（条件の違う同じステップを並べる）
+  # 健康保険: 年収が基準以上のとき（年齢で基準が違うので、条件の違う同じステップを並べる）
   - title: 親に「被扶養者（異動）届」を出してもらう
     detail: 親の勤務先に5日以内に出します。親の保険の資格確認書を持っていれば返します。
     details:
-      - 外れた日（入社日など）と理由を親に伝えます
+      - 外れた日と理由（収入が基準を超えた）を親に伝えます
       - 親が勤務先に伝えると、届出書を用意してもらえます
-      - 親の健康保険の資格確認書を持っていれば、親に返します
     where: 親の勤務先
     documents: [健康保険 被扶養者（異動）届（親の勤務先が用意）]
     when:
-      - {field: occupation, value: employee}
-  - title: 親に「被扶養者（異動）届」を出してもらう
-    detail: 親の勤務先に5日以内に出します。親の保険の資格確認書を持っていれば返します。
-    details:
-      - 外れた日（入社日など）と理由を親に伝えます
-      - 親が勤務先に伝えると、届出書を用意してもらえます
-      - 親の健康保険の資格確認書を持っていれば、親に返します
-    where: 親の勤務先
-    documents: [健康保険 被扶養者（異動）届（親の勤務先が用意）]
-    when:
-      - {field: occupation, op: ne, value: employee}
       - {field: age_at_year_end, op: in, value: [19, 20, 21, 22]}
       - {field: annual_income, op: gte, value: 1500000}
   - title: 親に「被扶養者（異動）届」を出してもらう
     detail: 親の勤務先に5日以内に出します。親の保険の資格確認書を持っていれば返します。
     details:
-      - 外れた日（入社日など）と理由を親に伝えます
+      - 外れた日と理由（収入が基準を超えた）を親に伝えます
       - 親が勤務先に伝えると、届出書を用意してもらえます
-      - 親の健康保険の資格確認書を持っていれば、親に返します
     where: 親の勤務先
     documents: [健康保険 被扶養者（異動）届（親の勤務先が用意）]
     when:
-      - {field: occupation, op: ne, value: employee}
       - {field: age_at_year_end, op: not_in, value: [19, 20, 21, 22]}
       - {field: annual_income, op: gte, value: 1300000}
   - title: 自分で国保に入る
     detail: 役所で14日以内に届け出ます（「国民健康保険に入る」）。
     when:
-      - {field: occupation, op: ne, value: employee}
       - {field: age_at_year_end, op: in, value: [19, 20, 21, 22]}
       - {field: annual_income, op: gte, value: 1500000}
   - title: 自分で国保に入る
     detail: 役所で14日以内に届け出ます（「国民健康保険に入る」）。
     when:
-      - {field: occupation, op: ne, value: employee}
       - {field: age_at_year_end, op: not_in, value: [19, 20, 21, 22]}
       - {field: annual_income, op: gte, value: 1300000}
   # 税金: 親の年末調整
   - title: 親に年収を伝え、特定親族特別控除に切り替えてもらう
-    detail: 親が勤務先の年末調整で申告します。
+    detail: 親が勤務先の年末調整で「特定親族特別控除申告書」を出します。
     details:
       - 1〜12月の給与の合計（交通費を除く）を伝えます
-      - 親が年末調整で「特定親族特別控除申告書」に書いて出します
     where: 親の勤務先
     when:
       - {field: age_at_year_end, op: in, value: [19, 20, 21, 22]}
       - {field: annual_income, op: gt, value: 1360000}
       - {field: annual_income, op: lte, value: 1970000}
   - title: 親に年収を伝え、扶養控除の申告を外してもらう
-    detail: 親が勤務先の年末調整で申告します。
-    details:
-      - 1〜12月の給与の合計（交通費を除く）を伝えます
-      - 親が勤務先に出している扶養控除等申告書から、子の名前を消してもらいます
+    detail: 親が勤務先に出している扶養控除等申告書から、名前を消してもらいます。
     where: 親の勤務先
     when:
       - {field: age_at_year_end, op: in, value: [19, 20, 21, 22]}
       - {field: annual_income, op: gt, value: 1970000}
   - title: 親に年収を伝え、扶養控除の申告を外してもらう
-    detail: 親が勤務先の年末調整で申告します。
-    details:
-      - 1〜12月の給与の合計（交通費を除く）を伝えます
-      - 親が勤務先に出している扶養控除等申告書から、子の名前を消してもらいます
+    detail: 親が勤務先に出している扶養控除等申告書から、名前を消してもらいます。
     where: 親の勤務先
     when:
       - {field: age_at_year_end, op: not_in, value: [19, 20, 21, 22]}
       - {field: annual_income, op: gt, value: 1360000}
+amounts:
+  - {kind: parent_deduction, card: true}
 links:
   - {label: 日本年金機構 被扶養者にするとき・異動があったときの手続き, url: "https://www.nenkin.go.jp/service/kounen/tekiyo/hihokensha1/20141202.html"}
   - {label: 日本年金機構 19歳以上23歳未満の方の被扶養者認定の年間収入要件, url: "https://www.nenkin.go.jp/oshirase/taisetu/2025/202508/0819.html"}

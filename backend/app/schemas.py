@@ -39,7 +39,8 @@ class UserProfile(BaseModel):
     age_at_year_end: int | None = Field(
         default=None, ge=0, le=120, description="その年の12月31日時点の年齢（所得税の控除などはこの年齢で判定する）"
     )
-    occupation: list[Occupation] = Field(description="働き方（複数可。例: 会社員とフリーランスの副業）")
+    occupation: list[Occupation] = Field(default_factory=lambda: ["student"], description="働き方（複数可）。アプリの対象は学生なので省くと学生")
+    part_time: Literal["yes", "no"] | None = Field(default=None, description="アルバイトをしているか（yes / no）")
     annual_income: int = Field(ge=0, description="年収（円）")
     health_insurance: HealthInsurance = "unknown"
     supported_by: SupportedBy | None = Field(default=None, description="誰の扶養に入っているか（税・健康保険）")
@@ -67,8 +68,8 @@ class Condition(BaseModel):
 class FlowStep(BaseModel):
     """手続きの1ステップ。title / detail の {annual_income} などは、アプリがその人の回答（140万円・20歳など）に置き換える。"""
 
-    title: str
-    detail: str
+    title: str = ""
+    detail: str = ""
     where: str | None = None
     documents: list[str] = Field(default_factory=list, description="このステップで必要なもの。アプリは全ステップ分をまとめて一覧にする")
     details: list[str] = Field(
@@ -78,6 +79,15 @@ class FlowStep(BaseModel):
         default_factory=list,
         description="このステップの説明が当てはまる人の条件。満たさない条件があればアプリは表示しない（未回答なら表示する）",
     )
+    choice: "FlowChoice | None" = Field(
+        default=None, description="フローの分岐。書いたときは title / detail は書かない。選ぶまで、この先のステップと金額は出さない"
+    )
+
+    @model_validator(mode="after")
+    def _step_or_choice(self) -> "FlowStep":
+        if (self.choice is None) == (not self.title):
+            raise ValueError("ステップには title（と detail）か choice のどちらか一方を書いてください")
+        return self
 
 
 class Due(BaseModel):
@@ -104,6 +114,41 @@ class Reminder(BaseModel):
     when: list[Condition] = Field(default_factory=list, description="この期限を出す人の条件（ステップの when と同じ意味）")
 
 
+AmountKind = Literal["juminzei", "shotokuzei", "parent_deduction", "nenkin", "nenkin_tokurei"]
+
+
+class Amount(BaseModel):
+    """手続きの画面に出すお金の目安。金額はアプリが回答（年収など）から端末内で計算する（サーバーは計算しない）。"""
+
+    kind: AmountKind = Field(
+        description="juminzei: 本人の住民税 / shotokuzei: 本人の所得税 / parent_deduction: 親が受ける控除"
+        " / nenkin: 国民年金保険料 / nenkin_tokurei: 学生納付特例を使うときの保険料"
+    )
+    card: bool = Field(default=False, description="一覧のカードにも1行で出す（1つの手続きで1つまで）")
+    when: list[Condition] = Field(default_factory=list, description="この金額を出す人の条件（ステップの when と同じ意味）")
+
+
+class FlowOption(BaseModel):
+    """フローの分岐の選択肢1つ。選ぶと steps と amounts を出す。"""
+
+    value: str = Field(description="選んだときに回答として保存する値（choice の field に入る）")
+    label: str = Field(description="選択肢の名前（例: 学生納付特例を使う）")
+    detail: str = Field(description="選択肢の簡潔な説明（1文）")
+    steps: list[FlowStep] = Field(default_factory=list)
+    amounts: list[Amount] = Field(default_factory=list, description="この選択肢を選んだときに出すお金の目安")
+
+
+class FlowChoice(BaseModel):
+    """フローの分岐（例: 国民年金の保険料を、学生納付特例で待ってもらうか納めるか）。"""
+
+    field: str = Field(description="選んだ値を保存する回答の項目名（手続きの中で一意。reminders の when にも使える）")
+    title: str = Field(description="分岐の見出し（例: 保険料をどうするか選ぶ）")
+    options: list[FlowOption] = Field(min_length=2)
+
+
+FlowStep.model_rebuild()
+
+
 class Procedure(BaseModel):
     """data/procedures/*.yaml の1ファイル分（判定条件 relations は除く）。"""
 
@@ -117,6 +162,7 @@ class Procedure(BaseModel):
     steps: list[FlowStep] = Field(default_factory=list)
     links: list[Link] = Field(default_factory=list)
     reminders: list[Reminder] = Field(default_factory=list, description="毎年・毎月の期限（通知と履歴の画面に並べる）")
+    amounts: list[Amount] = Field(default_factory=list, description="手続きの画面に出すお金の目安")
 
 
 class Recommendation(BaseModel):

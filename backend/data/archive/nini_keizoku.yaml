@@ -6,12 +6,12 @@ deadline: 退職日の翌日から20日以内
 due: {days: 20}
 office: 前の勤務先の健康保険（協会けんぽの支部・健康保険組合）
 relations:
-  - {field: occupation, value: unemployed, flag: conditional, score: 0.6, reason: 無職・求職中である}
-  - {field: occupation, value: retired, flag: conditional, score: 0.4, reason: 退職している}
-  - {field: occupation, op: in, value: [self_employed, freelance], flag: conditional, score: 0.3, reason: 自営業・フリーランスである}
-  - {field: occupation, value: employee, flag: unrelated, score: -1.0, reason: 会社員・公務員である}
-  - {field: health_insurance, op: in, value: [national, dependent], flag: unrelated, score: -1.0, reason: すでに国保か家族の扶養に入っている}
-  - {field: age, op: gte, value: 75, flag: unrelated, score: -1.0, reason: 75歳以上}
+  - {field: occupation, value: unemployed, flag: conditional, score: 0.6, reason: "働き方 無職・求職中"}
+  - {field: occupation, value: retired, flag: conditional, score: 0.4, reason: "働き方 退職済み"}
+  - {field: occupation, op: in, value: [self_employed, freelance], flag: conditional, score: 0.3, reason: "働き方 {occupation}"}
+  - {field: occupation, value: employee, flag: unrelated, score: -1.0, reason: "働き方 会社員・公務員"}
+  - {field: health_insurance, op: in, value: [national, dependent], flag: unrelated, score: -1.0, reason: "健康保険 {health_insurance}"}
+  - {field: age, op: gte, value: 75, flag: unrelated, score: -1.0, reason: "年齢 {age}（75歳以上）"}
 steps:
   - title: 加入できるか確かめる
     detail: 退職日まで2か月以上、勤務先の健康保険に入っていれば入れます。

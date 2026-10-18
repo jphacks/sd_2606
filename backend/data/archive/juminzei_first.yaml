@@ -6,10 +6,10 @@ deadline: 2年目の6月から給与天引き
 due: {month: 6}
 office: 勤務先・住んでいる市区町村
 relations:
-  - {field: occupation, value: employee, flag: conditional, score: 0.5, reason: 会社員・公務員である}
-  - {field: age, op: lt, value: 26, flag: conditional, score: 0.3, reason: 26歳未満}
+  - {field: occupation, value: employee, flag: conditional, score: 0.5, reason: "働き方 会社員・公務員"}
+  - {field: age, op: lt, value: 26, flag: conditional, score: 0.3, reason: "年齢 {age}（26歳未満）"}
   - {field: age, op: gte, value: 30, flag: conditional, score: -0.5}   # 就職から年数がたっている人が多い
-  - {field: occupation, op: ne, value: employee, flag: unrelated, score: -1.0, reason: 会社員・公務員ではない}
+  - {field: occupation, op: ne, value: employee, flag: unrelated, score: -1.0, reason: "働き方 {occupation}（会社員・公務員ではない）"}
 steps:
   - title: 学生のときの住民税の納付書が届いたら納める
     detail: 前の年のアルバイト収入にかかる分は、1年目に納付書で納めます。
@@ -22,6 +22,8 @@ steps:
     documents: [特別徴収税額決定通知書]
   - title: 6月からの手取りを確かめる
     detail: 6月から翌年5月まで、12回に分けて給与から引かれます。
+amounts:
+  - {kind: juminzei, card: true}
 links:
   - {label: 仙台市 給与所得者に係る個人市県民税の特別徴収について, url: "https://www.city.sendai.jp/tokubetsuchoshu/kurashi/tetsuzuki/zekin/kojin/kyuyo.html"}
   - {label: 仙台市 個人市県民税の納税について, url: "https://www.city.sendai.jp/shiminze-kikaku/kurashi/tetsuzuki/zekin/kojin/sikenminzeinituite/nouzeihouhou.html"}

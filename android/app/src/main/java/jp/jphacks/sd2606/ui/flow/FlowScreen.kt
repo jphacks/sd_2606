@@ -33,6 +33,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.runtime.remember
+import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.RadioButton
+import androidx.compose.material.icons.filled.AltRoute
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Schedule
@@ -60,6 +64,11 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import jp.jphacks.sd2606.data.Answer
+import jp.jphacks.sd2606.data.FlowItem
+import jp.jphacks.sd2606.data.Document
+import androidx.compose.material.icons.outlined.Payments
+import jp.jphacks.sd2606.data.AmountView
+import jp.jphacks.sd2606.data.Amounts
 import jp.jphacks.sd2606.data.ProcedureDef
 import jp.jphacks.sd2606.data.Question
 import jp.jphacks.sd2606.data.RuleEngine
@@ -114,19 +123,34 @@ fun FlowScreen(
                 return@ResultContent
             }
             val item = state.evaluation?.find(proc.id)
-            val steps = item?.steps ?: proc.steps.map { StepView(it, emptyList()) }
+            // フロー: 分岐を選ぶまではその先を出さず、選び終えたら最後にお金の目安を出す
+            val flow = remember(proc, state.answers) { RuleEngine.flow(proc, state.answers) }
+            val documents = RuleEngine.documentsOf(flow.steps)
+            val amounts = remember(flow, state.answers) { Amounts.of(flow.amounts, state.answers).map { it.second } }
             val uriHandler = LocalUriHandler.current
             LazyColumn(contentPadding = PaddingValues(16.dp), modifier = Modifier.padding(padding)) {
                 item { Header(proc) }
                 item { Status(item, state, catalog.questions, onAnswer) }
-                if (item != null && item.documents.isNotEmpty()) item { Documents(item) }
+                if (documents.isNotEmpty()) item(key = "documents") { Documents(documents, Modifier.animateItem()) }
                 item { Text("手続きの流れ", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp)) }
-                if (steps.isEmpty()) {
+                if (flow.items.isEmpty()) {
                     item { Text("あなたに当てはまる手順はありません。", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 16.dp)) }
                 }
-                itemsIndexed(steps) { index, view ->
-                    StepRow(index + 1, view, catalog.questions, state.answers, isLast = index == steps.lastIndex)
+                itemsIndexed(flow.items, key = { i, fi -> if (fi is FlowItem.Choice) "choice:${fi.choice.field}" else "step:$i" }) { index, fi ->
+                    when (fi) {
+                        is FlowItem.Step -> StepRow(
+                            fi.number, fi.view, catalog.questions, state.answers,
+                            isLast = index == flow.items.lastIndex,
+                            modifier = Modifier.animateItem(),
+                        )
+                        is FlowItem.Choice -> ChoiceBlock(
+                            fi,
+                            onSelect = { value -> onAnswer(fi.choice.field, value?.let { Answer.Single(it) }) },
+                            modifier = Modifier.animateItem(),
+                        )
+                    }
                 }
+                if (flow.decided && amounts.isNotEmpty()) item(key = "amounts") { AmountsCard(amounts, Modifier.animateItem()) }
                 items(proc.links) { link ->
                     TextButton(onClick = { uriHandler.openUri(link.url) }) { Text("🔗 ${link.label}") }
                 }
@@ -186,7 +210,7 @@ private fun Status(item: Scored?, state: AppUiState, questions: List<Question>, 
             Status.LIKELY -> "関係がありそうな手続きです" to MaterialTheme.colorScheme.secondaryContainer
             Status.UNRELATED -> "いまの回答では対象外です" to MaterialTheme.colorScheme.surfaceVariant
         }
-        StatusCard(title, color, item.reasons)
+        StatusCard(title, color, item.reasons.map { RuleEngine.fillIn(it, state.answers, questions) })
         item.missing.mapNotNull { RuleEngine.questionFor(it, questions) }.distinct().forEach { q ->
             QuestionCard(
                 question = q,
@@ -226,15 +250,82 @@ private fun StatusCard(title: String, color: Color, reasons: List<String>) {
 
 /** 必要なものの一覧（表示するステップの分をまとめたもの）。 */
 @Composable
-private fun Documents(item: Scored) {
-    Card(Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+private fun AmountsCard(amounts: List<AmountView>, modifier: Modifier = Modifier) {
+    var open by rememberSaveable { mutableStateOf(false) }
+    Card(modifier.fillMaxWidth().padding(top = 4.dp, bottom = 16.dp)) {
+        Column(Modifier.padding(16.dp).animateContentSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Outlined.Payments, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(8.dp))
+                Text("お金の目安", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                if (amounts.any { it.breakdown.isNotEmpty() }) {
+                    TextButton(onClick = { open = !open }) { Text(if (open) "内訳を閉じる" else "計算の内訳") }
+                }
+            }
+            amounts.forEach { a ->
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(a.label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                        Text(a.value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    }
+                    a.note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    if (open) {
+                        a.breakdown.forEach { Text("・$it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline) }
+                    }
+                }
+            }
+            Text("あなたの回答から計算した目安です（社会保険料控除などは含めていません）", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+        }
+    }
+}
+
+/**
+ * フローの分岐。まだ選んでいなければ選択肢を並べ（未選択のラジオボタン・名前・1文の説明）、
+ * 選んだら選択済みのラジオボタンと名前、「選び直す」だけを出す。選んだ値は回答として端末に保存する。
+ */
+@Composable
+private fun ChoiceBlock(item: FlowItem.Choice, onSelect: (String?) -> Unit, modifier: Modifier = Modifier) {
+    val selected = item.selected
+    Column(modifier.fillMaxWidth().padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.AltRoute, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(item.choice.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        }
+        if (selected == null) {
+            item.choice.options.forEach { option ->
+                OutlinedCard(onClick = { onSelect(option.value) }, modifier = Modifier.fillMaxWidth()) {
+                    Row(Modifier.padding(end = 16.dp, top = 8.dp, bottom = 12.dp), verticalAlignment = Alignment.Top) {
+                        RadioButton(selected = false, onClick = { onSelect(option.value) })
+                        Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(option.label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text(option.detail, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+            }
+        } else {
+            Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+                Row(Modifier.padding(end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(selected = true, onClick = null)
+                    Text(selected.label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    TextButton(onClick = { onSelect(null) }) { Text("選び直す") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Documents(documents: List<Document>, modifier: Modifier = Modifier) {
+    Card(modifier.fillMaxWidth().padding(bottom = 16.dp)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Inventory2, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(8.dp))
                 Text("必要なもの", style = MaterialTheme.typography.titleSmall)
             }
-            item.documents.forEach { doc ->
+            documents.forEach { doc ->
                 Text(
                     "・${doc.name}${if (doc.conditional) "（当てはまる場合）" else ""}",
                     style = MaterialTheme.typography.bodyMedium,
@@ -268,10 +359,10 @@ private fun HeaderRow(icon: ImageVector, label: String, text: String, color: Col
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun StepRow(number: Int, view: StepView, questions: List<Question>, answers: Map<String, Answer>, isLast: Boolean) {
+private fun StepRow(number: Int, view: StepView, questions: List<Question>, answers: Map<String, Answer>, isLast: Boolean, modifier: Modifier = Modifier) {
     val step = view.step
     var open by rememberSaveable(number, step.title) { mutableStateOf(false) }
-    Row(Modifier.height(IntrinsicSize.Min)) {
+    Row(modifier.height(IntrinsicSize.Min)) {
         // 左側: 番号の丸と、次のステップへの線
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(40.dp)) {
             Box(

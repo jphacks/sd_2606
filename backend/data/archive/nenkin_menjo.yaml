@@ -5,13 +5,13 @@ summary: 国民年金の保険料を払えないとき、申請すると免除�
 deadline: 早めに（2年前までさかのぼれる）
 office: 市区町村の役所・年金事務所・マイナポータル
 relations:
-  - {field: occupation, value: unemployed, flag: conditional, score: 0.7, reason: 無職・求職中である}
-  - {field: annual_income, op: lt, value: 1000000, flag: conditional, score: 0.3, reason: 年収が100万円未満}
-  - {field: occupation, op: in, value: [self_employed, freelance], flag: conditional, score: 0.2, reason: 自営業・フリーランスである}
-  - {field: occupation, value: student, flag: unrelated, score: -1.0, reason: 学生である}
-  - {field: occupation, value: employee, flag: unrelated, score: -1.0, reason: 会社員・公務員である}
-  - {field: age, op: gte, value: 60, flag: unrelated, score: -1.0, reason: 60歳以上}
-  - {field: age, op: lt, value: 20, flag: unrelated, score: -1.0, reason: 20歳未満}
+  - {field: occupation, value: unemployed, flag: conditional, score: 0.7, reason: "働き方 無職・求職中"}
+  - {field: annual_income, op: lt, value: 1000000, flag: conditional, score: 0.3, reason: "年収 {annual_income}（100万円未満）"}
+  - {field: occupation, op: in, value: [self_employed, freelance], flag: conditional, score: 0.2, reason: "働き方 {occupation}"}
+  - {field: occupation, value: student, flag: unrelated, score: -1.0, reason: "働き方 学生（学生納付特例を使う）"}
+  - {field: occupation, value: employee, flag: unrelated, score: -1.0, reason: "働き方 会社員・公務員"}
+  - {field: age, op: gte, value: 60, flag: unrelated, score: -1.0, reason: "年齢 {age}（60歳以上）"}
+  - {field: age, op: lt, value: 20, flag: unrelated, score: -1.0, reason: "年齢 {age}（20歳未満）"}
 steps:
   - title: 免除・納付猶予の申請書を用意する
     detail: 役所・年金事務所でもらうか、日本年金機構のサイトから印刷します。
@@ -37,6 +37,8 @@ steps:
     detail: 余裕ができたら、免除・猶予の分を納められます。
 reminders:
   - {label: 免除・納付猶予の申請し直し（7月から新しい年度）, month: 7, day: 31}
+amounts:
+  - {kind: nenkin, card: true}
 links:
   - {label: 日本年金機構 国民年金保険料の免除制度・納付猶予制度, url: "https://www.nenkin.go.jp/service/kokunen/menjo/20150428.html"}
   - {label: 日本年金機構 転職をご検討中の方へ（加入・免除のご案内）, url: "https://www.nenkin.go.jp/tokusetsu/taishoku_menjo.html"}

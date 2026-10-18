@@ -33,6 +33,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 import jp.jphacks.sd2606.data.Labels
+import androidx.compose.material.icons.outlined.Payments
+import jp.jphacks.sd2606.data.AmountView
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
@@ -173,5 +175,17 @@ fun ProcedureActions(
                 Text("完了にする")
             }
         }
+    }
+}
+
+/** お金の目安の1行（一覧のカード用）: 「あなたの住民税（2027年6月から納める）　年 約5,000円」。 */
+@Composable
+fun AmountLine(amount: AmountView, modifier: Modifier = Modifier) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Outlined.Payments, contentDescription = "金額の目安", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.width(4.dp))
+        Text(amount.label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f, fill = false))
+        Spacer(Modifier.width(8.dp))
+        Text(amount.value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
     }
 }
