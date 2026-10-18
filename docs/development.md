@@ -46,8 +46,8 @@ cp .env.example .env                                   # Claude を使うなら 
 ### アクセス方法
 
 - **URL はチームのチャットで共有している**。リポジトリが public なので、ここには書かない
-  - 現在は臨時で Cloudflare Quick Tunnel（`https://<ランダム>.trycloudflare.com/` の形）を使っている。**サーバーの再起動などで URL が変わる**ことがあるので、繋がらなくなったらチャットで最新の URL を確認する
-  - 本来の公開経路（Tailscale Funnel、`https://<ホスト名>:8443/` の形）は準備中
+  - 公開経路は Tailscale Funnel（`https://<ホスト名>:8443/` の形）。URL は固定で、サーバーを再起動しても変わらない
+  - 2026-10-17 16:05 までは臨時で Cloudflare Quick Tunnel（`https://<ランダム>.trycloudflare.com/` の形）を使っていた。その URL を設定したままなら、チャットで共有している Funnel の URL に切り替える
 - 動作確認: ブラウザで `<URL>/health` を開いて `{"status":"ok", ...}` が出れば動いている
 - API の試し打ち: `<URL>/docs`（Swagger UI）
 - アプリから使う: `android/local.properties` に `api.baseUrl=<共有された URL>` と書き（末尾の `/` を忘れない）、Sync してからビルドし直す（URL はビルド時に埋め込まれる）
@@ -79,7 +79,7 @@ cp .env.example .env                                   # Claude を使うなら 
 | --- | --- |
 | アプリで「通信に失敗しました」 | ブラウザで `<URL>/health` が開けるか。開けなければサーバー側の問題なので管理者に連絡 |
 | ブラウザでは開けるがアプリでは失敗 | `local.properties` の URL（`https://`・末尾の `/`）。変更後に Sync とビルドをし直したか |
-| 以前は使えた URL が開けない | Quick Tunnel の URL が変わった可能性。チャットで最新の URL を確認する |
+| 以前は使えた URL が開けない | 停止した Cloudflare Quick Tunnel（`trycloudflare.com`）の URL のままになっていないか。チャットで最新の URL を確認する |
 | 追加した質問が出てこない | `GET /api/catalog` の `questions` に出ているか。サーバーの再起動か反映が要る（YAML は起動時に読み込む） |
 | 追加した手続き・項目が出てこない | その変更が main にマージされ、サーバーに反映済みか |
 
@@ -88,7 +88,7 @@ cp .env.example .env                                   # Claude を使うなら 
 サーバーの構成・設定・構築手順・運用コマンドは [architecture.md のサーバー構成](architecture.md#サーバー構成共有バックエンド) にまとめてある。よく使うもの:
 
 - main を反映: Pi 上で `bash ~/sd_2606/backend/deploy/pi/deploy.sh`
-- 公開 URL の確認（変わったらチャットで共有し直す）: `bash ~/sd_2606/backend/deploy/pi/tunnel-url.sh`
+- 公開の状態の確認: `tailscale funnel status`
 - ログ: `journalctl -u sd2606-api -f`
 
 ## ブランチと PR
