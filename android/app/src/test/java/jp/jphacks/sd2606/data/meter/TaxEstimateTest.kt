@@ -24,6 +24,15 @@ class TaxEstimateTest {
     }
 
     @Test
+    fun withoutWorkingStudentDeductionTheResidentTaxIsHigher() {
+        // 申告しない: (66万 − 43万) × 10% − 調整控除 2,500円 = 20,500円 + 均等割 5,000円
+        assertEquals(25_500L, estimateTaxes(1_400_000, age = 20, workingStudent = false).residentTax)
+        assertEquals(Amounts.residentTaxYen(1_400_000, student = false), estimateTaxes(1_400_000, age = 20, workingStudent = false).residentTax)
+        // 手取りも、申告しないほうが少ない
+        assertEquals(20_500L, takeHome(1_400_000, 20, workingStudent = true) - takeHome(1_400_000, 20, workingStudent = false))
+    }
+
+    @Test
     fun healthInsuranceStartsAtTheDependentLimit() {
         assertNull(estimateTaxes(1_499_999, age = 20).healthInsurance)
         assertEquals(true, (estimateTaxes(1_500_000, age = 20).healthInsurance ?: 0) > 0)
@@ -40,6 +49,27 @@ class TaxEstimateTest {
         // それ以外の年齢: 136万円を超えると扶養控除 38万円がなくなる。38万 × 20% + 33万 × 10% = 109,000円
         assertEquals(0L, estimateTaxes(1_360_000, age = 25).parentTaxIncrease)
         assertEquals(109_000L, estimateTaxes(1_370_000, age = 25).parentTaxIncrease)
+    }
+
+    @Test
+    fun workingStudentWallAppearsOnlyWhenLikelyToCrossIt() {
+        assertEquals(false, WorkingStudentWall in incomeWallsFor(20, workingStudent = true, expected = 1_630_000))
+        assertEquals(true, WorkingStudentWall in incomeWallsFor(20, workingStudent = true, expected = 1_640_000))
+        // 申告していなければ、超えても出さない
+        assertEquals(false, WorkingStudentWall in incomeWallsFor(20, workingStudent = false, expected = 1_640_000))
+    }
+
+    @Test
+    fun crossingTheWorkingStudentLimitDropsTheTakeHomeOnce() {
+        // 163万 → 164万: 住民税 22,000 → 49,500 で、手取りが 18,500円 減る
+        val d = diagnose(total = 1_640_000, yearEnd = null, remainingMonths = 0, age = 20)
+        assertEquals(18_500L, d.studentDrop)
+        // 追いついたら（それ以上は）もう出さない
+        val beyond = diagnose(total = d.studentBreakEven!!, yearEnd = null, remainingMonths = 0, age = 20)
+        assertNull(beyond.studentDrop)
+        assertEquals(true, takeHome(d.studentBreakEven!!, 20) >= takeHome(1_630_000, 20))
+        // 163万円ちょうどまでは控除が残る
+        assertNull(diagnose(total = 1_630_000, yearEnd = null, remainingMonths = 0, age = 20).studentDrop)
     }
 
     @Test

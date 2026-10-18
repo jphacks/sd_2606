@@ -27,9 +27,9 @@ import jp.jphacks.sd2606.data.meter.refundOf
  */
 @Composable
 fun TaxSummary(state: MeterUiState, age: Int, next: IncomeWall?) {
-    val now = estimateTaxes(state.total, age)
+    val now = estimateTaxes(state.total, age, state.workingStudent)
     val yearEndAmount = state.projection(next)?.yearEnd?.takeIf { it > state.total }
-    val end = yearEndAmount?.let { estimateTaxes(it, age) }
+    val end = yearEndAmount?.let { estimateTaxes(it, age, state.workingStudent) }
     val columns = listOfNotNull(now, end)
 
     Column(
@@ -54,7 +54,9 @@ fun TaxSummary(state: MeterUiState, age: Int, next: IncomeWall?) {
         }
         RefundNote(state.withheldTotal, (end ?: now))
         Text(
-            "※ 給与だけ・単身の場合の簡単な目安です。国保は自治体によって大きく違います。親の分は、親の税率を所得税20%・住民税10%と仮定しています。",
+            "※ 給与だけ・単身の場合の簡単な目安です。" +
+                (if (state.workingStudent) "勤労学生控除を申告した場合です（年収163万円以下）。" else "勤労学生控除を申告しない場合です。") +
+                "国保は自治体によって大きく違います。親の分は、親の税率を所得税20%・住民税10%と仮定しています。",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

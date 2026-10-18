@@ -5,7 +5,8 @@ import kotlin.math.roundToLong
 
 /**
  * 給与だけの学生1人の、税金などの目安（2026年の収入）。
- * 所得税・住民税・親の控除は、手続きの画面と同じ計算（data/Amounts.kt。勤労学生控除を受ける前提）を使う。
+ * 所得税・住民税・親の控除は、手続きの画面と同じ計算（data/Amounts.kt）を使う。
+ * workingStudent は、勤労学生控除（年収163万円以下の学生）を申告するかどうか。
  * 国保の保険料と親の税率は Amounts.kt に無いので、ここで仮定する（TaxRules）。
  */
 data class TaxEstimate(
@@ -35,9 +36,9 @@ object TaxRules {
 }
 
 /** 年収（1〜12月の給与）と、その年の12月31日時点の年齢から目安を出す。 */
-fun estimateTaxes(annual: Long, age: Int): TaxEstimate {
-    val incomeTax = Amounts.incomeTaxYen(annual, student = true) ?: highIncomeTax(annual)
-    val residentTax = Amounts.residentTaxYen(annual, student = true)
+fun estimateTaxes(annual: Long, age: Int, workingStudent: Boolean = true): TaxEstimate {
+    val incomeTax = Amounts.incomeTaxYen(annual, student = workingStudent) ?: highIncomeTax(annual)
+    val residentTax = Amounts.residentTaxYen(annual, student = workingStudent)
     val healthInsurance = if (annual < healthInsuranceLimit(age)) {
         null
     } else {
@@ -73,8 +74,8 @@ private fun highIncomeTax(annual: Long): Long {
 fun healthInsuranceLimit(age: Int): Long = if (age in 19..22) 1_500_000L else 1_300_000L
 
 /** 自分の手取り（年収 − 所得税 − 住民税 − 国保）。 */
-fun takeHome(annual: Long, age: Int): Long {
-    val e = estimateTaxes(annual, age)
+fun takeHome(annual: Long, age: Int, workingStudent: Boolean = true): Long {
+    val e = estimateTaxes(annual, age, workingStudent)
     return annual - e.incomeTax - e.residentTax - (e.healthInsurance ?: 0)
 }
 
