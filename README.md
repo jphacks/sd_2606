@@ -1,6 +1,8 @@
 # 税人（ぜいんちゅ）
 
-[![税人（ぜいんちゅ） 公的手続きナビアプリ](docs/images/icon.png)](https://www.youtube.com/shorts/-FG2OhZyUb4)
+![税人（ぜいんちゅ） 公的手続きナビアプリ](docs/images/icon.png)
+
+### ▶ [デモ動画を見る（YouTube・約1分）](https://www.youtube.com/shorts/-FG2OhZyUb4)
 
 > 学生に必要な税金・保険・年金の手続きを、あなたの状況から洗い出し、やる順番と流れを見える化する Android アプリ。
 
