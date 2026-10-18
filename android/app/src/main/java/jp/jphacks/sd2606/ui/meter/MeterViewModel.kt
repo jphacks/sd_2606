@@ -36,6 +36,9 @@ data class MeterUiState(
 ) {
     val total: Long get() = incomes.sumOf { it.amount }
 
+    /** 天引きされた所得税の合計 */
+    val withheldTotal: Long get() = incomes.sumOf { it.withheldTax }
+
     /** ビーカーに積む層（支給日の古い順） */
     val layers: List<BeakerLayer>
         get() = incomes.asReversed().map { BeakerLayer(it.amount, jobColor(colorIndexOf(it.jobId))) }
@@ -101,7 +104,7 @@ class MeterViewModel(app: Application) : AndroidViewModel(app) {
     fun nextYear() = year.update { it + 1 }
 
     /** バイト先は名前で探し、無ければ作る。時給・色が変わっていればバイト先も更新する。 */
-    fun addIncome(jobName: String, hourlyWage: Int?, colorIndex: Int, paidOn: LocalDate, amount: Long) {
+    fun addIncome(jobName: String, hourlyWage: Int?, colorIndex: Int, paidOn: LocalDate, amount: Long, withheldTax: Long) {
         viewModelScope.launch {
             val name = jobName.trim()
             val existing = state.value.jobs.firstOrNull { it.name == name }
@@ -113,7 +116,7 @@ class MeterViewModel(app: Application) : AndroidViewModel(app) {
                 if (updated != existing) dao.updateJob(updated)
                 existing.id
             }
-            dao.insertIncome(Income(jobId = jobId, paidOn = paidOn.toString(), amount = amount))
+            dao.insertIncome(Income(jobId = jobId, paidOn = paidOn.toString(), amount = amount, withheldTax = withheldTax))
         }
     }
 

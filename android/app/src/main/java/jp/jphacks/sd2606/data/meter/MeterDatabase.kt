@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [Job::class, Income::class], version = 3, exportSchema = false)
+@Database(entities = [Job::class, Income::class], version = 4, exportSchema = false)
 abstract class MeterDatabase : RoomDatabase() {
     abstract fun meterDao(): MeterDao
 
@@ -21,10 +21,17 @@ abstract class MeterDatabase : RoomDatabase() {
             }
         }
 
+        /** 3→4: 給料に「天引きされた所得税」を足す。記録は消さずに残す */
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE incomes ADD COLUMN withheld_tax INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         fun get(context: Context): MeterDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(context.applicationContext, MeterDatabase::class.java, "meter.db")
-                    .addMigrations(MIGRATION_2_3)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
                     // 移行を書いていない古い版からは、移行せずに作り直す(JPhacks用)
                     .fallbackToDestructiveMigration(dropAllTables = true)
                     .build()
