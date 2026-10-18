@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.ExpandLess
@@ -398,9 +399,16 @@ private fun ReasonList(item: Scored, questions: List<Question>, answers: Map<Str
     }
 }
 
-/** 「判定には扶養している家族の人数が必要です」の案内。「入力する」でその場に入力欄を開き、入れた値は全体の情報として保存する。 */
+/**
+ * 「判定には扶養している家族の人数が必要です」の案内。「入力する」でその場に入力欄を開き、入れた値は全体の情報として保存する。
+ * inline の質問（掛け持ちなど）は、質問文と選択肢を最初から出して、その場で1タップで答えてもらう。
+ */
 @Composable
 private fun NeedInfo(question: Question, answer: Answer?, onAnswer: (Answer?) -> Unit) {
+    if (question.inline) {
+        InlineQuestion(question, answer, onAnswer)
+        return
+    }
     var open by rememberSaveable(question.field) { mutableStateOf(false) }
     Surface(
         color = MaterialTheme.colorScheme.tertiaryContainer,
@@ -425,6 +433,30 @@ private fun NeedInfo(question: Question, answer: Answer?, onAnswer: (Answer?) ->
                     )
                 }
             }
+        }
+    }
+}
+
+/** カードの中の「はい / いいえ」の質問。答えると、この手続きが必要か（必要な手続きに移るか）が決まる。 */
+@Composable
+private fun InlineQuestion(question: Question, answer: Answer?, onAnswer: (Answer?) -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.tertiaryContainer,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.AutoMirrored.Filled.HelpOutline, contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(question.text, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+            }
+            QuestionInput(question, answer, onAnswer)
+            Text(
+                "答えると、この手続きが必要かどうか決まります。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

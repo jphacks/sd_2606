@@ -338,4 +338,30 @@ class RuleEngineTest {
         val withPlan = RuleEngine.evaluate(listOf(proc), mapOf("plan" to Answer.Single("tokurei")), null, today)
         assertEquals(listOf("特例の申請"), withPlan.items.single().reminders.map { it.label })
     }
+
+    @Test
+    fun inlineYesNoQuestionIsAskedOnTheCardAndYesMakesItRequired() {
+        // kakutei_shinkoku.yaml と同じ形: 掛け持ち（カードの中で聞く質問）に「はい」なら必要
+        val proc = Json.decodeFromString<ProcedureDef>(
+            """
+            {"id": "kakutei", "title": "確定申告", "category": "tax", "summary": "", "relations": [
+              {"field": "occupation", "op": "in", "value": ["part_time", "student"], "flag": "conditional", "score": 0.5, "reason": "掛け持ち",
+               "when": [{"field": "multiple_jobs", "value": "yes"}, {"field": "annual_income", "op": "gt", "value": 0}]},
+              {"field": "multiple_jobs", "value": "no", "flag": "conditional", "score": -0.2}]}
+            """,
+        )
+        fun judge(vararg answers: Pair<String, Answer>) = RuleEngine.evaluate(listOf(proc), answers.toMap(), null, today).find("kakutei")!!
+        val base = arrayOf(occupation("student", "part_time"), "annual_income" to Answer.Number(1_300_000))
+        val unanswered = judge(*base)
+        assertEquals(Status.LIKELY, unanswered.status)
+        assertEquals(listOf("multiple_jobs"), unanswered.missing)
+        val yes = judge(*base, "multiple_jobs" to Answer.Single("yes"))
+        assertEquals(Status.REQUIRED, yes.status)
+        assertEquals(listOf("掛け持ち"), yes.reasons)
+        val no = judge(*base, "multiple_jobs" to Answer.Single("no"))
+        assertEquals(Status.LIKELY, no.status)
+        assertEquals(emptyList<String>(), no.missing)
+        // 収入が無ければ聞かない
+        assertEquals(emptyList<String>(), judge(occupation("student"), "annual_income" to Answer.Number(0)).missing)
+    }
 }

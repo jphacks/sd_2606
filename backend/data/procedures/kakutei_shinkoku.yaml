@@ -8,6 +8,17 @@ office: 税務署（e-Tax で自宅から出せる）
 relations:
   - {field: part_time, value: "yes", flag: conditional, score: 0.4, reason: "アルバイト {part_time}"}
   - {field: annual_income, op: gt, value: 1780000, flag: conditional, score: 0.3, reason: "年収 {annual_income}（178万円超。あなたに所得税がかかる）"}
+  # 掛け持ちは最初の画面では聞かず、カードの中で聞く（questions.yaml の inline）。「はい」なら必要な手続きに上げる。
+  # 年末調整されない方の給与は所得税が多めに引かれ、申告で戻ることが多い。その給与が20万円を超えると申告が義務になる（国税庁 No.1900）
+  - field: part_time
+    value: "yes"
+    flag: conditional
+    score: 0.5
+    reason: 掛け持ちしていると所得税が多めに引かれていて、申告で戻るか、申告が義務になるため
+    when:
+      - {field: multiple_jobs, value: "yes"}
+      - {field: annual_income, op: gt, value: 0}
+  - {field: multiple_jobs, value: "no", flag: conditional, score: -0.2}   # 1か所なら年末調整で済むことが多い
   - {field: annual_income, value: 0, flag: conditional, score: -0.5}   # 収入がなければ、納める税金も戻る税金もない
   - {field: part_time, value: "no", flag: unrelated, score: -1.0, reason: "アルバイト {part_time}"}
 steps:

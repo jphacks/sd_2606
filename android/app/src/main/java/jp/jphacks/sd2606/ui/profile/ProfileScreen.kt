@@ -58,7 +58,7 @@ fun ProfileScreen(
     Scaffold(topBar = { TopAppBar(title = { Text("あなたの状況を教えてください") }) }) { padding ->
         ResultContent(catalog, onRetry, Modifier.padding(padding)) { data ->
             val required = data.questions.filter { it.required }
-            val optional = data.questions.filter { !it.required }
+            val optional = data.questions.filter { !it.required && !it.inline } // inline は手続きのカードの中でだけ聞く
             val missing = required.filter { it.field !in answers }
             Column(
                 modifier = Modifier
