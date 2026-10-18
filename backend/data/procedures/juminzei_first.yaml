@@ -6,10 +6,10 @@ deadline: 2年目の6月から給与天引き
 due: {month: 6}
 office: 勤務先・住んでいる市区町村
 relations:
-  - {field: occupation, value: employee, flag: conditional, score: 0.5, reason: 就職2年目の6月から天引きが始まるため}
-  - {field: age, op: lt, value: 26, flag: conditional, score: 0.3, reason: 初めて住民税を納める年代のため}
+  - {field: occupation, value: employee, flag: conditional, score: 0.5, reason: 会社員・公務員である}
+  - {field: age, op: lt, value: 26, flag: conditional, score: 0.3, reason: 26歳未満}
   - {field: age, op: gte, value: 30, flag: conditional, score: -0.5}   # 就職から年数がたっている人が多い
-  - {field: occupation, op: ne, value: employee, flag: unrelated, score: -1.0, reason: 勤務先から給与を受けていないため}
+  - {field: occupation, op: ne, value: employee, flag: unrelated, score: -1.0, reason: 会社員・公務員ではない}
 steps:
   - title: 学生のときの住民税の納付書が届いたら納める
     detail: 前の年のアルバイト収入にかかる分は、1年目に納付書で納めます。

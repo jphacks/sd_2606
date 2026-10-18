@@ -5,13 +5,13 @@ summary: 国民年金の保険料を払えないとき、申請すると免除�
 deadline: 早めに（2年前までさかのぼれる）
 office: 市区町村の役所・年金事務所・マイナポータル
 relations:
-  - {field: occupation, value: unemployed, flag: conditional, score: 0.7, reason: 失業した人は特例で免除を受けやすいため}
-  - {field: annual_income, op: lt, value: 1000000, flag: conditional, score: 0.3, reason: 収入が少ないため}
-  - {field: occupation, op: in, value: [self_employed, freelance], flag: conditional, score: 0.2, reason: 事業の収入が少ない年は免除を受けられるため}
-  - {field: occupation, value: student, flag: unrelated, score: -1.0, reason: 学生は学生納付特例を使うため}
-  - {field: occupation, value: employee, flag: unrelated, score: -1.0, reason: 厚生年金に入っているため}
-  - {field: age, op: gte, value: 60, flag: unrelated, score: -1.0, reason: 60歳からは国民年金に入らないため}
-  - {field: age, op: lt, value: 20, flag: unrelated, score: -1.0, reason: 20歳になるまでは国民年金に入らないため}
+  - {field: occupation, value: unemployed, flag: conditional, score: 0.7, reason: 無職・求職中である}
+  - {field: annual_income, op: lt, value: 1000000, flag: conditional, score: 0.3, reason: 年収が100万円未満}
+  - {field: occupation, op: in, value: [self_employed, freelance], flag: conditional, score: 0.2, reason: 自営業・フリーランスである}
+  - {field: occupation, value: student, flag: unrelated, score: -1.0, reason: 学生である}
+  - {field: occupation, value: employee, flag: unrelated, score: -1.0, reason: 会社員・公務員である}
+  - {field: age, op: gte, value: 60, flag: unrelated, score: -1.0, reason: 60歳以上}
+  - {field: age, op: lt, value: 20, flag: unrelated, score: -1.0, reason: 20歳未満}
 steps:
   - title: 免除・納付猶予の申請書を用意する
     detail: 役所・年金事務所でもらうか、日本年金機構のサイトから印刷します。

@@ -242,6 +242,22 @@ class RuleEngineTest {
     }
 
     @Test
+    fun confirmedProcedureIsRequiredRegardlessOfRules() {
+        // 「当てはまる」にしたものは、ルールの判定にかかわらず必要。「関係ない」と両方なら「関係ない」
+        val likely = RuleEngine.evaluate(catalog.procedures, mapOf(occupation("freelance")), catalog.threshold, today).likely.first().procedure.id
+        val evaluation = RuleEngine.evaluate(catalog.procedures, mapOf(occupation("freelance")), catalog.threshold, today, confirmed = setOf(likely))
+        val item = evaluation.find(likely)!!
+        assertEquals(Status.REQUIRED, item.status)
+        assertEquals(true, item.confirmed)
+        // 「当てはまる」にしたことを先頭に、ルールで当てはまった条件も残す
+        val before = RuleEngine.evaluate(catalog.procedures, mapOf(occupation("freelance")), catalog.threshold, today).find(likely)!!
+        assertEquals(listOf(RuleEngine.CONFIRMED_REASON) + before.reasons, item.reasons)
+        assertEquals(emptyList<String>(), item.missing)
+        val both = RuleEngine.evaluate(catalog.procedures, mapOf(occupation("freelance")), catalog.threshold, today, dismissed = setOf(likely), confirmed = setOf(likely))
+        assertEquals(Status.UNRELATED, both.statusOf(likely))
+    }
+
+    @Test
     fun stepDetailsAreParsed() {
         val proc = Json.decodeFromString<ProcedureDef>(
             """{"id": "x", "title": "", "category": "tax", "summary": "",
@@ -272,15 +288,21 @@ class RuleEngineTest {
             }
         }
         val freelance = RuleEngine.evaluate(procs, mapOf(occupation("freelance")), catalog.threshold, today)
-        val upcoming = RuleEngine.upcomingReminders(freelance, emptySet(), today)
+        // 既定では必要な手続き（確定申告）の期限だけ。関係がありそうな手続き（国保）の期限は includeLikely で出す
+        assertEquals(listOf("確定申告の期限"), RuleEngine.upcomingReminders(freelance, emptySet(), today).map { it.reminder.label })
+        val upcoming = RuleEngine.upcomingReminders(freelance, emptySet(), today, includeLikely = true)
         // 期限の早い順。10/31 は1週間前（10/24）を過ぎていないので「もうすぐ」ではない
         assertEquals(listOf("保険料（毎月末）", "確定申告の期限"), upcoming.map { it.reminder.label })
+        assertEquals(listOf(true, false), upcoming.map { it.likely })
         assertEquals(listOf(false, false), upcoming.map { it.soon })
-        assertEquals(true, RuleEngine.upcomingReminders(freelance, emptySet(), LocalDate.of(2026, 10, 25)).first().soon)
+        assertEquals(true, RuleEngine.upcomingReminders(freelance, emptySet(), LocalDate.of(2026, 10, 25), includeLikely = true).first().soon)
         // 完了した手続きの期限は出さない
-        assertEquals(listOf("保険料（毎月末）"), RuleEngine.upcomingReminders(freelance, setOf("kakutei"), today).map { it.reminder.label })
+        assertEquals(listOf("保険料（毎月末）"), RuleEngine.upcomingReminders(freelance, setOf("kakutei"), today, includeLikely = true).map { it.reminder.label })
+        // 「当てはまる」にした手続きの期限は、既定でも出す
+        val confirmed = RuleEngine.evaluate(procs, mapOf(occupation("freelance")), catalog.threshold, today, confirmed = setOf("kokuho"))
+        assertEquals(listOf("保険料（毎月末）", "確定申告の期限"), RuleEngine.upcomingReminders(confirmed, emptySet(), today).map { it.reminder.label })
         // 対象外（会社員の国保）や「関係ない」にした手続きの期限も出さない
         val employee = RuleEngine.evaluate(procs, mapOf(occupation("employee", "freelance")), catalog.threshold, today, dismissed = setOf("kakutei"))
-        assertEquals(emptyList<String>(), RuleEngine.upcomingReminders(employee, emptySet(), today).map { it.reminder.label })
+        assertEquals(emptyList<String>(), RuleEngine.upcomingReminders(employee, emptySet(), today, includeLikely = true).map { it.reminder.label })
     }
 }

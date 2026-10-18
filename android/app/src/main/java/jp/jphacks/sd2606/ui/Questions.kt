@@ -210,7 +210,7 @@ fun AnswersDialog(
                 }
                 RecordRow("完了の記録", completedCount, onClearCompleted)
                 HorizontalDivider()
-                RecordRow("「関係ない」にした手続き", dismissedCount, onClearDismissed)
+                RecordRow("「関係ない」「当てはまる」にした手続き", dismissedCount, onClearDismissed)
                 HorizontalDivider()
                 Spacer(Modifier.size(4.dp))
                 PrivacyNote("サーバーには送っていません。判定はこの端末の中で行っています。")

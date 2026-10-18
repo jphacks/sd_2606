@@ -105,8 +105,7 @@ def test_multiple_occupations():
 
 def test_unrelated_reasons_are_not_shown_as_reasons():
     rec = by_id(UserProfile(age=22, age_at_year_end=22, occupation="student", annual_income=800_000, supported_by="parent"))
-    assert all("ため" in r for r in rec["nenshu_kabe"].reasons)
-    assert len(rec["nenshu_kabe"].reasons) == 2  # 学生・家族の扶養
+    assert rec["nenshu_kabe"].reasons == ["学生である", "家族の扶養に入っている"]  # 対象外の理由（会社員である など）は出さない
 
 
 def test_income_wall_is_required_only_when_family_must_act():

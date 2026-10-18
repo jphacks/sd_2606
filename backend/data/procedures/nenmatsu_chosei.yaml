@@ -10,12 +10,12 @@ relations:
     value: employee
     flag: conditional
     score: 1.0
-    reason: 勤務先で年末調整を受けるため
+    reason: 会社員・公務員である
     when:
       - {field: annual_income, op: lte, value: 20000000}
-  - {field: occupation, value: part_time, flag: conditional, score: 0.7, reason: アルバイト先でも年末調整を受けられるため}
-  - {field: occupation, op: not_in, value: [employee, part_time], flag: unrelated, score: -1.0, reason: 給与を受けていないため（確定申告で精算）}
-  - {field: annual_income, op: gt, value: 20000000, flag: unrelated, score: -1.0, reason: 年収2,000万円超は確定申告で精算するため}
+  - {field: occupation, value: part_time, flag: conditional, score: 0.7, reason: パート・アルバイトで働いている}
+  - {field: occupation, op: not_in, value: [employee, part_time], flag: unrelated, score: -1.0, reason: 会社員・パート・アルバイトではない}
+  - {field: annual_income, op: gt, value: 20000000, flag: unrelated, score: -1.0, reason: "年収が2,000万円を超えている"}
 steps:
   - title: 扶養控除等申告書を出す
     detail: 入社したら、最初の給与の前に勤務先に出します。

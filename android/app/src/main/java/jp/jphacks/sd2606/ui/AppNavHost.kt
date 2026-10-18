@@ -106,6 +106,7 @@ fun AppNavHost(vm: AppViewModel = viewModel()) {
                 onClearCompleted = vm::clearCompleted,
                 onClearDismissed = vm::clearDismissed,
                 onDismiss = vm::setDismissed,
+                onConfirm = vm::setConfirmed,
                 onRetry = vm::loadCatalog,
                 onBack = { nav.popBackStack() },
                 onOpen = { id -> nav.navigate(Routes.flow(id)) },
@@ -134,6 +135,7 @@ fun AppNavHost(vm: AppViewModel = viewModel()) {
                 onAnswer = vm::answer,
                 onComplete = vm::setCompleted,
                 onDismiss = vm::setDismissed,
+                onConfirm = vm::setConfirmed,
                 onRetry = vm::loadCatalog,
                 onBack = { nav.popBackStack() },
             )

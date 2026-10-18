@@ -23,8 +23,18 @@ enum class SortOrder { RELEVANCE, DEADLINE }
  */
 data class StepView(val step: FlowStep, val unknown: List<String>)
 
-/** これからの期限1つ（通知と履歴の時系列に並べる）。soon は「期限の before_days 日前を過ぎた」（もうすぐ）。 */
-data class ReminderView(val id: String, val procedure: ProcedureDef, val reminder: Reminder, val due: LocalDate, val soon: Boolean)
+/**
+ * これからの期限1つ（通知と履歴の時系列に並べる）。soon は「期限の before_days 日前を過ぎた」（もうすぐ）。
+ * likely は、必要な手続きではなく関係がありそうな手続きの期限（薄く表示する）。
+ */
+data class ReminderView(
+    val id: String,
+    val procedure: ProcedureDef,
+    val reminder: Reminder,
+    val due: LocalDate,
+    val soon: Boolean,
+    val likely: Boolean = false,
+)
 
 /** 必要なもの1つ。conditional なら、当てはまるか分からないステップでだけ使う。 */
 data class Document(val name: String, val conditional: Boolean)
@@ -35,6 +45,7 @@ data class Document(val name: String, val conditional: Boolean)
  * - missing: 答えると判定が変わりうる項目（「判定には生年月日が必要です」の案内に使う）
  * - steps: 当てはまらない説明を除いたステップ
  * - dismissed: 本人が「自分には関係ない」にした（ルールの判定にかかわらず対象外）
+ * - confirmed: 本人が「当てはまる」にした（ルールの判定にかかわらず必要）
  */
 data class Scored(
     val procedure: ProcedureDef,
@@ -44,6 +55,7 @@ data class Scored(
     val missing: List<String>,
     val steps: List<StepView>,
     val dismissed: Boolean = false,
+    val confirmed: Boolean = false,
     /** 当てはまらない条件を除いた、期限の前の通知 */
     val reminders: List<Reminder> = emptyList(),
 ) {
@@ -105,19 +117,30 @@ object RuleEngine {
         threshold: Double?,
         today: LocalDate = LocalDate.now(),
         dismissed: Set<String> = emptySet(),
+        confirmed: Set<String> = emptySet(),
     ): Evaluation {
         val answers = withDerived(rawAnswers, today)
         val lower = threshold ?: Double.NEGATIVE_INFINITY
         val items = procedures.map { proc ->
             val judged = judge(proc, answers, lower)
-            // 本人が「自分には関係ない」にしたものは、ルールの判定より優先して対象外にする
-            if (proc.id in dismissed) judged.copy(status = Status.UNRELATED, reasons = listOf(DISMISSED_REASON), missing = emptyList(), dismissed = true)
-            else judged
+            // 本人が「関係ない」「当てはまる」にしたものは、ルールの判定より優先する（両方あれば「関係ない」）。
+            // 「当てはまる」では、ルールで当てはまった条件も理由に残す（対象外の理由は残さない）
+            when (proc.id) {
+                in dismissed -> judged.copy(status = Status.UNRELATED, reasons = listOf(DISMISSED_REASON), missing = emptyList(), dismissed = true)
+                in confirmed -> judged.copy(
+                    status = Status.REQUIRED,
+                    reasons = listOf(CONFIRMED_REASON) + if (judged.status == Status.UNRELATED) emptyList() else judged.reasons,
+                    missing = emptyList(),
+                    confirmed = true,
+                )
+                else -> judged
+            }
         }
         return Evaluation(items.sortedByDescending { it.score })
     }
 
-    const val DISMISSED_REASON = "自分で「関係ない」にしたため"
+    const val DISMISSED_REASON = "自分で「関係ない」にした"
+    const val CONFIRMED_REASON = "自分で「当てはまる」にした"
 
     private fun judge(proc: ProcedureDef, answers: Map<String, Answer>, lower: Double): Scored {
         var isRequired = false
@@ -181,16 +204,26 @@ object RuleEngine {
     fun reminderId(procedure: ProcedureDef, reminder: Reminder): String = "${procedure.id}:${reminder.label}"
 
     /**
-     * これからの期限を、手続きの期限ごとに次の1回だけ、早い順に並べる（通知と履歴の時系列）。
+     * これからの1年以内の期限を、手続きの期限ごとに次の1回だけ、早い順に並べる（通知と履歴の時系列）。
+     * 必要な手続きの期限だけを出し、includeLikely なら関係がありそうな手続きの期限も出す。
      * 対象外の手続きと、完了した手続き（completed）の期限は出さない。
      */
-    fun upcomingReminders(evaluation: Evaluation, completed: Set<String> = emptySet(), today: LocalDate = LocalDate.now()): List<ReminderView> =
-        evaluation.items.filter { it.status != Status.UNRELATED && it.procedure.id !in completed }.flatMap { item ->
+    fun upcomingReminders(
+        evaluation: Evaluation,
+        completed: Set<String> = emptySet(),
+        today: LocalDate = LocalDate.now(),
+        includeLikely: Boolean = false,
+    ): List<ReminderView> {
+        val shown = if (includeLikely) setOf(Status.REQUIRED, Status.LIKELY) else setOf(Status.REQUIRED)
+        val until = today.plusYears(1)
+        return evaluation.items.filter { it.status in shown && it.procedure.id !in completed }.flatMap { item ->
             item.reminders.map { r ->
                 val due = r.nextDue(today)
-                ReminderView(reminderId(item.procedure, r), item.procedure, r, due, soon = !today.isBefore(due.minusDays(r.beforeDays.toLong())))
+                val soon = !today.isBefore(due.minusDays(r.beforeDays.toLong()))
+                ReminderView(reminderId(item.procedure, r), item.procedure, r, due, soon, likely = item.status == Status.LIKELY)
             }
-        }.sortedBy { it.due }
+        }.filter { it.due.isBefore(until) }.sortedBy { it.due }
+    }
 
     /** 当てはまらない条件のあるステップを除く。未回答の条件だけなら「当てはまる場合のみ」として残す。 */
     private fun visibleSteps(proc: ProcedureDef, answers: Map<String, Answer>): List<StepView> = proc.steps.mapNotNull { step ->

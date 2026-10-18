@@ -7,13 +7,13 @@ due: {days: 14}
 office: 市区町村の役所（国民健康保険の窓口）
 relations:
   # 会社を辞めた後は国保・任意継続・家族の扶養から選ぶので、必須にはしない
-  - {field: occupation, op: in, value: [self_employed, freelance], flag: conditional, score: 0.8, reason: 自営業・フリーランスは国保に入るため}
-  - {field: occupation, value: unemployed, flag: conditional, score: 0.7, reason: 会社を辞めたら、国保・任意継続・家族の扶養から選ぶため}
-  - {field: occupation, value: retired, flag: conditional, score: 0.5, reason: 退職したら国保などに入るため}
-  - {field: occupation, value: part_time, flag: conditional, score: 0.3, reason: 勤務先の保険にも扶養にも入っていなければ国保に入るため}
-  - {field: occupation, value: employee, flag: unrelated, score: -1.0, reason: 勤務先の健康保険に入っているため}
-  - {field: health_insurance, op: in, value: [national, dependent], flag: unrelated, score: -1.0, reason: すでに国保か家族の扶養に入っているため}
-  - {field: age, op: gte, value: 75, flag: unrelated, score: -1.0, reason: 75歳からは後期高齢者医療制度に入るため}
+  - {field: occupation, op: in, value: [self_employed, freelance], flag: conditional, score: 0.8, reason: 自営業・フリーランスである}
+  - {field: occupation, value: unemployed, flag: conditional, score: 0.7, reason: 無職・求職中である}
+  - {field: occupation, value: retired, flag: conditional, score: 0.5, reason: 退職している}
+  - {field: occupation, value: part_time, flag: conditional, score: 0.3, reason: パート・アルバイトで働いている}
+  - {field: occupation, value: employee, flag: unrelated, score: -1.0, reason: 会社員・公務員である}
+  - {field: health_insurance, op: in, value: [national, dependent], flag: unrelated, score: -1.0, reason: すでに国保か家族の扶養に入っている}
+  - {field: age, op: gte, value: 75, flag: unrelated, score: -1.0, reason: 75歳以上}
 steps:
   - title: 前の勤務先から「資格喪失証明書」をもらう
     detail: 前の勤務先か健康保険組合に頼みます。

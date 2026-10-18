@@ -33,6 +33,16 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 import jp.jphacks.sd2606.data.Labels
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.outlined.AddTask
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.DoNotDisturbOn
+import androidx.compose.material3.OutlinedButton
+import jp.jphacks.sd2606.data.Scored
+import jp.jphacks.sd2606.data.Status
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -123,5 +133,45 @@ fun AppBottomBar(selected: Tab, onSelect: (Tab) -> Unit) {
             icon = { Icon(Icons.Default.Notifications, contentDescription = null) },
             label = { Text("通知と履歴") },
         )
+    }
+}
+
+/**
+ * 一覧のカードと手続きの画面の下部に並べるボタン（どちらも同じ並び）。
+ * - 必要な手続き: 「完了にする」だけ
+ * - 関係がありそうな手続き: 左「関係ない」（対象外へ移す）、右「当てはまる」（必要な手続きへ移す）
+ * - 「関係ない」にした手続き: 左「関係ありに戻す」、右「完了にする」
+ * 完了したものは、右が「未完了に戻す」になる。
+ */
+@Composable
+fun ProcedureActions(
+    item: Scored,
+    completed: Boolean,
+    onComplete: (Boolean) -> Unit,
+    onDismiss: (Boolean) -> Unit,
+    onConfirm: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (item.status != Status.REQUIRED) {
+            OutlinedButton(onClick = { onDismiss(!item.dismissed) }, modifier = Modifier.weight(1f)) {
+                Icon(Icons.Outlined.DoNotDisturbOn, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(if (item.dismissed) "関係ありに戻す" else "関係ない")
+            }
+        }
+        when {
+            completed -> OutlinedButton(onClick = { onComplete(false) }, modifier = Modifier.weight(1f)) { Text("未完了に戻す") }
+            item.status == Status.LIKELY -> Button(onClick = onConfirm, modifier = Modifier.weight(1f)) {
+                Icon(Icons.Outlined.AddTask, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("当てはまる")
+            }
+            else -> Button(onClick = { onComplete(true) }, modifier = Modifier.weight(1f)) {
+                Icon(Icons.Outlined.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("完了にする")
+            }
+        }
     }
 }

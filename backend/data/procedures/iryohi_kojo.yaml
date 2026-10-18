@@ -7,8 +7,8 @@ due: {month: 3, day: 15}
 office: 税務署（e-Tax で出せる）
 relations:
   # 医療費が年10万円などを超えるかで決まるので、必須にはしない
-  - {field: age, op: gte, value: 60, flag: conditional, score: 0.4, reason: 医療費がかかりやすい年代のため}
-  - {field: occupation, op: in, value: [employee, self_employed, freelance, retired, part_time], flag: conditional, score: 0.2, reason: 所得税を納めているため}
+  - {field: age, op: gte, value: 60, flag: conditional, score: 0.4, reason: 60歳以上}
+  - {field: occupation, op: in, value: [employee, self_employed, freelance, retired, part_time], flag: conditional, score: 0.2, reason: 所得税を納める働き方（会社員・自営業・パートなど）}
   - {field: occupation, value: student, flag: conditional, score: -0.3}   # 所得税を納めていない学生が多い
   - {field: annual_income, op: lte, value: 1780000, flag: conditional, score: -0.3}   # 給与だけなら所得税がかからない
 steps:

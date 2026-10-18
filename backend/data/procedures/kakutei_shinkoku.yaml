@@ -6,15 +6,15 @@ deadline: 翌年2月16日〜3月15日（還付だけなら5年以内）
 due: {month: 3, day: 15}
 office: 税務署（e-Tax で自宅から出せる）
 relations:
-  - {field: occupation, op: in, value: [self_employed, freelance], flag: required, score: 0.9, reason: 自営業・フリーランスは自分で申告するため}
-  - {field: occupation, value: unemployed, flag: conditional, score: 0.5, reason: 年の途中で辞めた人は税金が戻ることがあるため}
-  - {field: occupation, value: retired, flag: conditional, score: 0.4, reason: 年金の額やほかの所得によって申告が要るため}
-  - {field: occupation, value: part_time, flag: conditional, score: 0.3, reason: 掛け持ちや途中で辞めた人は税金が戻ることがあるため}
+  - {field: occupation, op: in, value: [self_employed, freelance], flag: required, score: 0.9, reason: 自営業・フリーランスである}
+  - {field: occupation, value: unemployed, flag: conditional, score: 0.5, reason: 無職・求職中である}
+  - {field: occupation, value: retired, flag: conditional, score: 0.4, reason: 退職している}
+  - {field: occupation, value: part_time, flag: conditional, score: 0.3, reason: パート・アルバイトで働いている}
   - field: occupation
     value: employee
     flag: conditional
     score: 0.3
-    reason: 年収2,000万円超は年末調整がないため
+    reason: "会社員・公務員で、年収が2,000万円を超えている"
     when:
       - {field: annual_income, op: gt, value: 20000000}
   - {field: occupation, value: employee, flag: conditional, score: -0.3}   # 会社員の多くは年末調整で済む

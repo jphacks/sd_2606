@@ -36,15 +36,11 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.DoNotDisturbOn
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.SuggestionChip
@@ -73,6 +69,7 @@ import jp.jphacks.sd2606.data.Status
 import jp.jphacks.sd2606.data.StepView
 import jp.jphacks.sd2606.ui.AppUiState
 import jp.jphacks.sd2606.ui.BackTopBar
+import jp.jphacks.sd2606.ui.ProcedureActions
 import jp.jphacks.sd2606.ui.QuestionCard
 import jp.jphacks.sd2606.ui.ResultContent
 import jp.jphacks.sd2606.ui.UiResult
@@ -91,6 +88,7 @@ fun FlowScreen(
     onAnswer: (String, Answer?) -> Unit,
     onComplete: (String, Boolean) -> Unit,
     onDismiss: (String, Boolean) -> Unit,
+    onConfirm: (String, Boolean) -> Unit,
     onRetry: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -98,12 +96,14 @@ fun FlowScreen(
     Scaffold(
         topBar = { BackTopBar(proc?.title ?: "手続きの流れ", onBack, bold = true) },
         bottomBar = {
-            if (proc != null) {
+            val item = proc?.let { state.evaluation?.find(it.id) }
+            if (proc != null && item != null) {
                 BottomActions(
+                    item = item,
                     completedOn = state.completed[proc.id],
-                    dismissed = proc.id in state.dismissed,
                     onComplete = { onComplete(proc.id, it) },
                     onDismiss = { onDismiss(proc.id, it) },
+                    onConfirm = { onConfirm(proc.id, it) },
                 )
             }
         },
@@ -136,11 +136,17 @@ fun FlowScreen(
 }
 
 /**
- * 画面の下に固定する2つのボタン。左は「自分には関係ない」、右は「完了にする」。
- * どちらも端末に記録し、押し直すと取り消せる。記録したときは、ボタンの上にその旨を出す。
+ * 画面の下に固定するボタン（一覧のカードと同じ ProcedureActions）。
+ * どれも端末に記録し、押し直すと取り消せる。記録したときは、ボタンの上にその旨を出す。
  */
 @Composable
-private fun BottomActions(completedOn: String?, dismissed: Boolean, onComplete: (Boolean) -> Unit, onDismiss: (Boolean) -> Unit) {
+private fun BottomActions(
+    item: Scored,
+    completedOn: String?,
+    onComplete: (Boolean) -> Unit,
+    onDismiss: (Boolean) -> Unit,
+    onConfirm: (Boolean) -> Unit,
+) {
     Surface(tonalElevation = 3.dp, shadowElevation = 8.dp) {
         Column(
             Modifier
@@ -151,26 +157,18 @@ private fun BottomActions(completedOn: String?, dismissed: Boolean, onComplete: 
         ) {
             val note = when {
                 completedOn != null -> completedLabel(completedOn)
-                dismissed -> "「関係ない」にしました"
+                item.dismissed -> "「関係ない」にしました"
+                item.confirmed -> "「当てはまる」にしました"
                 else -> null
             }
-            note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(onClick = { onDismiss(!dismissed) }, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Outlined.DoNotDisturbOn, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(if (dismissed) "関係ありに戻す" else "関係ない")
-                }
-                if (completedOn != null) {
-                    OutlinedButton(onClick = { onComplete(false) }, modifier = Modifier.weight(1f)) { Text("未完了に戻す") }
-                } else {
-                    Button(onClick = { onComplete(true) }, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Outlined.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("完了にする")
-                    }
+            note?.let {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                    // 必要な手続きには「関係ない」を出さないので、「当てはまる」の取り消しはここから
+                    if (item.confirmed && completedOn == null) TextButton(onClick = { onConfirm(false) }) { Text("取り消す") }
                 }
             }
+            ProcedureActions(item, completed = completedOn != null, onComplete = onComplete, onDismiss = onDismiss, onConfirm = { onConfirm(true) })
         }
     }
 }
@@ -351,6 +349,6 @@ private fun FlowScreenPreview() {
         evaluation = RuleEngine.evaluate(catalog.procedures, SampleData.answers, catalog.threshold),
     )
     AppTheme {
-        FlowScreen(state, SampleData.procedure.id, onAnswer = { _, _ -> }, onComplete = { _, _ -> }, onDismiss = { _, _ -> }, onRetry = {}, onBack = {})
+        FlowScreen(state, SampleData.procedure.id, onAnswer = { _, _ -> }, onComplete = { _, _ -> }, onDismiss = { _, _ -> }, onConfirm = { _, _ -> }, onRetry = {}, onBack = {})
     }
 }

@@ -1,6 +1,12 @@
 package jp.jphacks.sd2606.ui.recommend
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.ui.draw.clip
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -21,15 +27,11 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.ManageAccounts
 import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.DoNotDisturbOn
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
@@ -68,6 +70,7 @@ import jp.jphacks.sd2606.ui.AppUiState
 import jp.jphacks.sd2606.ui.BackTopBar
 import jp.jphacks.sd2606.ui.CategoryChip
 import jp.jphacks.sd2606.ui.PrivacyNote
+import jp.jphacks.sd2606.ui.ProcedureActions
 import jp.jphacks.sd2606.ui.QuestionInput
 import jp.jphacks.sd2606.ui.ResultContent
 import jp.jphacks.sd2606.ui.Tab
@@ -78,6 +81,7 @@ import kotlinx.coroutines.launch
 
 /**
  * おすすめ一覧。「必要な手続き」「関係がありそうな手続き」を、関連度順か期限順で並べる。
+ * カードには、当てはまる条件（対象外なら対象外の理由）を箇条書きで出す。関係がありそうな手続き以外は、押すと開く。
  * 対象外と判定したものと完了したものは、閉じたグループにまとめ、押すと開く。
  * 判定を変えうる情報が足りない手続きには「判定には生年月日が必要です」のように案内し、カードの中で入力できる。
  * 入力した値は端末に保存し、ほかの手続きの判定にも使う。
@@ -91,6 +95,7 @@ fun RecommendScreen(
     onClearCompleted: () -> Unit,
     onClearDismissed: () -> Unit,
     onDismiss: (String, Boolean) -> Unit,
+    onConfirm: (String, Boolean) -> Unit,
     onRetry: () -> Unit,
     onBack: () -> Unit,
     onOpen: (String) -> Unit,
@@ -151,6 +156,15 @@ fun RecommendScreen(
                     }
                 }
             }
+            val confirm: (Scored) -> Unit = { item ->
+                val id = item.procedure.id
+                onConfirm(id, true)
+                scope.launch {
+                    snackbar.currentSnackbarData?.dismiss()
+                    val result = snackbar.showSnackbar("「${item.procedure.title}」を必要な手続きに移しました", actionLabel = "元に戻す", duration = SnackbarDuration.Short)
+                    if (result == SnackbarResult.ActionPerformed) onConfirm(id, false)
+                }
+            }
             val card: @Composable (Scored, Modifier) -> Unit = { item, modifier ->
                 ProcedureCard(
                     item,
@@ -160,6 +174,7 @@ fun RecommendScreen(
                     onClick = { onOpen(item.procedure.id) },
                     onComplete = { complete(item) },
                     onDismiss = { dismiss(item, it) },
+                    onConfirm = { confirm(item) },
                     modifier = modifier,
                 )
             }
@@ -229,7 +244,7 @@ fun RecommendScreen(
                     questions = catalog.questions,
                     answers = state.answers,
                     completedCount = state.completed.size,
-                    dismissedCount = state.dismissed.size,
+                    dismissedCount = state.dismissed.size + state.confirmed.size,
                     onAnswer = onAnswer,
                     onClearCompleted = onClearCompleted,
                     onClearDismissed = onClearDismissed,
@@ -298,6 +313,7 @@ private fun ProcedureCard(
     onClick: () -> Unit,
     onComplete: () -> Unit,
     onDismiss: (Boolean) -> Unit,
+    onConfirm: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val proc = item.procedure
@@ -316,21 +332,18 @@ private fun ProcedureCard(
                     Text(it, style = MaterialTheme.typography.bodyMedium)
                 }
             }
+            if (item.reasons.isNotEmpty()) ReasonList(item)
             missing.forEach { q -> NeedInfo(q, answers[q.field]) { onAnswer(q, it) } }
-            // 手続きの画面の下部と同じ並び: 左「関係ない」、右「完了にする」。ルールで対象外のものには出さない
+            // 手続きの画面の下部と同じ並び（ProcedureActions）。ルールで対象外のものには出さない
             if (item.status != Status.UNRELATED || item.dismissed) {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 4.dp)) {
-                    OutlinedButton(onClick = { onDismiss(!item.dismissed) }, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Outlined.DoNotDisturbOn, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(if (item.dismissed) "関係ありに戻す" else "関係ない")
-                    }
-                    Button(onClick = onComplete, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Outlined.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("完了にする")
-                    }
-                }
+                ProcedureActions(
+                    item,
+                    completed = false,
+                    onComplete = { if (it) onComplete() },
+                    onDismiss = onDismiss,
+                    onConfirm = onConfirm,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
             }
         }
     }
@@ -338,6 +351,45 @@ private fun ProcedureCard(
         OutlinedCard(onClick = onClick, modifier = modifier.fillMaxWidth()) { content() }
     } else {
         Card(onClick = onClick, modifier = modifier.fillMaxWidth()) { content() }
+    }
+}
+
+/**
+ * 判定の理由の箇条書き。必要・関係がありそうなら当てはまった条件、対象外なら対象外の理由。
+ * 関係がありそうな手続きは、自分で振り分ける手がかりになるので常に出す。それ以外は見出しだけ出し、押すと開く。
+ */
+@Composable
+private fun ReasonList(item: Scored) {
+    val collapsible = item.status != Status.LIKELY
+    var open by rememberSaveable(item.procedure.id) { mutableStateOf(false) }
+    val title = if (item.status == Status.UNRELATED) "対象外の理由" else "当てはまる条件"
+    Column {
+        if (collapsible) {
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { open = !open }.padding(vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(title, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(
+                    if (open) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = if (open) "${title}を閉じる" else "${title}を開く",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+        } else {
+            Text(title, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        AnimatedVisibility(visible = !collapsible || open, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+            Column(Modifier.padding(top = 2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                item.reasons.forEach { reason ->
+                    Row {
+                        Text("・", style = MaterialTheme.typography.bodyMedium)
+                        Text(reason, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -408,6 +460,7 @@ private fun RecommendScreenPreview() {
             onClearCompleted = {},
             onClearDismissed = {},
             onDismiss = { _, _ -> },
+            onConfirm = { _, _ -> },
             onRetry = {},
             onBack = {},
             onOpen = {},

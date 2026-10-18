@@ -19,8 +19,8 @@ object SampleData {
         links = listOf(Link("厚生労働省", "https://www.mhlw.go.jp/")),
         due = Due(days = 14),
         relations = listOf(
-            Relation("occupation", value = JsonPrimitive("unemployed"), flag = "conditional", score = 0.7, reason = "会社を辞めた人は、国保・任意継続・家族の扶養から選ぶため"),
-            Relation("occupation", value = JsonPrimitive("employee"), flag = "unrelated", score = -1.0, reason = "会社員は勤務先の健康保険に入るため"),
+            Relation("occupation", value = JsonPrimitive("unemployed"), flag = "conditional", score = 0.7, reason = "無職・求職中である"),
+            Relation("occupation", value = JsonPrimitive("employee"), flag = "unrelated", score = -1.0, reason = "会社員・公務員である"),
         ),
     )
 
@@ -32,7 +32,7 @@ object SampleData {
         deadline = "該当した日から14日以内",
         relations = listOf(
             Relation(
-                "occupation", value = JsonPrimitive("unemployed"), flag = "conditional", score = 0.8, reason = "無職の20〜59歳は国民年金に加入するため",
+                "occupation", value = JsonPrimitive("unemployed"), flag = "conditional", score = 0.8, reason = "20〜59歳で、無職・求職中である",
                 conditions = listOf(Condition("age", "gte", JsonPrimitive(20)), Condition("age", "lt", JsonPrimitive(60))),
             ),
         ),

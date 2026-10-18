@@ -10,7 +10,7 @@ relations:
     value: 20
     flag: conditional
     score: 1.0
-    reason: 今年20歳になるため
+    reason: 今年20歳になる
     when:
       - {field: occupation, op: ne, value: employee}
   - field: occupation
@@ -18,7 +18,7 @@ relations:
     value: [self_employed, freelance, unemployed, retired]
     flag: conditional
     score: 0.8
-    reason: 自営業・フリーランス・無職は国民年金に入るため
+    reason: 20〜59歳で、自営業・フリーランス・無職などである
     when:
       - {field: occupation, op: ne, value: employee}
       - {field: age, op: gte, value: 20}
@@ -27,15 +27,15 @@ relations:
     value: student
     flag: conditional
     score: 0.6
-    reason: 20歳以上の学生も国民年金に入るため
+    reason: 20〜59歳の学生である
     when:
       - {field: occupation, op: ne, value: employee}
       - {field: age, op: gte, value: 20}
       - {field: age, op: lt, value: 60}
-  - {field: occupation, value: part_time, flag: conditional, score: 0.4, reason: 勤務先の厚生年金に入っていなければ国民年金に入るため}
-  - {field: occupation, value: employee, flag: unrelated, score: -1.0, reason: 厚生年金に入っているため}
-  - {field: age_at_year_end, op: lt, value: 20, flag: unrelated, score: -1.0, reason: 20歳になるまでは入らないため}
-  - {field: age, op: gte, value: 60, flag: unrelated, score: -1.0, reason: 60歳からは入らないため}
+  - {field: occupation, value: part_time, flag: conditional, score: 0.4, reason: パート・アルバイトで働いている}
+  - {field: occupation, value: employee, flag: unrelated, score: -1.0, reason: 会社員・公務員である}
+  - {field: age_at_year_end, op: lt, value: 20, flag: unrelated, score: -1.0, reason: 年末の時点で20歳未満}
+  - {field: age, op: gte, value: 60, flag: unrelated, score: -1.0, reason: 60歳以上}
 steps:
   - title: 届いた「国民年金加入のお知らせ」を確かめる
     detail: 20歳の誕生日から約2週間で届きます。届出は要りません。

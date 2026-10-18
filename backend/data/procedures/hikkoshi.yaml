@@ -6,8 +6,8 @@ deadline: 転入届は引越してから14日以内
 due: {days: 14}
 office: 旧住所と新住所の市区町村の役所
 relations:
-  - {field: age, op: lt, value: 30, flag: conditional, score: 0.4, reason: 引越しが多い年代のため}
-  - {field: occupation, value: student, flag: conditional, score: 0.2, reason: 進学で一人暮らしを始めるときも届出が要るため}
+  - {field: age, op: lt, value: 30, flag: conditional, score: 0.4, reason: 30歳未満}
+  - {field: occupation, value: student, flag: conditional, score: 0.2, reason: 学生である}
 steps:
   - title: 転出届を出す
     detail: マイナポータルからオンラインで出せます（同じ市区町村の中なら不要）。

@@ -27,6 +27,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -40,8 +48,9 @@ import jp.jphacks.sd2606.ui.ResultContent
 import jp.jphacks.sd2606.ui.Tab
 
 /**
- * 通知と履歴。完了した手続き（完了した日）と、これからの期限（毎月・毎年の納付や申告）を、
- * 日付の古い順に上から1本の時系列に並べる。完了したものは「未完了に戻す」で戻せる。
+ * 通知と履歴。上に、必要な手続きのこれから1年以内の期限（毎月・毎年の納付や申告。それぞれ次の1回）を日付の近い順に、
+ * 下に、完了した手続き（完了した日の新しい順）を並べる。完了したものは「未完了に戻す」で戻せる。
+ * スイッチで、関係がありそうな手続きの期限も出せる（薄い文字と「関係があるかも」の但し書きで、必要なものと区別する）。
  * 通知そのものは送らず、期限の before_days 日前から「もうすぐ」と目立たせる。
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -58,56 +67,76 @@ fun ManageScreen(
         bottomBar = { AppBottomBar(Tab.HISTORY, onTab) },
     ) { padding ->
         ResultContent(state.catalog, onRetry, Modifier.padding(padding)) {
+            var showLikely by rememberSaveable { mutableStateOf(false) }
             val evaluation = state.evaluation ?: return@ResultContent
             val today = remember { LocalDate.now() }
             val done = evaluation.items
                 .mapNotNull { item -> state.completed[item.procedure.id]?.let { runCatching { LocalDate.parse(it) }.getOrNull() }?.let { item to it } }
-                .sortedBy { it.second }
-            val upcoming = RuleEngine.upcomingReminders(evaluation, state.completed.keys, today)
+                .sortedByDescending { it.second }
+            val upcoming = RuleEngine.upcomingReminders(evaluation, state.completed.keys, today, includeLikely = showLikely)
             LazyColumn(contentPadding = PaddingValues(16.dp), modifier = Modifier.padding(padding)) {
-                item {
+                item(key = "note") {
                     Text(
-                        "完了した手続きと、これからの期限を日付の順に並べています。",
+                        "必要な手続きの、これから1年以内の期限を日付の近い順に並べています。完了した手続きは下にまとめています。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 8.dp),
                     )
                 }
-                items(done, key = { "done:" + it.first.procedure.id }) { (item, date) ->
-                    TimelineRow(
-                        date = date,
-                        today = today,
-                        icon = Icons.Default.CheckCircle,
-                        iconColor = MaterialTheme.colorScheme.primary,
-                        title = item.procedure.title,
-                        note = "完了",
-                        onClick = { onOpen(item.procedure.id) },
-                    ) {
-                        TextButton(onClick = { onComplete(item.procedure.id, false) }) { Text("未完了に戻す") }
-                    }
-                }
-                item(key = "today") { TodayDivider(today) }
+                item(key = "likely-switch") { LikelySwitch(showLikely) { showLikely = it } }
+
+                item(key = "h-upcoming") { SectionTitle("これからの期限（今日 ${today.monthValue}月${today.dayOfMonth}日から1年）") }
                 if (upcoming.isEmpty()) {
-                    item { Text("これからの期限はありません。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline) }
+                    item(key = "no-upcoming") {
+                        Text("これからの期限はありません。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
+                    }
                 }
                 items(upcoming, key = { "due:" + it.id }) { r ->
                     val days = ChronoUnit.DAYS.between(today, r.due)
+                    val soon = r.soon && !r.likely
                     TimelineRow(
                         date = r.due,
                         today = today,
                         icon = Icons.Default.Schedule,
-                        iconColor = if (r.soon) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+                        iconColor = if (soon) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
                         title = r.reminder.label,
-                        note = r.procedure.title,
+                        note = if (r.likely) "関係があるかも・${r.procedure.title}" else r.procedure.title,
+                        faint = r.likely,
                         onClick = { onOpen(r.procedure.id) },
                     ) {
                         Text(
                             if (days == 0L) "今日" else "あと${days}日",
                             style = MaterialTheme.typography.labelLarge,
-                            fontWeight = if (r.soon) FontWeight.Bold else null,
-                            color = if (r.soon) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = if (soon) FontWeight.Bold else null,
+                            color = if (soon) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 8.dp),
                         )
+                    }
+                }
+                if (upcoming.any { it.likely }) {
+                    item(key = "likely-note") {
+                        Text(
+                            "薄く表示しているものは、関係がありそうな手続きの期限です。当てはまるかどうかは、押して手続きの画面で確かめてください。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                    }
+                }
+
+                if (done.isNotEmpty()) {
+                    item(key = "h-done") { SectionTitle("完了した手続き（${done.size}件）") }
+                    items(done, key = { "done:" + it.first.procedure.id }) { (item, date) ->
+                        TimelineRow(
+                            date = date,
+                            today = today,
+                            icon = Icons.Default.CheckCircle,
+                            iconColor = MaterialTheme.colorScheme.primary,
+                            title = item.procedure.title,
+                            note = "完了",
+                            onClick = { onOpen(item.procedure.id) },
+                        ) {
+                            TextButton(onClick = { onComplete(item.procedure.id, false) }) { Text("未完了に戻す") }
+                        }
                     }
                 }
             }
@@ -115,22 +144,31 @@ fun ManageScreen(
     }
 }
 
-/** 「今日」の区切り。上が過去（完了）、下がこれから（期限）。 */
+/** 関係がありそうな手続きの期限も出すかどうかのスイッチ。 */
 @Composable
-private fun TodayDivider(today: LocalDate) {
-    Row(Modifier.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        HorizontalDivider(Modifier.weight(1f), color = MaterialTheme.colorScheme.primary)
-        Text(
-            "今日 ${today.monthValue}月${today.dayOfMonth}日",
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(horizontal = 8.dp),
-        )
-        HorizontalDivider(Modifier.weight(1f), color = MaterialTheme.colorScheme.primary)
+private fun LikelySwitch(checked: Boolean, onChange: (Boolean) -> Unit) {
+    Surface(
+        onClick = { onChange(!checked) },
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+    ) {
+        Row(Modifier.padding(start = 16.dp, end = 12.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("関係がありそうな手続きも表示", style = MaterialTheme.typography.bodyLarge)
+                Text("必要かどうかまだ分からない手続きの期限も、薄く並べます", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Switch(checked = checked, onCheckedChange = onChange)
+        }
     }
 }
 
-/** 時系列の1行: 日付、アイコン、タイトルと補足、右端（戻すボタンや「あと〇日」）。押すと手続きの画面を開く。 */
+@Composable
+private fun SectionTitle(text: String) {
+    Text(text, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 20.dp, bottom = 4.dp))
+}
+
+/** 時系列の1行: 日付、アイコン、タイトルと補足、右端（戻すボタンや「あと〇日」）。押すと手続きの画面を開く。faint なら薄く出す。 */
 @Composable
 private fun TimelineRow(
     date: LocalDate,
@@ -140,11 +178,12 @@ private fun TimelineRow(
     title: String,
     note: String,
     onClick: () -> Unit,
+    faint: Boolean = false,
     trailing: @Composable () -> Unit,
 ) {
     Column {
         Row(
-            Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 8.dp),
+            Modifier.fillMaxWidth().clickable(onClick = onClick).alpha(if (faint) 0.5f else 1f).padding(vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.width(52.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -157,7 +196,7 @@ private fun TimelineRow(
             Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = if (faint) null else FontWeight.Bold)
                 Text(note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
             }
             trailing()

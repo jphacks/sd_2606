@@ -33,6 +33,8 @@ data class AppUiState(
     val completed: Map<String, String> = emptyMap(),
     /** 本人が「自分には関係ない」にした手続きの id */
     val dismissed: Set<String> = emptySet(),
+    /** 本人が「当てはまる」にした手続きの id */
+    val confirmed: Set<String> = emptySet(),
     /** catalog と answers から端末内で判定した結果 */
     val evaluation: Evaluation? = null,
 )
@@ -48,6 +50,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             answers = store.loadAnswers(),
             completed = store.loadCompleted(),
             dismissed = store.loadDismissed(),
+            confirmed = store.loadConfirmed(),
         ),
     )
     val state: StateFlow<AppUiState> = _state.asStateFlow()
@@ -104,24 +107,39 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(completed = emptyMap()) }
     }
 
-    /** 「自分には関係ない」にする（対象外のグループに移す）か、元に戻す。 */
+    /** 「自分には関係ない」にする（対象外のグループに移す）か、元に戻す。「当てはまる」にしていたら取り消す。 */
     fun setDismissed(id: String, dismissed: Boolean) {
         _state.update {
             val ids = if (dismissed) it.dismissed + id else it.dismissed - id
+            val confirmed = if (dismissed) it.confirmed - id else it.confirmed
             store.saveDismissed(ids)
-            it.copy(dismissed = ids).evaluated()
+            store.saveConfirmed(confirmed)
+            it.copy(dismissed = ids, confirmed = confirmed).evaluated()
         }
     }
 
-    fun clearDismissed() {
-        store.saveDismissed(emptySet())
-        _state.update { it.copy(dismissed = emptySet()).evaluated() }
+    /** 「当てはまる」にする（必要な手続きのグループに移す）か、元に戻す。「関係ない」にしていたら取り消す。 */
+    fun setConfirmed(id: String, confirmed: Boolean) {
+        _state.update {
+            val ids = if (confirmed) it.confirmed + id else it.confirmed - id
+            val dismissed = if (confirmed) it.dismissed - id else it.dismissed
+            store.saveConfirmed(ids)
+            store.saveDismissed(dismissed)
+            it.copy(confirmed = ids, dismissed = dismissed).evaluated()
+        }
     }
 
-    /** 端末に保存している回答・完了の記録・「関係ない」の記録をすべて消す。 */
+    /** 「関係ない」「当てはまる」の記録を消し、ルールの判定に戻す。 */
+    fun clearDismissed() {
+        store.saveDismissed(emptySet())
+        store.saveConfirmed(emptySet())
+        _state.update { it.copy(dismissed = emptySet(), confirmed = emptySet()).evaluated() }
+    }
+
+    /** 端末に保存している回答・完了の記録・「関係ない」「当てはまる」の記録をすべて消す。 */
     fun clearAll() {
         store.clearAll()
-        _state.update { it.copy(answers = emptyMap(), completed = emptyMap(), dismissed = emptySet()).evaluated() }
+        _state.update { it.copy(answers = emptyMap(), completed = emptyMap(), dismissed = emptySet(), confirmed = emptySet()).evaluated() }
     }
 
     /**
@@ -137,7 +155,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun AppUiState.evaluated(): AppUiState {
         val catalog = (catalog as? UiResult.Success)?.data ?: return this
-        return copy(evaluation = RuleEngine.evaluate(catalog.procedures, answers, catalog.threshold, dismissed = dismissed))
+        return copy(evaluation = RuleEngine.evaluate(catalog.procedures, answers, catalog.threshold, dismissed = dismissed, confirmed = confirmed))
     }
 
     private fun Throwable?.toMessage() =

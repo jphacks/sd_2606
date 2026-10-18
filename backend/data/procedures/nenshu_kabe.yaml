@@ -12,7 +12,7 @@ relations:
     value: 1360000
     flag: conditional
     score: 0.7
-    reason: 年収が136万円を超え、家族の税金の控除が変わるため
+    reason: 家族の扶養に入っていて、年収が136万円を超えている
     when:
       - {field: supported_by, op: in, value: [parent, spouse]}
       - {field: occupation, op: ne, value: employee}   # 会社員は「親の扶養から外れる」で扱う
@@ -21,7 +21,7 @@ relations:
     value: 1300000
     flag: conditional
     score: 0.7
-    reason: 年収が130万円以上で、家族の健康保険の扶養から外れるため
+    reason: 家族の扶養に入っていて、年収が130万円以上
     when:
       - {field: supported_by, op: in, value: [parent, spouse]}
       - {field: age_at_year_end, op: not_in, value: [19, 20, 21, 22]}
@@ -31,18 +31,18 @@ relations:
     value: 1300000
     flag: conditional
     score: 0.7
-    reason: 年収が130万円以上で、配偶者の健康保険の扶養から外れるため
+    reason: 配偶者の扶養に入っていて、年収が130万円以上
     when:
       - {field: supported_by, value: spouse}
       - {field: age_at_year_end, op: in, value: [19, 20, 21, 22]}
       - {field: occupation, op: ne, value: employee}
-  - {field: occupation, value: part_time, flag: conditional, score: 0.5, reason: アルバイト・パートの年収で家族の扶養が変わるため}
-  - {field: occupation, value: student, flag: conditional, score: 0.4, reason: アルバイトの年収で親の扶養が変わるため}
-  - {field: supported_by, op: in, value: [parent, spouse], flag: conditional, score: 0.3, reason: 家族の扶養に入っているため}
-  - {field: annual_income, op: gte, value: 1000000, flag: conditional, score: 0.3, reason: 年収が扶養の基準に近いため}
+  - {field: occupation, value: part_time, flag: conditional, score: 0.5, reason: パート・アルバイトで働いている}
+  - {field: occupation, value: student, flag: conditional, score: 0.4, reason: 学生である}
+  - {field: supported_by, op: in, value: [parent, spouse], flag: conditional, score: 0.3, reason: 家族の扶養に入っている}
+  - {field: annual_income, op: gte, value: 1000000, flag: conditional, score: 0.3, reason: 年収が100万円以上}
   - {field: annual_income, op: lt, value: 500000, flag: conditional, score: -0.3}   # 基準から遠い
-  - {field: supported_by, value: none, flag: unrelated, score: -1.0, reason: 家族の扶養に入っていないため}
-  - {field: occupation, value: employee, flag: unrelated, score: -1.0, reason: 自分の勤務先の健康保険に入っているため}
+  - {field: supported_by, value: none, flag: unrelated, score: -1.0, reason: 家族の扶養に入っていない}
+  - {field: occupation, value: employee, flag: unrelated, score: -1.0, reason: 会社員・公務員である}
 steps:
   - title: 扶養に入っているか家族に確かめる
     detail: 健康保険は保険証（資格確認書）で、税金は家族の年末調整の書類で分かります。

@@ -6,7 +6,7 @@ deadline: 出生届は14日以内、児童手当は15日以内
 due: {days: 14}
 office: 市区町村の役所・加入している健康保険
 relations:
-  - {field: age, op: gte, value: 25, flag: conditional, score: 0.3, reason: 子どもが生まれる人が多い年代のため}
+  - {field: age, op: gte, value: 25, flag: conditional, score: 0.3, reason: 25歳以上}
   - {field: age, op: gte, value: 45, flag: conditional, score: -0.4}   # 25歳以上の加点を打ち消す
   - {field: occupation, value: student, flag: conditional, score: -0.3}
 steps:

@@ -6,8 +6,8 @@ deadline: 開業から1か月以内（青色申告の申請は2か月以内）
 due: {days: 30}
 office: 税務署（e-Tax で出せる）
 relations:
-  - {field: occupation, op: in, value: [self_employed, freelance], flag: required, score: 0.8, reason: 個人で事業をしているため（まだ出していなければ）}
-  - {field: occupation, op: not_in, value: [self_employed, freelance], flag: unrelated, score: -1.0, reason: 個人で事業をしていないため}
+  - {field: occupation, op: in, value: [self_employed, freelance], flag: required, score: 0.8, reason: 自営業・フリーランスである（まだ出していなければ）}
+  - {field: occupation, op: not_in, value: [self_employed, freelance], flag: unrelated, score: -1.0, reason: 自営業・フリーランスではない}
 steps:
   - title: 勤務先の副業の決まりを確かめる
     detail: 就業規則で副業が認められているか確かめます。
