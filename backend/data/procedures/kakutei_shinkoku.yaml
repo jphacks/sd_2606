@@ -10,6 +10,18 @@ relations:
   - {field: occupation, value: unemployed, flag: conditional, score: 0.5, reason: 年の途中で辞めた人は税金が戻ることがあるため}
   - {field: occupation, value: retired, flag: conditional, score: 0.4, reason: 年金の額やほかの所得によって申告が要るため}
   - {field: occupation, value: part_time, flag: conditional, score: 0.3, reason: 掛け持ちや途中で辞めた人は税金が戻ることがあるため}
+  # 掛け持ちは質問票では聞かず、カードの中で聞く（questions.yaml の inline）。「はい」なら必要な手続きに上げる。
+  # 年末調整されない方の給与は所得税が多めに引かれ、申告で戻ることが多い。その給与が20万円を超えると申告が義務になる（国税庁 No.1900）
+  - field: occupation
+    op: in
+    value: [part_time, student]
+    flag: conditional
+    score: 0.5
+    reason: 掛け持ちしていると所得税が多めに引かれていて、申告で戻るか、申告が義務になるため
+    when:
+      - {field: multiple_jobs, value: "yes"}
+      - {field: annual_income, op: gt, value: 0}
+  - {field: multiple_jobs, value: "no", flag: conditional, score: -0.2}   # 1か所なら年末調整で済むことが多い
   - field: occupation
     value: employee
     flag: conditional

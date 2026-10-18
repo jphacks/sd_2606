@@ -28,6 +28,8 @@ HealthInsurance = Literal[
     "unknown",
 ]
 
+YesNo = Literal["yes", "no"]
+
 Category = Literal["tax", "insurance", "pension", "benefit", "registration"]
 
 # きっかけの回答（年齢・働き方など）と手続きの関係: required（必須）/ conditional（条件次第）/ unrelated（無関係）
@@ -46,6 +48,7 @@ class UserProfile(BaseModel):
     prev_health_insurance: HealthInsurance | None = Field(default=None, description="就職する前に入っていた健康保険")
     has_spouse: bool = False
     dependents: int = Field(default=0, ge=0, description="扶養している家族の人数")
+    multiple_jobs: YesNo | None = Field(default=None, description="今年、給与をもらった勤務先が2か所以上あるか（掛け持ち）")
 
     @field_validator("occupation", mode="before")
     @classmethod
@@ -178,6 +181,9 @@ class Question(BaseModel):
     )
     none_if_empty: bool = Field(
         default=False, description="multi で何も選ばなかったとき、未回答ではなく「どれにも当てはまらない」として判定する"
+    )
+    inline: bool = Field(
+        default=False, description="true なら最初の画面では聞かず、判定に必要になった手続きのカードの中でだけ質問文をそのまま出して聞く"
     )
     choices: list[Choice] = Field(default_factory=list)
     unit: str = Field(default="", description="number の単位（画面の表示用）")

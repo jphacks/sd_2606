@@ -27,6 +27,7 @@ class QuestionDef(BaseModel):
     text: str
     label: str
     required: bool = False
+    inline: bool = False
     none_if_empty: bool = False
     provides: list[str] = Field(default_factory=list, description="この回答からアプリが計算する項目")
     unit: str = ""
@@ -100,6 +101,8 @@ def load_question_defs(path: Path = QUESTIONS_FILE) -> list[QuestionDef]:
         for f in q.provides or [q.field]:
             if f not in UserProfile.model_fields:
                 raise ValueError(f"{path.name}: unknown field {f}")
+        if q.required and q.inline:
+            raise ValueError(f"{path.name}: {q.field} は required と inline を両方にはできません")
         if q.kind in ("single", "multi") and not q.choices:
             raise ValueError(f"{path.name}: {q.field} に choices がありません")
     return defs
@@ -120,6 +123,7 @@ def build_catalog() -> Catalog:
                 text=q.text,
                 label=q.label,
                 required=q.required,
+                inline=q.inline,
                 none_if_empty=q.none_if_empty,
                 choices=choices,
                 unit=q.unit,

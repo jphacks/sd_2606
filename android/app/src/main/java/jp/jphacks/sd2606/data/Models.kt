@@ -117,6 +117,8 @@ data class Question(
     val label: String = "",
     /** true なら最初の画面で必ず答えてもらう（基本情報）。false は任意（最初の画面の「もっと詳しく」と、判定に必要になった手続きで聞く） */
     val required: Boolean = false,
+    /** true なら最初の画面では聞かず、判定に必要になった手続きのカードの中でだけ質問文をそのまま出して聞く（掛け持ちなど） */
+    val inline: Boolean = false,
     /** multi で何も選ばなかったとき、未回答ではなく「どれにも当てはまらない」とする */
     @SerialName("none_if_empty") val noneIfEmpty: Boolean = false,
     val choices: List<Choice> = emptyList(),

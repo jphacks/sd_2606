@@ -103,6 +103,18 @@ def test_multiple_occupations():
     assert "gakusei_tokurei" in ids(UserProfile(age=20, occupation=["student", "part_time"], annual_income=800_000))
 
 
+def test_multiple_jobs_makes_tax_return_required():
+    # 掛け持ちのバイト（年収130万円）は、カードの質問に「はい」と答えると確定申告が必要になる
+    base = dict(age=20, age_at_year_end=20, occupation=["student", "part_time"], annual_income=1_300_000, supported_by="parent")
+    assert not by_id(UserProfile(**base))["kakutei_shinkoku"].required
+    rec = by_id(UserProfile(**base, multiple_jobs="yes"))["kakutei_shinkoku"]
+    assert rec.required and any("掛け持ち" in r for r in rec.reasons)
+    assert not by_id(UserProfile(**base, multiple_jobs="no"))["kakutei_shinkoku"].required
+    # 収入が無ければ「はい」でも必要にしない
+    no_income = by_id(UserProfile(**{**base, "annual_income": 0}, multiple_jobs="yes"))
+    assert "kakutei_shinkoku" not in no_income or not no_income["kakutei_shinkoku"].required
+
+
 def test_unrelated_reasons_are_not_shown_as_reasons():
     rec = by_id(UserProfile(age=22, age_at_year_end=22, occupation="student", annual_income=800_000, supported_by="parent"))
     assert all("ため" in r for r in rec["nenshu_kabe"].reasons)

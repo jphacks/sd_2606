@@ -40,8 +40,18 @@ def test_basic_questions_are_required_and_others_optional():
     # 最初の画面で必ず答えてもらう基本情報。ほかは任意（必要になった手続きのカードでも聞く）
     required = [q.field for q in build_catalog().questions if q.required]
     assert required == ["occupation", "birth_date", "supported_by", "annual_income"]
-    optional = {q.field for q in build_catalog().questions if not q.required}
+    optional = {q.field for q in build_catalog().questions if not q.required and not q.inline}
     assert optional == {"health_insurance", "prev_health_insurance", "dependents"}
+
+
+def test_inline_questions_are_yes_no_and_used_by_some_procedure():
+    # カードの中でだけ聞く質問は「はい / いいえ」で、どれかの手続きの判定に使われている
+    used = {c.field for p in load_procedures().values() for r in p.relations for c in (r, *r.when)}
+    inline = [q for q in build_catalog().questions if q.inline]
+    assert [q.field for q in inline] == ["multiple_jobs"]
+    for q in inline:
+        assert not q.required and q.field in used
+        assert [c.value for c in q.choices] == ["yes", "no"]
 
 
 def test_required_single_choice_questions_offer_unknown():
