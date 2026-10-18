@@ -115,13 +115,13 @@ sd_2606/
  Android アプリ / ブラウザ
         │ HTTPS
         ▼
- Cloudflare（https://<ランダム>.trycloudflare.com）      ← 現在の公開経路（臨時）
-        │ cloudflared が Pi から外向きに張ったトンネル
+ Tailscale Funnel（https://<ホスト名>:8443/）           ← 公開経路（固定 URL）
+        │ Tailscale を通って Pi の tailscaled に届く
         ▼
 ┌─ Raspberry Pi ─────────────────────────────────────────┐
-│ sd2606-tunnel  cloudflared tunnel --url 127.0.0.1:8606  │
+│ tailscaled     Funnel :8443 → 127.0.0.1:8606            │
 │ sd2606-api     uvicorn app.main:app  127.0.0.1:8606      │──▶ Claude API
-│ （tailscaled   Funnel :8443 → 127.0.0.1:8606  ※準備中） │
+│ （sd2606-tunnel  Cloudflare Quick Tunnel  ※停止中）    │
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -133,7 +133,7 @@ sd_2606/
 | OS | Debian GNU/Linux 13 (trixie)、aarch64 |
 | Python | 3.13（システムの python3 で venv を作る） |
 | 配置 | 実行ユーザーのホームに clone（`~/sd_2606`）。venv は `backend/.venv` |
-| 公開 | Cloudflare Quick Tunnel（`cloudflared` 2026.10.1、GitHub の公式 .deb）。無料・アカウント不要 |
+| 公開 | Tailscale Funnel（HTTPS のポート 8443 → `127.0.0.1:8606`）。URL は固定。2026-10-17 16:05 までは Cloudflare Quick Tunnel（`cloudflared` 2026.10.1）を臨時で使っていた（停止済み。ユニットとスクリプトは残してある） |
 
 ### systemd サービス
 
@@ -142,7 +142,7 @@ sd_2606/
 | ユニット | 内容 | 主な設定 |
 | --- | --- | --- |
 | `sd2606-api` | FastAPI（uvicorn）。**127.0.0.1:8606 だけで待ち受ける**（LAN や外部から直接は繋がらない） | `EnvironmentFile=backend/.env`、`Restart=on-failure`、`MemoryMax=512M`、`ProtectSystem=strict`・`ProtectHome=read-only`・`NoNewPrivileges`（コードやシステムを書き換えられない） |
-| `sd2606-tunnel` | `cloudflared tunnel --no-autoupdate --url http://127.0.0.1:8606`。Cloudflare への外向き接続だけを使うので、ルーターやファイアウォールのポート開放は不要 | `After=sd2606-api`、`Restart=on-failure`、同様のサンドボックス設定 |
+| `sd2606-tunnel` | **停止中**（2026-10-17 に Funnel へ切り替えた）。`cloudflared tunnel --no-autoupdate --url http://127.0.0.1:8606`。Cloudflare への外向き接続だけを使うので、ルーターやファイアウォールのポート開放は不要 | `After=sd2606-api`、`Restart=on-failure`、同様のサンドボックス設定 |
 
 Pi 4 では API の起動に約5秒かかる。スクリプトは `/health` が応答するまで最大30秒待つ。
 
@@ -166,8 +166,8 @@ Pi 4 では API の起動に約5秒かかる。スクリプトは `/health` が�
 | --- | --- |
 | `install.sh` | 初回: venv 作成・依存のインストール・`.env` 作成・`sd2606-api` の配置と起動 |
 | `deploy.sh` | 更新: `origin/main` に合わせて（ローカルの変更は破棄）依存を入れ直し、API を再起動 |
-| `install-tunnel.sh` | `sd2606-tunnel` の配置と起動。最後に URL を表示する |
-| `tunnel-url.sh` | 現在の Quick Tunnel の URL を表示（journal から読む） |
+| `install-tunnel.sh` | `sd2606-tunnel` の配置と起動。最後に URL を表示する（Cloudflare Quick Tunnel 用。いまは使っていない） |
+| `tunnel-url.sh` | 現在の Quick Tunnel の URL を表示（journal から読む。いまは使っていない） |
 
 ### 一から構築する手順
 
@@ -178,10 +178,9 @@ bash ~/sd_2606/backend/deploy/pi/install.sh          # API を起動
 nano ~/sd_2606/backend/.env                           # ANTHROPIC_API_KEY を設定
 sudo systemctl restart sd2606-api
 
-# cloudflared（arm64 の例。最新版は https://github.com/cloudflare/cloudflared/releases ）
-curl -fsSLo /tmp/cloudflared.deb https://github.com/cloudflare/cloudflared/releases/download/2026.10.1/cloudflared-linux-arm64.deb
-sudo dpkg -i /tmp/cloudflared.deb
-bash ~/sd_2606/backend/deploy/pi/install-tunnel.sh   # 公開 URL が表示される
+# 公開（Tailscale Funnel。tailnet の ACL で funnel 属性を許可しておく）
+sudo tailscale funnel --bg --https=8443 http://127.0.0.1:8606
+tailscale funnel status                              # 公開 URL が表示される
 ```
 
 ### 運用
@@ -189,25 +188,23 @@ bash ~/sd_2606/backend/deploy/pi/install-tunnel.sh   # 公開 URL が表示さ�
 | やること | コマンド（Pi 上） |
 | --- | --- |
 | main を反映 | `bash ~/sd_2606/backend/deploy/pi/deploy.sh` |
-| 公開 URL の確認 | `bash ~/sd_2606/backend/deploy/pi/tunnel-url.sh` |
-| 状態 | `systemctl status sd2606-api sd2606-tunnel` |
-| ログ | `journalctl -u sd2606-api -f`（API）、`journalctl -u sd2606-tunnel -f`（トンネル） |
-| 公開を止める | `sudo systemctl disable --now sd2606-tunnel` |
-| すべて止める | `sudo systemctl disable --now sd2606-tunnel sd2606-api` |
+| 公開 URL の確認 | `tailscale funnel status` |
+| 状態 | `systemctl status sd2606-api` |
+| ログ | `journalctl -u sd2606-api -f` |
+| 公開を止める | `sudo tailscale funnel --https=8443 off` |
+| すべて止める | `sudo tailscale funnel --https=8443 off` のあと `sudo systemctl disable --now sd2606-api` |
 
 ### セキュリティ上の考え方
 
-- 外部に出しているのは API（`sd2606-api`）だけ。API は 127.0.0.1 で待ち受け、トンネルを通してしか届かない
+- 外部に出しているのは API（`sd2606-api`）だけ。API は 127.0.0.1 で待ち受け、Funnel を通してしか届かない
 - API に認証は無い。アプリは制度データを受け取るだけで、ユーザーの回答を送らない設計にしている（判定は端末内）
 - Claude の API キーは Pi の `.env` にだけ置き、アプリにもリポジトリにも入れない。呼び出し回数はサーバー全体で制限する
 - サービスは一般ユーザー権限で動かし、systemd のサンドボックスでシステムやホームディレクトリへの書き込みを禁止している
 
 ### 制約
 
-- **Quick Tunnel の URL は `sd2606-tunnel` が起動するたびに変わる**（Pi の再起動・サービスの再起動・回線の切断後の再接続など）。変わったらチームに共有し直す
-- Quick Tunnel は Cloudflare のテスト用機能で、稼働の保証は無い（同時リクエスト200件まで）
+- Funnel で公開できるポートは 443・8443・10000 だけ。sd2606 では 8443 を使う
 - 家庭用の回線と電源で動いているので、停電・回線の不調で止まることがある。デモの前には `/health` を確認する
-- 固定 URL の経路として Tailscale Funnel（ポート 8443）も設定済みだが、Tailscale 側で公開 DNS が登録されず、2026-10-17 時点では外部から届かない
 
 ## 質問する項目を増やすとき
 
