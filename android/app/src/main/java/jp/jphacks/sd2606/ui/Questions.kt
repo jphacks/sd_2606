@@ -31,6 +31,7 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DisplayMode
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -48,6 +49,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -75,12 +78,20 @@ fun QuestionInput(question: Question, answer: Answer?, onAnswer: (Answer?) -> Un
 /**
  * 数値の入力。入力の途中で判定が変わって画面が動かないよう、「決定」（またはキーボードの完了）で反映する。
  * 空にして決定すると未回答に戻す。live なら入力のたびに反映し、「決定」ボタンは出さない。
+ * 「決定」は額が変わっていなくても押せる。どちらで決定してもキーボードを閉じる
+ * （KeyboardActions の onDone を書くと、キーボードを閉じる既定の動きがなくなるため自分で閉じる）。
  */
 @Composable
 private fun NumberInput(question: Question, answer: Answer.Number?, onAnswer: (Answer?) -> Unit, live: Boolean) {
     val saved = answer?.let { (it.value / question.scale).toString() }.orEmpty()
     var text by rememberSaveable(saved) { mutableStateOf(saved) }
-    val commit = { onAnswer(text.toLongOrNull()?.let { Answer.Number(it * question.scale) }) }
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focus = LocalFocusManager.current
+    val commit = {
+        onAnswer(text.toLongOrNull()?.let { Answer.Number(it * question.scale) })
+        keyboard?.hide()
+        focus.clearFocus()
+    }
     Row(verticalAlignment = Alignment.CenterVertically) {
         OutlinedTextField(
             value = text,
@@ -96,7 +107,7 @@ private fun NumberInput(question: Question, answer: Answer.Number?, onAnswer: (A
         )
         if (!live) {
             Spacer(Modifier.width(8.dp))
-            Button(onClick = commit, enabled = text != saved) { Text("決定") }
+            Button(onClick = commit) { Text("決定") }
         }
     }
 }
@@ -132,6 +143,12 @@ private fun QuestionChips(question: Question, answer: Answer?, onAnswer: (Answer
                     )
                 },
                 label = { Text(choice.label) },
+                // 選んだ選択肢は全体を濃い色で塗り、選んだことがひと目で分かるようにする（年収の「見込み / 確定」など）
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                    selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimary,
+                ),
             )
         }
     }

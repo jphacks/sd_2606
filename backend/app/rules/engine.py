@@ -69,6 +69,7 @@ def load_procedures(data_dir: Path = DATA_DIR) -> dict[str, ProcedureDef]:
         amounts = [*proc.amounts, *(a for s in steps if s.choice for o in s.choice.options for a in o.amounts)]
         conds = [c for rel in proc.relations for c in (rel, *rel.when)]
         conds += [c for step in steps for c in step.when] + [c for r in proc.reminders for c in r.when]
+        conds += [c for n in proc.notes for c in n.when]
         conds += [c for a in amounts for c in a.when]
         for cond in conds:
             if cond.field not in UserProfile.model_fields and cond.field not in choices:

@@ -57,5 +57,7 @@ steps:
     detail: 届いた納付書か口座振替で納めます。金額は市区町村と前年の所得で決まります。
     details:
       - 前年の所得が少なければ、保険料が軽くなることがあります（申請が要らない市区町村が多い）
+notes:
+  - text: 自分で納めた国民健康保険料は、社会保険料控除になります（年末調整か確定申告で申告）。
 links:
   - {label: 厚生労働省 国民健康保険, url: "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/iryouhoken/koukikourei/index_00002.html"}

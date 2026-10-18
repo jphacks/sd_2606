@@ -7,6 +7,9 @@ due: {days: 14}
 office: 旧住所と新住所の市区町村の役所
 relations:
   - {field: age, op: lt, value: 30, flag: conditional, score: 0.4, reason: "年齢 {age}（30歳未満）"}
+  # 別の市区町村へ引越すなら転出届・転入届が要る（住民基本台帳法。転入届は14日以内）。予定がなければ対象外
+  - {field: moving_plan, value: "yes", flag: required, score: 0.9, reason: 別の市区町村へ引越すため}
+  - {field: moving_plan, value: "no", flag: unrelated, score: -1.0, reason: 引越しの予定がないため}
 steps:
   - title: 転出届を出す
     detail: マイナポータルからオンラインで出せます（同じ市区町村の中なら不要）。

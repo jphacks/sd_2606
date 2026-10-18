@@ -34,7 +34,13 @@ data class ProcedureDef(
     val reminders: List<Reminder> = emptyList(),
     /** お金の目安（金額は端末内で回答から計算する。data/Amounts.kt） */
     val amounts: List<AmountSpec> = emptyList(),
+    /** フローの後に短く出す注意（控除を受けられる可能性など） */
+    val notes: List<Note> = emptyList(),
 )
+
+/** 手続きの画面の、フローの後に出す注意。when に当てはまらないと分かった条件があれば出さない。 */
+@Serializable
+data class Note(val text: String, @SerialName("when") val conditions: List<Condition> = emptyList())
 
 /** 手続きに出すお金の目安の種類。card なら一覧のカードにも1行で出す。 */
 @Serializable

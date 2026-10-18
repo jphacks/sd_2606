@@ -84,6 +84,13 @@ reminders:
       - {field: nenkin_plan, value: pay}
 amounts:
   - {kind: nenkin, card: true}   # 一覧のカードに出す代表的な金額（保険料の月額）
+notes:
+  - text: 納めた保険料は、払った人（自分か親）の社会保険料控除になります。11月ごろ届く控除証明書を、年末調整か確定申告で出します。
+    when:
+      - {field: nenkin_plan, value: pay}
+  - text: 学生納付特例の期間の保険料を後から追納すると、追納した年の社会保険料控除になります。
+    when:
+      - {field: nenkin_plan, value: tokurei}
 links:
   - {label: 日本年金機構 学生納付特例制度, url: "https://www.nenkin.go.jp/service/kokunen/menjo/20150514.html"}
   - {label: 日本年金機構 20歳到達時の国民年金の手続き, url: "https://www.nenkin.go.jp/service/kokunen/kanyu/hatachi-tetsuduki.html"}

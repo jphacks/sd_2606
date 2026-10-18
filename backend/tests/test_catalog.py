@@ -53,7 +53,7 @@ def test_inline_questions_are_yes_no_and_used_by_some_procedure():
     # カードの中でだけ聞く質問は「はい / いいえ」で、どれかの手続きの判定に使われている
     used = {c.field for p in load_procedures().values() for r in p.relations for c in (r, *r.when)}
     inline = [q for q in build_catalog().questions if q.inline]
-    assert [q.field for q in inline] == ["multiple_jobs", "side_job_over_200k"]
+    assert [q.field for q in inline] == ["multiple_jobs", "year_end_employed", "moving_plan", "side_job_over_200k"]
     for q in inline:
         assert not q.required and q.field in used
         assert [c.value for c in q.choices] == ["yes", "no"]

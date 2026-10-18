@@ -59,6 +59,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -284,10 +285,13 @@ private fun AiBubble(text: String, extra: @Composable () -> Unit) {
 @Composable
 private fun InputBar(enabled: Boolean, onSend: (String) -> Unit) {
     var text by rememberSaveable { mutableStateOf("") }
+    val keyboard = LocalSoftwareKeyboardController.current
+    // 送ったらキーボードを閉じて、AI の答えが画面に見えるようにする
     val send = {
         if (enabled && text.isNotBlank()) {
             onSend(text)
             text = ""
+            keyboard?.hide()
         }
     }
     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {

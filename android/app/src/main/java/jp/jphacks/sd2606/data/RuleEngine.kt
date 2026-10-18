@@ -379,6 +379,19 @@ object RuleEngine {
         }
     }
 
+    /**
+     * フローの後に出す注意（控除の可能性など）。当てはまらないと分かった条件のあるものは出さない。
+     * 見込みの年収の幅で決まらないもの、未回答で決まらないものは「可能性がある」として出す。
+     * 分岐で選ぶ値（nenkin_plan）の条件は、選ぶまで出さない。
+     */
+    fun notesFor(proc: ProcedureDef, rawAnswers: Map<String, Answer>, today: LocalDate = LocalDate.now()): List<Note> {
+        val answers = forJudging(rawAnswers, today)
+        val choices = choiceFields(listOf(proc))
+        return proc.notes.filter { n ->
+            n.conditions.all { c -> check(c, answers[c.field]).let { it == Tri.TRUE || (it == Tri.UNKNOWN && c.field !in choices) } }
+        }
+    }
+
     /** 「65万〜195万円」。見込みの年収の判定の幅を書く。 */
     fun describeRange(range: Answer.Range): String {
         fun man(v: Long) = "%,d万".format(Math.round(v / 10_000.0))

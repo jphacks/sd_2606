@@ -29,6 +29,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.ExpandLess
@@ -165,10 +166,31 @@ fun FlowScreen(
                     }
                 }
                 if (flow.decided && amounts.isNotEmpty()) item(key = "amounts") { AmountsCard(amounts, Modifier.animateItem()) }
+                val notes = RuleEngine.notesFor(proc, state.answers)
+                if (notes.isNotEmpty()) item(key = "notes") { NotesCard(notes.map { RuleEngine.fillIn(it.text, state.answers, catalog.questions) }, Modifier.animateItem()) }
                 items(proc.links) { link ->
                     TextButton(onClick = { uriHandler.openUri(link.url) }) { Text("🔗 ${link.label}") }
                 }
             }
+        }
+    }
+}
+
+/** フローの後の短い注意（控除を受けられる可能性など）。 */
+@Composable
+private fun NotesCard(notes: List<String>, modifier: Modifier = Modifier) {
+    Surface(
+        color = MaterialTheme.colorScheme.tertiaryContainer,
+        shape = RoundedCornerShape(12.dp),
+        modifier = modifier.fillMaxWidth().padding(bottom = 16.dp),
+    ) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("控除を受けられるかもしれません", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            }
+            notes.forEach { Text("・$it", style = MaterialTheme.typography.bodyMedium) }
         }
     }
 }

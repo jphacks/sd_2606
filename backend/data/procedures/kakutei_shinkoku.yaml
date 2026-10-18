@@ -21,7 +21,16 @@ relations:
       - {field: multiple_jobs, value: "yes"}
       - {field: side_job_over_200k, value: "yes"}
   - {field: multiple_jobs, value: "yes", flag: conditional, score: 0.3, reason: 掛け持ちだと、年末調整を受けない方の給与から所得税が多めに引かれ、確定申告で戻ることがあるため}
-  - {field: multiple_jobs, value: "no", flag: conditional, score: -0.2}   # 1か所なら年末調整で済むことが多い
+  # バイト先が1か所で、年末に在籍して年末調整を受けるなら、所得税はそこで精算されるので確定申告は要らない（国税庁 No.1900）
+  - field: multiple_jobs
+    value: "no"
+    flag: unrelated
+    score: -1.0
+    reason: バイト先が1か所で、年末調整で所得税が精算されるため
+    when:
+      - {field: year_end_employed, value: "yes"}
+  # 年の途中で辞めて年末調整を受けないと、引かれすぎた所得税は確定申告（還付申告）で戻る（国税庁 No.1910）
+  - {field: year_end_employed, value: "no", flag: conditional, score: 0.5, reason: 年末にアルバイト先に在籍しないと年末調整がなく、引かれすぎた所得税が確定申告で戻ることがあるため}
   - {field: annual_income, value: 0, flag: conditional, score: -0.5}   # 収入がなければ、納める税金も戻る税金もない
   - {field: part_time, value: "no", flag: unrelated, score: -1.0, reason: "アルバイト {part_time}"}
 steps:
@@ -56,6 +65,11 @@ reminders:
   - {label: 確定申告の期限, month: 3, day: 15}
 amounts:
   - {kind: shotokuzei, card: true}
+notes:
+  - text: 年収163万円以下で、年末調整で勤労学生控除を受けていなければ、確定申告で受けられます。
+    when:
+      - {field: annual_income, op: lte, value: 1630000}
+  - text: 自分で納めた国民年金・国民健康保険の保険料は、社会保険料控除になります。控除証明書を用意して申告書に書きます。
 links:
   - {label: 国税庁 確定申告書等作成コーナー, url: "https://www.keisan.nta.go.jp/"}
   - {label: 国税庁 No.1900 給与所得者で確定申告が必要な人, url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1900.htm"}

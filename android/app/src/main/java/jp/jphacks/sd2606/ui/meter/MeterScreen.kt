@@ -59,6 +59,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -388,6 +389,7 @@ private fun AddIncomeDialog(
                     },
                     label = { Text("バイト先") },
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                 )
                 if (jobs.isNotEmpty()) {
                     // タップで選ぶと横に × が出て、× を押すとそのバイト先を一覧から外す
@@ -453,7 +455,7 @@ private fun AddIncomeDialog(
                     label = { Text("支給額（交通費を除く）") },
                     suffix = { Text("円") },
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                 )
                 OutlinedTextField(
                     value = wage,
@@ -461,7 +463,7 @@ private fun AddIncomeDialog(
                     label = { Text("時給（任意）") },
                     suffix = { Text("円") },
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                 )
                 OutlinedTextField(
                     value = withheld,
@@ -470,7 +472,7 @@ private fun AddIncomeDialog(
                     supportingText = { Text("入れると、戻ってくる額の目安が出ます") },
                     suffix = { Text("円") },
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
                 )
             }
         },

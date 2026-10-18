@@ -108,6 +108,13 @@ steps:
       - {field: annual_income, op: gt, value: 1360000}
 amounts:
   - {kind: parent_deduction, card: true}
+notes:
+  - text: 年収197万円以下なら、税金では親は特定親族特別控除を受けられます（159万円までは63万円）。親の年末調整で申告してもらいましょう。
+    when:
+      - {field: age_at_year_end, op: in, value: [19, 20, 21, 22]}
+      - {field: annual_income, op: gt, value: 1360000}
+      - {field: annual_income, op: lte, value: 1970000}
+  - text: 国民健康保険に入ったら、自分で納めた保険料は社会保険料控除になります。
 links:
   - {label: 日本年金機構 被扶養者にするとき・異動があったときの手続き, url: "https://www.nenkin.go.jp/service/kounen/tekiyo/hihokensha1/20141202.html"}
   - {label: 日本年金機構 19歳以上23歳未満の方の被扶養者認定の年間収入要件, url: "https://www.nenkin.go.jp/oshirase/taisetu/2025/202508/0819.html"}

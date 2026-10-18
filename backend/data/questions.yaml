@@ -78,6 +78,24 @@
     - {value: "yes", label: はい}
     - {value: "no", label: いいえ}
 
+- field: year_end_employed
+  kind: single
+  inline: true          # 年末調整（必要か対象外か）と確定申告（還付）の判定に、カードの中で聞く
+  text: 12月31日の時点で、いまのアルバイト先に在籍していますか？（その予定も含む）
+  label: 年末の在籍
+  choices:
+    - {value: "yes", label: 在籍している}
+    - {value: "no", label: 年内に辞める・辞めた}
+
+- field: moving_plan
+  kind: single
+  inline: true          # 引越しの手続きが必要か対象外かを、カードの中で聞く
+  text: 別の市区町村へ引越す予定はありますか？（引越したばかりも含む）
+  label: 引越しの予定
+  choices:
+    - {value: "yes", label: ある}
+    - {value: "no", label: ない}
+
 - field: side_job_over_200k
   kind: single
   inline: true          # 掛け持ちに「はい」と答えた人に、続けて確定申告のカードの中で聞く

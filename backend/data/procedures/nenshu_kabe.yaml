@@ -131,6 +131,21 @@ amounts:
   - kind: shotokuzei
     when:
       - {field: annual_income, op: gt, value: 1600000}   # 所得税がかかる178万円に近い人だけ
+notes:
+  - text: 年収136万円以下なら、親は特定扶養控除（63万円）を受けられます。親の年末調整で申告してもらいましょう。
+    when:
+      - {field: supported_by, value: parent}
+      - {field: age_at_year_end, op: in, value: [19, 20, 21, 22]}
+      - {field: annual_income, op: lte, value: 1360000}
+  - text: 年収136万円超〜197万円なら、親は特定親族特別控除（159万円までは63万円、その先は段階的に減る）を受けられます。親の年末調整で「特定親族特別控除申告書」を出してもらいましょう。
+    when:
+      - {field: supported_by, value: parent}
+      - {field: age_at_year_end, op: in, value: [19, 20, 21, 22]}
+      - {field: annual_income, op: gt, value: 1360000}
+      - {field: annual_income, op: lte, value: 1970000}
+  - text: 年収163万円以下なら、自分は勤労学生控除を受けられます（バイト先の扶養控除等申告書の勤労学生の欄に書く）。
+    when:
+      - {field: annual_income, op: lte, value: 1630000}
 links:
   - {label: 国税庁 源泉所得税の改正のあらまし（令和8年4月）, url: "https://www.nta.go.jp/publication/pamph/gensen/2026kaisei.pdf"}
   - {label: 日本年金機構 19歳以上23歳未満の方の被扶養者認定の年間収入要件, url: "https://www.nenkin.go.jp/oshirase/taisetu/2025/202508/0819.html"}

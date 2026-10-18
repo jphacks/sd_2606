@@ -6,7 +6,16 @@ deadline: 11〜12月ごろ（アルバイト先が指定する日）
 due: {month: 11, day: 30}
 office: アルバイト先
 relations:
-  - {field: part_time, value: "yes", flag: conditional, score: 0.7, reason: "アルバイト {part_time}"}
+  - {field: part_time, value: "yes", flag: conditional, score: 0.4, reason: "アルバイト {part_time}"}
+  # 年末調整は、12月31日に在籍している勤務先が12月の給与で行う（年の途中で辞めた人は対象外で、確定申告で精算する。国税庁 No.2662）
+  - field: part_time
+    value: "yes"
+    flag: conditional
+    score: 0.6
+    reason: 年末にアルバイト先に在籍するため（12月の給与で1年分の所得税を精算する）
+    when:
+      - {field: year_end_employed, value: "yes"}
+  - {field: year_end_employed, value: "no", flag: unrelated, score: -1.0, reason: 年末にアルバイト先に在籍しないため（年末調整はされず、確定申告で精算する）}
   - {field: part_time, value: "no", flag: unrelated, score: -1.0, reason: "アルバイト {part_time}"}
 steps:
   - title: 扶養控除等申告書を出す
@@ -31,6 +40,10 @@ reminders:
   - {label: 年末調整の書類（アルバイト先の締め切りも確認）, month: 11, day: 30}
 amounts:
   - {kind: shotokuzei, card: true}
+notes:
+  - text: 年収163万円以下なら勤労学生控除を受けられます。バイト先に出す「扶養控除等（異動）申告書」の勤労学生の欄に書きます（主に住民税が安くなります）。
+    when:
+      - {field: annual_income, op: lte, value: 1630000}
 links:
   - {label: 国税庁 No.2665 年末調整の対象となる人, url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/gensen/2665.htm"}
   - {label: 国税庁 No.1175 勤労学生控除, url: "https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1175.htm"}

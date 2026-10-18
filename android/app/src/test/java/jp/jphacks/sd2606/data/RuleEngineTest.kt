@@ -424,4 +424,21 @@ class RuleEngineTest {
         assertEquals(emptyList<String>(), judge(partTime, *income(1_000_000, "estimate")).missing)
         assertEquals("65万〜195万円", RuleEngine.describeRange(RuleEngine.estimateRange(mapOf(*income(1_300_000, "estimate")))!!))
     }
+
+    @Test
+    fun notesShowOnlyWhenConditionsCanHold() {
+        val proc = Json.decodeFromString<ProcedureDef>(
+            """
+            {"id": "nenmatsu", "title": "年末調整", "category": "tax", "summary": "", "relations": [
+              {"field": "part_time", "value": "yes", "flag": "conditional", "score": 0.4}],
+             "notes": [{"text": "勤労学生控除", "when": [{"field": "annual_income", "op": "lte", "value": 1630000}]},
+                       {"text": "いつでも"}]}
+            """,
+        )
+        fun notes(vararg a: Pair<String, Answer>) = RuleEngine.notesFor(proc, a.toMap(), today).map { it.text }
+        assertEquals(listOf("勤労学生控除", "いつでも"), notes("annual_income" to Answer.Number(1_000_000), "income_basis" to Answer.Single("actual")))
+        assertEquals(listOf("いつでも"), notes("annual_income" to Answer.Number(2_000_000), "income_basis" to Answer.Single("actual")))
+        // 見込み 130万円（65万〜195万円）は 163万円をまたぐので「可能性がある」として出す
+        assertEquals(listOf("勤労学生控除", "いつでも"), notes("annual_income" to Answer.Number(1_300_000), "income_basis" to Answer.Single("estimate")))
+    }
 }

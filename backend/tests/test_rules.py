@@ -126,3 +126,26 @@ def test_api_procedure_detail():
     assert len(res.json()["steps"]) > 0
     assert "relations" not in res.json()
     assert client.get("/api/procedures/nope").status_code == 404
+
+
+def test_card_questions_decide_required_or_unrelated():
+    # 質問に答えると「関係がありそう」から必要か対象外に決まる
+    base = dict(age=20, age_at_year_end=20, part_time="yes", annual_income=1_000_000, supported_by="parent")
+    # 年末調整: 年末に在籍していれば必要、辞めるなら対象外（国税庁 No.2662）
+    assert not by_id(UserProfile(**base))["nenmatsu_chosei"].required
+    assert by_id(UserProfile(**base, year_end_employed="yes"))["nenmatsu_chosei"].required
+    assert "nenmatsu_chosei" not in by_id(UserProfile(**base, year_end_employed="no"))
+    # 確定申告: バイト先が1か所で年末調整を受けるなら対象外。年内に辞めるなら還付の理由つきで残る
+    assert "kakutei_shinkoku" not in by_id(UserProfile(**base, multiple_jobs="no", year_end_employed="yes"))
+    quit_ = by_id(UserProfile(**base, multiple_jobs="no", year_end_employed="no"))["kakutei_shinkoku"]
+    assert not quit_.required and any("年末調整がなく" in r for r in quit_.reasons)
+    # 引越し: 予定があれば必要、なければ対象外
+    assert by_id(UserProfile(**base, moving_plan="yes"))["hikkoshi"].required
+    assert "hikkoshi" not in by_id(UserProfile(**base, moving_plan="no"))
+
+
+def test_notes_conditions_refer_to_known_fields():
+    # 控除の注意（notes）は、条件を満たす人にだけ出す。条件は回答の項目か分岐の値
+    procs = load_procedures()
+    assert any("勤労学生控除" in n.text for n in procs["nenmatsu_chosei"].notes)
+    assert any("特定親族特別控除" in n.text for n in procs["nenshu_kabe"].notes)

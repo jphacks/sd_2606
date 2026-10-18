@@ -53,6 +53,8 @@ class UserProfile(BaseModel):
     has_spouse: bool = False
     dependents: int = Field(default=0, ge=0, description="扶養している家族の人数")
     multiple_jobs: YesNo | None = Field(default=None, description="今年、給与をもらった勤務先が2か所以上あるか（掛け持ち）")
+    year_end_employed: YesNo | None = Field(default=None, description="12月31日の時点でアルバイト先に在籍しているか（年末調整を受けられるか）")
+    moving_plan: YesNo | None = Field(default=None, description="別の市区町村へ引越す予定（または引越したばかり）か")
     side_job_over_200k: YesNo | None = Field(default=None, description="年末調整を受けない方の勤務先（掛け持ち先）の給与が年20万円を超えるか")
 
     @field_validator("occupation", mode="before")
@@ -109,6 +111,13 @@ class Due(BaseModel):
         if (self.days is None) == (self.month is None) or (self.day is not None and self.month is None):
             raise ValueError("due には days か month（と day）のどちらか一方を書いてください")
         return self
+
+
+class Note(BaseModel):
+    """手続きの画面の、フローの後に短く出す注意（控除を受けられる可能性など）。"""
+
+    text: str
+    when: list[Condition] = Field(default_factory=list, description="出す人の条件。当てはまらないと分かった条件があれば出さない")
 
 
 class Reminder(BaseModel):
@@ -170,6 +179,7 @@ class Procedure(BaseModel):
     links: list[Link] = Field(default_factory=list)
     reminders: list[Reminder] = Field(default_factory=list, description="毎年・毎月の期限（通知と履歴の画面に並べる）")
     amounts: list[Amount] = Field(default_factory=list, description="手続きの画面に出すお金の目安")
+    notes: list[Note] = Field(default_factory=list, description="フローの後に短く出す注意（控除を受けられる可能性など）")
 
 
 class Recommendation(BaseModel):
