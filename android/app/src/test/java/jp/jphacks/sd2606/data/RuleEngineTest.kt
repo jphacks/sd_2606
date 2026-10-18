@@ -364,4 +364,27 @@ class RuleEngineTest {
         // 収入が無ければ聞かない
         assertEquals(emptyList<String>(), judge(occupation("student"), "annual_income" to Answer.Number(0)).missing)
     }
+
+    @Test
+    fun answeredQuestionsListOptionalAnswersAndChosenBranchesOfTheProcedure() {
+        // 国保は health_insurance を判定に使う。必須の働き方は最初の画面で変えるので出さない
+        val kokuho = catalog.procedures.first { it.id == "kokuho" }
+        val answers = mapOf(occupation("freelance"), "health_insurance" to Answer.Single("employer"), "dependents" to Answer.Number(1))
+        assertEquals(listOf("health_insurance"), RuleEngine.answeredQuestions(kokuho, catalog.questions, answers, today).map { it.field })
+        // 答えていなければ出さない
+        assertEquals(emptyList<String>(), RuleEngine.answeredQuestions(kokuho, catalog.questions, mapOf(occupation("freelance")), today).map { it.field })
+        // 分岐で選んだものは、その選択肢を質問の形にして出す
+        val withChoice = Json.decodeFromString<ProcedureDef>(
+            """
+            {"id": "nenkin", "title": "国民年金", "category": "pension", "summary": "", "relations": [
+              {"field": "age_at_year_end", "op": "gte", "value": 20, "flag": "required", "score": 1.0, "reason": "20歳"}],
+             "steps": [{"choice": {"field": "nenkin_pay", "title": "保険料をどうするか", "options": [
+               {"value": "tokurei", "label": "学生納付特例を使う", "detail": ""}, {"value": "pay", "label": "保険料を納める", "detail": ""}]}}]}
+            """,
+        )
+        val chosen = RuleEngine.answeredQuestions(withChoice, catalog.questions, mapOf("nenkin_pay" to Answer.Single("pay")), today)
+        assertEquals(listOf("nenkin_pay"), chosen.map { it.field })
+        assertEquals("保険料を納める", chosen.single().describe(Answer.Single("pay")))
+        assertEquals(emptyList<String>(), RuleEngine.answeredQuestions(withChoice, catalog.questions, emptyMap(), today).map { it.field })
+    }
 }

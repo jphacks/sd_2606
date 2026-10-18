@@ -293,6 +293,22 @@ object RuleEngine {
 
     private fun visibleSteps(proc: ProcedureDef, answers: Map<String, Answer>): List<StepView> = stepsFor(proc.steps, answers)
 
+    /**
+     * 手続きのカードで変えられる、この手続きで答えたもの。最初の画面の必須の項目と part_of（年収の「見込み / 確定」）は除く。
+     * - 判定やステップの条件に使う任意の質問（掛け持ち・健康保険など）で、答えたもの
+     * - フローの分岐で選んだもの（いまのフローにある分岐だけ）。同じ入力欄で変えられるよう、質問の形にする
+     */
+    fun answeredQuestions(proc: ProcedureDef, questions: List<Question>, rawAnswers: Map<String, Answer>, today: LocalDate = LocalDate.now()): List<Question> {
+        fun allSteps(steps: List<FlowStep>): List<FlowStep> = steps + steps.flatMap { s -> s.choice?.options.orEmpty().flatMap { allSteps(it.steps) } }
+        val fields = (proc.relations.flatMap { r -> listOf(r.field) + r.conditions.map { it.field } } +
+            allSteps(proc.steps).flatMap { s -> s.conditions.map { it.field } }).toSet()
+        val asked = questions.filter { q ->
+            !q.required && q.partOf == null && q.field in rawAnswers && (q.field in fields || q.provides.any { it in fields })
+        }
+        val chosen = flow(proc, rawAnswers, today).items.filterIsInstance<FlowItem.Choice>().filter { it.selected != null }.map { it.choice.asQuestion() }
+        return asked + chosen
+    }
+
     /** 当てはまらない条件のあるステップを除く。未回答の条件だけなら「当てはまる場合のみ」として残す。 */
     private fun stepsFor(steps: List<FlowStep>, answers: Map<String, Answer>): List<StepView> = steps.mapNotNull { step ->
         val results = step.conditions.map { it.field to check(it, answers[it.field]) }

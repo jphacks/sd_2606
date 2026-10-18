@@ -122,6 +122,10 @@ data class FlowStep(
 @Serializable
 data class FlowChoice(val field: String, val title: String, val options: List<FlowOption>)
 
+/** 分岐を、回答の質問と同じ入力欄で選び直せるように質問の形にする（選んだ値は field に保存する）。 */
+fun FlowChoice.asQuestion(): Question =
+    Question(field = field, kind = "single", text = title, label = title, choices = options.map { Choice(label = it.label, value = it.value) })
+
 /** 分岐の選択肢。選ぶと steps と amounts を出す。 */
 @Serializable
 data class FlowOption(

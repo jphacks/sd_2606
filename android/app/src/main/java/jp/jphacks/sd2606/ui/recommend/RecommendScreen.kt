@@ -387,6 +387,7 @@ private fun ProcedureCard(
 ) {
     val proc = item.procedure
     val missing = remember(item, questions) { item.missing.mapNotNull { RuleEngine.questionFor(it, questions) }.distinct() }
+    val answered = remember(item, questions, answers) { RuleEngine.answeredQuestions(proc, questions, answers) }
     val content: @Composable () -> Unit = {
         Column(Modifier.padding(16.dp).animateContentSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -404,6 +405,7 @@ private fun ProcedureCard(
             val amount = remember(item, answers) { Amounts.of(proc, answers).firstOrNull { it.first.card }?.second }
             amount?.let { AmountLine(it) }
             if (item.reasons.isNotEmpty()) ReasonList(item, questions, answers)
+            if (answered.isNotEmpty()) AnsweredList(proc.id, answered, answers, onAnswer)
             missing.forEach { q -> NeedInfo(q, answers[q.field]) { onAnswer(q, it) } }
             // 手続きの画面の下部と同じ並び（ProcedureActions）。ルールで対象外のものには出さない
             if (item.status != Status.UNRELATED || item.dismissed) {
@@ -459,6 +461,33 @@ private fun ReasonList(item: Scored, questions: List<Question>, answers: Map<Str
                         Text("・", style = MaterialTheme.typography.bodyMedium)
                         Text(reason, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                     }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * この手続きで答えたこと（掛け持ち・分岐で選んだものなど）。行ごとに「変更」でその場に入力欄を開いて選び直せる。
+ * 選び直すと判定が変わり、カードがほかのグループに移ることもある。未回答には戻さない（もう一度押しても外れない）。
+ */
+@Composable
+private fun AnsweredList(procId: String, questions: List<Question>, answers: Map<String, Answer>, onAnswer: (Question, Answer?) -> Unit) {
+    var editing by rememberSaveable(procId) { mutableStateOf<String?>(null) }
+    Column {
+        Text("この手続きで答えたこと", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        questions.forEach { q ->
+            val answer = answers[q.field] ?: return@forEach
+            val open = editing == q.field
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("・", style = MaterialTheme.typography.bodyMedium)
+                Text("${q.name}：${q.describe(answer)}", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                TextButton(onClick = { editing = if (open) null else q.field }) { Text(if (open) "閉じる" else "変更") }
+            }
+            if (open) {
+                Column(Modifier.padding(start = 12.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(q.text, style = MaterialTheme.typography.bodySmall)
+                    QuestionInput(q, answer, { if (it != null) onAnswer(q, it) })
                 }
             }
         }
