@@ -94,25 +94,42 @@ object Amounts {
         return maxOf(SALARY_DEDUCTION_MIN, normal).coerceAtMost(income)
     }
 
+    /** 住民税の計算の途中の値（数字の関数と、内訳を出す表示の関数で共通に使う）。 */
+    private class ResidentTaxCalc(income: Long, student: Boolean) {
+        val salary = salaryIncome(income)
+        val exempt = salary <= RESIDENT_TAX_EXEMPT_INCOME
+        val workingStudent = student && salary <= WORKING_STUDENT_LIMIT
+        val deductions = RESIDENT_TAX_BASIC + if (workingStudent) WORKING_STUDENT_RESIDENT_TAX else 0
+        val taxable = floorTo(salary - deductions, 1_000).coerceAtLeast(0)
+
+        // 調整控除: 所得税との人的控除の差（基礎控除5万円、勤労学生控除1万円）の5%（課税所得200万円以下の場合）
+        private val personalGap = 50_000L + if (workingStudent) 10_000 else 0
+        val adjust = if (taxable <= 2_000_000) minOf(personalGap, taxable) * 5 / 100 else maxOf((personalGap - (taxable - 2_000_000)) * 5 / 100, 2_500)
+        val incomeLevy = floorTo((taxable * 10 / 100 - adjust).coerceAtLeast(0), 100)
+        val total = if (exempt) 0L else incomeLevy + RESIDENT_TAX_PER_CAPITA
+    }
+
+    /** 本人の住民税の額（かからなければ 0）。 */
+    fun residentTaxYen(income: Long, student: Boolean): Long = ResidentTaxCalc(income, student).total
+
     /** 本人の住民税（2026年の収入に対して2027年度に課税）。 */
     fun residentTax(income: Long, student: Boolean): AmountView {
-        val salary = salaryIncome(income)
+        val calc = ResidentTaxCalc(income, student)
+        val salary = calc.salary
         val label = "住民税（来年6月から）"
-        if (salary <= RESIDENT_TAX_EXEMPT_INCOME) {
+        if (calc.exempt) {
             return AmountView(
                 label, "かかりません",
                 note = "年収119万円を超えるとかかります",
                 breakdown = listOf("給与所得 ${yen(salary)}（年収 − 給与所得控除 ${yen(salaryDeduction(income))}）が45万円以下"),
             )
         }
-        val workingStudent = student && salary <= WORKING_STUDENT_LIMIT
-        val deductions = RESIDENT_TAX_BASIC + if (workingStudent) WORKING_STUDENT_RESIDENT_TAX else 0
-        val taxable = floorTo(salary - deductions, 1_000).coerceAtLeast(0)
-        // 調整控除: 所得税との人的控除の差（基礎控除5万円、勤労学生控除1万円）の5%（課税所得200万円以下の場合）
-        val personalGap = 50_000L + if (workingStudent) 10_000 else 0
-        val adjust = if (taxable <= 2_000_000) minOf(personalGap, taxable) * 5 / 100 else maxOf((personalGap - (taxable - 2_000_000)) * 5 / 100, 2_500)
-        val incomeLevy = floorTo((taxable * 10 / 100 - adjust).coerceAtLeast(0), 100)
-        val total = incomeLevy + RESIDENT_TAX_PER_CAPITA
+        val workingStudent = calc.workingStudent
+        val deductions = calc.deductions
+        val taxable = calc.taxable
+        val adjust = calc.adjust
+        val incomeLevy = calc.incomeLevy
+        val total = calc.total
         return AmountView(
             label, "年 約${yen(total)}",
             note = if (workingStudent && incomeLevy == 0L) "勤労学生控除を申告すると均等割だけ" else null,
@@ -125,18 +142,31 @@ object Amounts {
         )
     }
 
-    /** 本人の所得税（2026年分）。合計所得132万円（年収206万円）を超える人は目安を出さない。 */
-    fun incomeTax(income: Long, student: Boolean): AmountView? {
+    /** 本人の所得税の額（かからなければ 0）。合計所得132万円（年収206万円）を超える人は計算しない（null）。 */
+    fun incomeTaxYen(income: Long, student: Boolean): Long? {
         val salary = salaryIncome(income)
         if (salary > INCOME_TAX_BASIC_LIMIT) return null
+        val taxable = incomeTaxable(salary, student)
+        return floorTo(taxable * 5_105 / 100_000, 100) // 税率5%と復興特別所得税（2.1%）
+    }
+
+    private fun incomeTaxDeductions(salary: Long, student: Boolean): Long =
+        INCOME_TAX_BASIC + if (student && salary <= WORKING_STUDENT_LIMIT) WORKING_STUDENT_INCOME_TAX else 0
+
+    private fun incomeTaxable(salary: Long, student: Boolean): Long =
+        floorTo(salary - incomeTaxDeductions(salary, student), 1_000).coerceAtLeast(0)
+
+    /** 本人の所得税（2026年分）。合計所得132万円（年収206万円）を超える人は目安を出さない。 */
+    fun incomeTax(income: Long, student: Boolean): AmountView? {
+        val tax = incomeTaxYen(income, student) ?: return null
+        val salary = salaryIncome(income)
         val label = "所得税（今年分）"
         val workingStudent = student && salary <= WORKING_STUDENT_LIMIT
-        val deductions = INCOME_TAX_BASIC + if (workingStudent) WORKING_STUDENT_INCOME_TAX else 0
-        val taxable = floorTo(salary - deductions, 1_000).coerceAtLeast(0)
+        val deductions = incomeTaxDeductions(salary, student)
+        val taxable = incomeTaxable(salary, student)
         if (taxable == 0L) {
             return AmountView(label, "かかりません", note = "年収178万円を超えるとかかります")
         }
-        val tax = floorTo(taxable * 5_105 / 100_000, 100) // 税率5%と復興特別所得税（2.1%）
         return AmountView(
             label, "年 約${yen(tax)}",
             note = "引かれすぎた分は年末調整か確定申告で戻ります",
@@ -146,6 +176,16 @@ object Amounts {
                 "課税所得 ${yen(taxable)} × 5.105%（復興特別所得税を含む）",
             ),
         )
+    }
+
+    /** 親が受ける控除の額（所得税、2026年分）。16歳未満・70歳以上は null。 */
+    fun parentDeductionYen(income: Long, ageAtYearEnd: Int): Long? {
+        val salary = salaryIncome(income)
+        return when (ageAtYearEnd) {
+            in 19..22 -> if (salary <= DEPENDENT_INCOME_LIMIT) 630_000L else SPECIFIC_RELATIVE.firstOrNull { salary <= it.first }?.second ?: 0L
+            in 16..18, in 23..69 -> if (salary <= DEPENDENT_INCOME_LIMIT) 380_000L else 0L
+            else -> null
+        }
     }
 
     /** 親が受ける控除（所得税、2026年分）。子の年末の年齢と合計所得で決まる。16歳未満・70歳以上は出さない。 */
