@@ -24,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -52,7 +53,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -92,9 +92,11 @@ fun MeterScreen(age: Int, onBack: () -> Unit, vm: MeterViewModel = viewModel()) 
     )
     if (showAdd) {
         AddIncomeDialog(
-            jobs = state.jobs,
+            // 一覧から外したバイト先は出さない（記録とメーターには残る）
+            jobs = state.jobs.filterNot { it.hidden },
             last = state.incomes.firstOrNull(),
             newJobColorIndex = state.nextColorIndex,
+            onHideJob = vm::hideJob,
             onDismiss = { showAdd = false },
             onSave = { name, wage, colorIndex, date, amount ->
                 vm.addIncome(name, wage, colorIndex, date, amount)
@@ -152,7 +154,7 @@ private fun MeterContent(
                         onPeekEnd = { scope.launch { menu.release() } },
                     )
                 }
-                item { MonthlyBars(state) }
+                item { CumulativeChart(state, walls) }
                 item { Text("給料の記録", style = MaterialTheme.typography.titleMedium) }
                 if (state.incomes.isEmpty()) {
                     item { Text("まだ記録がありません。右下のボタンから追加してください。", color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -291,41 +293,6 @@ private fun ProjectionNote(projection: Projection, next: IncomeWall) {
     }
 }
 
-/** 月ごとの棒グラフ。バイト先の色で積み上げる。 */
-@Composable
-private fun MonthlyBars(state: MeterUiState) {
-    val monthly = state.monthlyByJob
-    val max = monthly.maxOfOrNull { parts -> parts.sumOf { it.second } }?.takeIf { it > 0 } ?: 1L
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("月ごと（支給月）", style = MaterialTheme.typography.titleSmall)
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.Bottom,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                monthly.forEachIndexed { i, parts ->
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
-                        // 上から並べるので、最初のバイト先が一番下になるよう逆順にする
-                        parts.asReversed().forEachIndexed { j, (colorIndex, value) ->
-                            Box(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .height((64 * value / max).toInt().dp)
-                                    .background(
-                                        jobColor(colorIndex),
-                                        if (j == 0) RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp) else RectangleShape,
-                                    ),
-                            )
-                        }
-                        Text("${i + 1}", style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-            }
-        }
-    }
-}
-
 @Composable
 private fun IncomeRow(income: Income, jobName: String, color: Color, onDelete: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
@@ -352,6 +319,7 @@ private fun AddIncomeDialog(
     jobs: List<Job>,
     last: Income?,
     newJobColorIndex: Int,
+    onHideJob: (Job) -> Unit,
     onDismiss: () -> Unit,
     onSave: (jobName: String, hourlyWage: Int?, colorIndex: Int, paidOn: LocalDate, amount: Long) -> Unit,
 ) {
@@ -384,10 +352,12 @@ private fun AddIncomeDialog(
                     singleLine = true,
                 )
                 if (jobs.isNotEmpty()) {
+                    // タップで選ぶと横に × が出て、× を押すとそのバイト先を一覧から外す
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         jobs.forEach { job ->
+                            val selected = job.name == jobName
                             FilterChip(
-                                selected = job.name == jobName,
+                                selected = selected,
                                 onClick = {
                                     jobName = job.name
                                     wage = job.hourlyWage?.toString().orEmpty()
@@ -395,8 +365,34 @@ private fun AddIncomeDialog(
                                 },
                                 label = { Text(job.name) },
                                 leadingIcon = { ColorDot(jobColor(job.colorIndex), size = 10) },
+                                trailingIcon = if (selected) {
+                                    {
+                                        Icon(
+                                            Icons.Filled.Close,
+                                            contentDescription = "「${job.name}」を一覧から外す",
+                                            modifier = Modifier
+                                                .size(18.dp)
+                                                .clip(CircleShape)
+                                                .clickable {
+                                                    onHideJob(job)
+                                                    jobName = ""
+                                                    wage = ""
+                                                    colorIndex = newJobColorIndex
+                                                },
+                                        )
+                                    }
+                                } else {
+                                    null
+                                },
                             )
                         }
+                    }
+                    if (jobs.any { it.name == jobName }) {
+                        Text(
+                            "もう追加しないバイト先は × で一覧から外せます（これまでの記録はメーターに残ります）",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
                 Text("色", style = MaterialTheme.typography.labelLarge)

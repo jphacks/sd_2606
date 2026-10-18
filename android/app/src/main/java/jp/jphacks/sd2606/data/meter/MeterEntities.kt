@@ -18,6 +18,8 @@ data class Job(
 
     /** 表示色の番号（ui/meter/JobColors.kt のパレットの位置） */
     @ColumnInfo(name = "color_index") val colorIndex: Int = 0,
+    /** もう追加しないバイト先。給料を追加するときの一覧に出さないだけで、記録とメーターの表示は残す */
+    @ColumnInfo(name = "hidden", defaultValue = "0") val hidden: Boolean = false,
 )
 
 /** 1回分の給料。年収は「働いた月」ではなく「支給日」で数えるので、支給日を持つ。 */

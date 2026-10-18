@@ -44,15 +44,15 @@ data class MeterUiState(
     val jobTotals: List<Pair<Job, Long>>
         get() = jobs.map { job -> job to incomes.filter { it.jobId == job.id }.sumOf { it.amount } }.filter { it.second > 0 }
 
-    /** 支給月ごと・バイト先ごとの合計（index 0 が1月。中身は 色の番号 to 金額） */
-    val monthlyByJob: List<List<Pair<Int, Long>>>
-        get() = (1..12).map { month ->
-            val inMonth = incomes.filter { it.paidOn.substring(5, 7).toInt() == month }
-            jobs.mapNotNull { job ->
-                val sum = inMonth.filter { it.jobId == job.id }.sumOf { it.amount }
-                if (sum > 0) job.colorIndex to sum else null
-            }
-        }
+    /** 最後に給料が出た月（記録が無ければ 0） */
+    val lastPaidMonth: Int
+        get() = incomes.maxOfOrNull { it.paidOn.substring(5, 7).toInt() } ?: 0
+
+    /** 各月末までの累計（index 0 が1月末） */
+    val cumulative: List<Long>
+        get() = (1..12).runningFold(0L) { acc, month ->
+            acc + incomes.filter { it.paidOn.substring(5, 7).toInt() == month }.sumOf { it.amount }
+        }.drop(1)
 
     /** 「あと何時間」の計算に使う時給。直近の給料のバイト先を優先する */
     val hourlyWage: Int?
@@ -108,7 +108,8 @@ class MeterViewModel(app: Application) : AndroidViewModel(app) {
             val jobId = if (existing == null) {
                 dao.insertJob(Job(name = name, hourlyWage = hourlyWage, colorIndex = colorIndex))
             } else {
-                val updated = existing.copy(hourlyWage = hourlyWage ?: existing.hourlyWage, colorIndex = colorIndex)
+                // 一覧から外したバイト先でも、名前を入れて追加したらまた一覧に出す
+                val updated = existing.copy(hourlyWage = hourlyWage ?: existing.hourlyWage, colorIndex = colorIndex, hidden = false)
                 if (updated != existing) dao.updateJob(updated)
                 existing.id
             }
@@ -118,5 +119,10 @@ class MeterViewModel(app: Application) : AndroidViewModel(app) {
 
     fun deleteIncome(income: Income) {
         viewModelScope.launch { dao.deleteIncome(income) }
+    }
+
+    /** もう追加しないバイト先を、給料を追加するときの一覧から外す（記録とメーターの表示は残す） */
+    fun hideJob(job: Job) {
+        viewModelScope.launch { dao.updateJob(job.copy(hidden = true)) }
     }
 }
