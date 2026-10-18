@@ -143,6 +143,7 @@ fun AppNavHost(vm: AppViewModel = viewModel(), chatVm: ChatViewModel = viewModel
                 },
                 onClearCompleted = vm::clearCompleted,
                 onClearDismissed = vm::clearDismissed,
+                onResetAnswers = vm::resetProcedureAnswers,
                 onDismiss = vm::setDismissed,
                 onConfirm = vm::setConfirmed,
                 onRetry = vm::loadCatalog,

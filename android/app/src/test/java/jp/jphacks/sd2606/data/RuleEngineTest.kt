@@ -441,4 +441,11 @@ class RuleEngineTest {
         // 見込み 130万円（65万〜195万円）は 163万円をまたぐので「可能性がある」として出す
         assertEquals(listOf("勤労学生控除", "いつでも"), notes("annual_income" to Answer.Number(1_300_000), "income_basis" to Answer.Single("estimate")))
     }
+
+    @Test
+    fun resetKeepsOnlyInitialRequiredAnswers() {
+        // 「あなたの手続き」で答えた情報のリセット: 最初の画面の必須の項目（働き方・生年月日）だけ残す
+        val answers = mapOf(occupation("freelance"), born("2006-05-01"), "health_insurance" to Answer.Single("employer"), "nenkin_plan" to Answer.Single("pay"))
+        assertEquals(setOf("occupation", "birth_date"), RuleEngine.initialAnswers(answers, catalog).keys)
+    }
 }

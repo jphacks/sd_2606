@@ -137,6 +137,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** 端末に保存している回答・完了の記録・「関係ない」「当てはまる」の記録をすべて消す。 */
+    /**
+     * 「あなたの手続き」で答えた情報（掛け持ち・年末の在籍・健康保険・分岐で選んだものなど）を消す。
+     * 最初の画面で答える必須の項目（アルバイト・生年月日・扶養・年収と見込み / 確定）は残す。
+     */
+    fun resetProcedureAnswers() {
+        val catalog = (_state.value.catalog as? UiResult.Success)?.data ?: return
+        _state.update {
+            val answers = RuleEngine.initialAnswers(it.answers, catalog)
+            store.saveAnswers(answers)
+            it.copy(answers = answers).evaluated()
+        }
+    }
+
     fun clearAll() {
         store.clearAll()
         _state.update { it.copy(answers = emptyMap(), completed = emptyMap(), dismissed = emptySet(), confirmed = emptySet()).evaluated() }

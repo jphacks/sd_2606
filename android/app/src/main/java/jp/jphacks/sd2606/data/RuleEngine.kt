@@ -399,6 +399,12 @@ object RuleEngine {
         }
     }
 
+    /** 最初の画面で答える必須の項目の回答だけを残す（「あなたの手続き」で答えた情報のリセット用）。 */
+    fun initialAnswers(answers: Map<String, Answer>, catalog: Catalog): Map<String, Answer> {
+        val initial = catalog.questions.filter { it.required }.map { it.field }.toSet()
+        return answers.filterKeys { it in initial }
+    }
+
     /** 「65万〜195万円」。見込みの年収の判定の幅を書く。 */
     fun describeRange(range: Answer.Range): String {
         fun man(v: Long) = "%,d万".format(Math.round(v / 10_000.0))

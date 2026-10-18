@@ -30,7 +30,9 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.ManageAccounts
 import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -101,6 +103,7 @@ fun RecommendScreen(
     onClearAll: () -> Unit,
     onClearCompleted: () -> Unit,
     onClearDismissed: () -> Unit,
+    onResetAnswers: () -> Unit,
     onDismiss: (String, Boolean) -> Unit,
     onConfirm: (String, Boolean) -> Unit,
     onRetry: () -> Unit,
@@ -109,6 +112,7 @@ fun RecommendScreen(
     onTab: (Tab) -> Unit,
 ) {
     var showAnswers by rememberSaveable { mutableStateOf(false) }
+    var confirmReset by rememberSaveable { mutableStateOf(false) }
     var order by rememberSaveable { mutableStateOf(SortOrder.RELEVANCE) }
     var showUnrelated by rememberSaveable { mutableStateOf(false) }
     var showCompleted by rememberSaveable { mutableStateOf(false) }
@@ -117,6 +121,12 @@ fun RecommendScreen(
     Scaffold(
         topBar = {
             BackTopBar("あなたの手続き", onBack) {
+                // 「あなたの手続き」で答えた情報のリセット（最初の画面の情報は残す）。確認してから1度だけ消す
+                val catalogData = (state.catalog as? UiResult.Success)?.data
+                val resettable = catalogData != null && RuleEngine.initialAnswers(state.answers, catalogData).size < state.answers.size
+                IconButton(onClick = { confirmReset = true }, enabled = resettable) {
+                    Icon(Icons.Default.RestartAlt, contentDescription = "手続きで答えた情報をリセット")
+                }
                 IconButton(onClick = { showAnswers = true }) {
                     Icon(Icons.Default.ManageAccounts, contentDescription = "保存している回答")
                 }
@@ -250,6 +260,26 @@ fun RecommendScreen(
                         }
                     }
                 }
+            }
+            if (confirmReset) {
+                AlertDialog(
+                    onDismissRequest = { confirmReset = false },
+                    title = { Text("手続きで答えた情報をリセットしますか？") },
+                    text = {
+                        Text("掛け持ち・年末の在籍・引越しの予定・保険料の選び方など、「あなたの手続き」で答えた内容を消します。最初の画面で入れたアルバイト・生年月日・扶養・年収はそのまま残ります。")
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            confirmReset = false
+                            onResetAnswers()
+                            scope.launch {
+                                snackbar.currentSnackbarData?.dismiss()
+                                snackbar.showSnackbar("手続きで答えた情報をリセットしました")
+                            }
+                        }) { Text("リセット") }
+                    },
+                    dismissButton = { TextButton(onClick = { confirmReset = false }) { Text("キャンセル") } },
+                )
             }
             if (showAnswers) {
                 AnswersDialog(
@@ -624,6 +654,7 @@ private fun RecommendScreenPreview() {
             onClearAll = {},
             onClearCompleted = {},
             onClearDismissed = {},
+            onResetAnswers = {},
             onDismiss = { _, _ -> },
             onConfirm = { _, _ -> },
             onRetry = {},
