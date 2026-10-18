@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Savings
@@ -111,9 +112,9 @@ private fun categoryColors(category: String): Pair<Color, Color> {
 }
 
 /** 下部のナビゲーションバーで切り替える画面。 */
-enum class Tab { PROCEDURES, METER, HISTORY }
+enum class Tab { PROCEDURES, METER, AI, HISTORY }
 
-/** 「手続き」「バイト代」「通知と履歴」を切り替える下部のナビゲーションバー。 */
+/** 「手続き」「バイト代」「AIに質問」「通知と履歴」を切り替える下部のナビゲーションバー。 */
 @Composable
 fun AppBottomBar(selected: Tab, onSelect: (Tab) -> Unit) {
     NavigationBar {
@@ -128,6 +129,12 @@ fun AppBottomBar(selected: Tab, onSelect: (Tab) -> Unit) {
             onClick = { onSelect(Tab.METER) },
             icon = { Icon(Icons.Default.Savings, contentDescription = null) },
             label = { Text("バイト代") },
+        )
+        NavigationBarItem(
+            selected = selected == Tab.AI,
+            onClick = { onSelect(Tab.AI) },
+            icon = { Icon(Icons.Default.AutoAwesome, contentDescription = null) },
+            label = { Text("AIに質問") },
         )
         NavigationBarItem(
             selected = selected == Tab.HISTORY,

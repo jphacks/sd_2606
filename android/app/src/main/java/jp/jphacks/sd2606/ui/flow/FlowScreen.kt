@@ -30,6 +30,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Info
@@ -100,10 +101,22 @@ fun FlowScreen(
     onConfirm: (String, Boolean) -> Unit,
     onRetry: () -> Unit,
     onBack: () -> Unit,
+    onAsk: (String) -> Unit = {},
 ) {
     val proc = (state.catalog as? UiResult.Success)?.data?.procedures?.firstOrNull { it.id == procedureId }
     Scaffold(
-        topBar = { BackTopBar(proc?.title ?: "手続きの流れ", onBack, bold = true) },
+        topBar = {
+            BackTopBar(proc?.title ?: "手続きの流れ", onBack, bold = true) {
+                if (proc != null) {
+                    // この手続きと、あなたの回答を AI に伝えて質問する
+                    TextButton(onClick = { onAsk(proc.id) }) {
+                        Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("AIに質問")
+                    }
+                }
+            }
+        },
         bottomBar = {
             val item = proc?.let { state.evaluation?.find(it.id) }
             if (proc != null && item != null) {

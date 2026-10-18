@@ -17,6 +17,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import jp.jphacks.sd2606.data.Answer
+import jp.jphacks.sd2606.data.ChatContext
+import jp.jphacks.sd2606.ui.chat.ChatScreen
+import jp.jphacks.sd2606.ui.chat.ChatThread
+import jp.jphacks.sd2606.ui.chat.ChatViewModel
 import jp.jphacks.sd2606.ui.flow.FlowScreen
 import jp.jphacks.sd2606.ui.manage.ManageScreen
 import jp.jphacks.sd2606.ui.meter.MeterScreen
@@ -29,13 +33,16 @@ private object Routes {
     const val FLOW = "flow/{id}"
     const val METER = "meter"
     const val MANAGE = "manage"
+    const val CHAT = "chat"
+    const val PROCEDURE_CHAT = "chat/{id}"
     fun flow(id: String) = "flow/$id"
+    fun chat(id: String) = "chat/$id"
 }
 
 private const val SLIDE_MS = 300
 
 /** 下部のナビゲーションバーで切り替える画面。切り替えは横スライドではなくフェードにする */
-private val TAB_ROUTES = setOf(Routes.RECOMMEND, Routes.METER, Routes.MANAGE)
+private val TAB_ROUTES = setOf(Routes.RECOMMEND, Routes.METER, Routes.CHAT, Routes.MANAGE)
 
 private fun AnimatedContentTransitionScope<NavBackStackEntry>.isTabSwitch() =
     initialState.destination.route in TAB_ROUTES && targetState.destination.route in TAB_ROUTES
@@ -57,6 +64,7 @@ private fun NavHostController.switchTab(tab: Tab) {
             return
         }
         Tab.METER -> Routes.METER
+        Tab.AI -> Routes.CHAT
         Tab.HISTORY -> Routes.MANAGE
     }
     navigate(route) {
@@ -66,9 +74,39 @@ private fun NavHostController.switchTab(tab: Tab) {
 }
 
 @Composable
-fun AppNavHost(vm: AppViewModel = viewModel()) {
+fun AppNavHost(vm: AppViewModel = viewModel(), chatVm: ChatViewModel = viewModel()) {
     val nav = rememberNavController()
     val state by vm.state.collectAsStateWithLifecycle()
+    val threads by chatVm.threads.collectAsStateWithLifecycle()
+
+    // AI に送る情報は、送る直前の回答から作る（聞き返しに答えて回答を保存した直後でも新しい回答を送るため）
+    fun chatContext(procedureId: String?): () -> ChatContext = {
+        val s = vm.state.value
+        val catalog = (s.catalog as? UiResult.Success)?.data
+        if (catalog == null) ChatContext(procedureId, emptyList(), emptyList())
+        else ChatContext.build(catalog, s.answers, s.evaluation, s.completed, procedureId)
+    }
+
+    @Composable
+    fun Chat(procedureId: String?, onBack: (() -> Unit)?) {
+        val context = chatContext(procedureId)
+        ChatScreen(
+            state = state,
+            procedureId = procedureId,
+            thread = threads[procedureId ?: ""] ?: ChatThread(),
+            onSend = { chatVm.send(it, context) },
+            onPickOption = { reply, option ->
+                // アプリの質問項目に当たる聞き返しなら、選んだ値を回答に保存してから答えとして送る
+                if (reply.field != null && option.value != null) vm.answer(reply.field, Answer.Single(option.value))
+                chatVm.send(option.label, context)
+            },
+            onRetry = { chatVm.retry(context) },
+            onClear = { chatVm.clear(procedureId) },
+            onRetryCatalog = vm::loadCatalog,
+            onBack = onBack,
+            onTab = nav::switchTab,
+        )
+    }
 
     // 画面遷移は横スライド: 進むときは右から入って左へ抜け、戻るときはその逆。
     // ジェスチャーで戻るとき（予測型の戻る）は predictivePop* が使われ、指定しないと標準の縮むアニメーションになるので、同じスライドにする
@@ -128,6 +166,10 @@ fun AppNavHost(vm: AppViewModel = viewModel()) {
                 onTab = nav::switchTab,
             )
         }
+        composable(Routes.CHAT) { Chat(procedureId = null, onBack = null) }
+        composable(Routes.PROCEDURE_CHAT) { entry ->
+            Chat(procedureId = entry.arguments?.getString("id").orEmpty(), onBack = { nav.popBackStack() })
+        }
         composable(Routes.FLOW) { entry ->
             FlowScreen(
                 state = state,
@@ -138,6 +180,7 @@ fun AppNavHost(vm: AppViewModel = viewModel()) {
                 onConfirm = vm::setConfirmed,
                 onRetry = vm::loadCatalog,
                 onBack = { nav.popBackStack() },
+                onAsk = { id -> nav.navigate(Routes.chat(id)) },
             )
         }
     }

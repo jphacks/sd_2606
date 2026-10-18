@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
 
+from app.llm.chat import ChatReply, ChatRequest, ChatUnavailable, chat
 from app.llm.explain import explain
 from app.rules.engine import load_procedures, recommend
 from app.rules.questions import build_catalog
@@ -43,3 +44,17 @@ def get_procedure(procedure_id: str) -> Procedure:
     if proc is None:
         raise HTTPException(status_code=404, detail="procedure not found")
     return Procedure.model_validate(proc.model_dump(exclude={"relations"}))
+
+
+@router.post("/chat", response_model=ChatReply)
+async def post_chat(req: ChatRequest) -> ChatReply:
+    """アプリの「AIに質問」。回答を表示用に加工したもの（年齢など）と会話を受け取り、Claude の答えか聞き返しを返す。
+
+    受け取った内容はサーバーに保存しない。
+    """
+    if req.messages[-1].role != "user":
+        raise HTTPException(status_code=422, detail="最後のメッセージはユーザーの質問にしてください")
+    try:
+        return await chat(req)
+    except ChatUnavailable as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e

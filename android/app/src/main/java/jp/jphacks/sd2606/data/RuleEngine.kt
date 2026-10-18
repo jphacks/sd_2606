@@ -248,11 +248,12 @@ object RuleEngine {
             .map { (name, docs) -> Document(name, docs.all { it.conditional }) }
 
     /** 手続きの分岐で選ぶ値の項目（回答と一緒に端末に保存する）。 */
-    fun choiceFields(procedures: List<ProcedureDef>): Set<String> {
-        fun walk(steps: List<FlowStep>): List<String> =
-            steps.flatMap { s -> listOfNotNull(s.choice?.field) + s.choice?.options.orEmpty().flatMap { walk(it.steps) } }
-        return procedures.flatMap { walk(it.steps) }.toSet()
-    }
+    fun choiceFields(procedures: List<ProcedureDef>): Set<String> =
+        procedures.flatMap { allChoices(it.steps) }.map { it.field }.toSet()
+
+    /** ステップの中の分岐（選択肢の先の分岐も含む）。 */
+    fun allChoices(steps: List<FlowStep>): List<FlowChoice> =
+        steps.flatMap { s -> listOfNotNull(s.choice) + s.choice?.options.orEmpty().flatMap { allChoices(it.steps) } }
 
     /**
      * 手続きの画面に並べるフロー。当てはまるステップに番号を付けて並べ、分岐では選んだ選択肢のステップを続ける。
