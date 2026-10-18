@@ -332,8 +332,15 @@ object RuleEngine {
         fun allSteps(steps: List<FlowStep>): List<FlowStep> = steps + steps.flatMap { s -> s.choice?.options.orEmpty().flatMap { allSteps(it.steps) } }
         val fields = (proc.relations.flatMap { r -> listOf(r.field) + r.conditions.map { it.field } } +
             allSteps(proc.steps).flatMap { s -> s.conditions.map { it.field } }).toSet()
+        val judged = evaluate(listOf(proc), rawAnswers, null, today).items.single()
+        // いまの判定に効いている答えだけを出す。前に答えて関係なくなったもの（年収を直して聞かなくなった「掛け持ち先の給与」など）は出さない。
+        // 効いている = 消すと判定・理由が変わるか、消すとまた聞かれる
+        fun matters(field: String): Boolean {
+            val without = evaluate(listOf(proc), rawAnswers - field, null, today).items.single()
+            return without.status != judged.status || without.reasons != judged.reasons || field in without.missing
+        }
         val asked = questions.filter { q ->
-            !q.required && q.partOf == null && q.field in rawAnswers && (q.field in fields || q.provides.any { it in fields })
+            !q.required && q.partOf == null && q.field in rawAnswers && (q.field in fields || q.provides.any { it in fields }) && matters(q.field)
         }
         val chosen = flow(proc, rawAnswers, today).items.filterIsInstance<FlowItem.Choice>().filter { it.selected != null }.map { it.choice.asQuestion() }
         return asked + chosen
