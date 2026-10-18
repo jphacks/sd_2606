@@ -50,6 +50,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -103,6 +104,8 @@ fun MeterScreen(
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     var showAdd by rememberSaveable { mutableStateOf(false) }
+    // 編集している記録の id（null なら編集していない）
+    var editingId by rememberSaveable { mutableStateOf<Long?>(null) }
     val age = birthDate?.let { RuleEngine.ageOn(it, LocalDate.of(state.year, 12, 31)) } ?: 0
 
     MeterContent(
@@ -115,14 +118,16 @@ fun MeterScreen(
         onNextYear = vm::nextYear,
         onAdd = { showAdd = true },
         onDelete = vm::deleteIncome,
+        onEdit = { editingId = it.id },
         procedures = procedures,
         onOpenProcedure = onOpenProcedure,
         onWorkingStudentChange = vm::setWorkingStudent,
     )
     if (showAdd) {
-        AddIncomeDialog(
+        IncomeDialog(
             // 一覧から外したバイト先は出さない（記録とメーターには残る）
             jobs = state.jobs.filterNot { it.hidden },
+            allJobs = state.jobs,
             last = state.incomes.firstOrNull(),
             newJobColorIndex = state.nextColorIndex,
             onHideJob = vm::hideJob,
@@ -132,6 +137,25 @@ fun MeterScreen(
                 showAdd = false
             },
         )
+    }
+    val editing = editingId?.let { id -> state.incomes.firstOrNull { it.id == id } }
+    if (editing != null) {
+        // key で、別の記録を開いたときに入力欄を作り直す
+        key(editing.id) {
+            IncomeDialog(
+                jobs = state.jobs.filterNot { it.hidden },
+                allJobs = state.jobs,
+                last = null,
+                newJobColorIndex = state.nextColorIndex,
+                onHideJob = vm::hideJob,
+                onDismiss = { editingId = null },
+                onSave = { name, wage, colorIndex, date, amount, withheldTax ->
+                    vm.updateIncome(editing, name, wage, colorIndex, date, amount, withheldTax)
+                    editingId = null
+                },
+                editing = editing,
+            )
+        }
     }
 }
 
@@ -147,6 +171,7 @@ private fun MeterContent(
     onNextYear: () -> Unit,
     onAdd: () -> Unit,
     onDelete: (Income) -> Unit,
+    onEdit: (Income) -> Unit = {},
     procedures: Map<String, String> = emptyMap(),
     onOpenProcedure: (String) -> Unit = {},
     onWorkingStudentChange: (Boolean) -> Unit = {},
@@ -202,12 +227,23 @@ private fun MeterContent(
                     )
                 }
                 item { CumulativeChart(state, walls) }
-                item { Text("給料の記録", style = MaterialTheme.typography.titleMedium) }
+                item {
+                    Column {
+                        Text("給料の記録", style = MaterialTheme.typography.titleMedium)
+                        if (state.incomes.isNotEmpty()) {
+                            Text("タップすると直せます", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
                 if (state.incomes.isEmpty()) {
                     item { Text("まだ記録がありません。右下のボタンから追加してください。", color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
                 items(state.incomes, key = { it.id }) { income ->
-                    IncomeRow(income, state.jobName(income.jobId), jobColor(state.colorIndexOf(income.jobId)), onDelete = { onDelete(income) })
+                    IncomeRow(
+                        income, state.jobName(income.jobId), jobColor(state.colorIndexOf(income.jobId)),
+                        onEdit = { onEdit(income) },
+                        onDelete = { onDelete(income) },
+                    )
                 }
                 item {
                     Text(
@@ -392,8 +428,17 @@ private fun TodoButton(onShowTodo: (Offset) -> Unit) {
 private val TodoColor = Color(0xFF00796B)
 
 @Composable
-private fun IncomeRow(income: Income, jobName: String, color: Color, onDelete: () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+private fun IncomeRow(income: Income, jobName: String, color: Color, onEdit: () -> Unit, onDelete: () -> Unit) {
+    // 行をタップすると編集する
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onEdit)
+            .padding(start = 4.dp),
+    ) {
         Text(income.paidOn.substring(5).replace('-', '/'), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.width(48.dp))
         ColorDot(color)
         Text(jobName, modifier = Modifier.weight(1f))
@@ -416,31 +461,38 @@ private fun ColorDot(color: Color, size: Int = 12) {
     )
 }
 
+/**
+ * 給料を追加・編集するダイアログ。editing を渡すと、その記録の内容を入れた編集の画面になる。
+ * jobs は選ぶチップに出すバイト先（一覧から外したものは出さない）、allJobs は記録のバイト先を探すのに使う。
+ */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-private fun AddIncomeDialog(
+private fun IncomeDialog(
     jobs: List<Job>,
+    allJobs: List<Job>,
     last: Income?,
     newJobColorIndex: Int,
     onHideJob: (Job) -> Unit,
     onDismiss: () -> Unit,
     onSave: (jobName: String, hourlyWage: Int?, colorIndex: Int, paidOn: LocalDate, amount: Long, withheldTax: Long) -> Unit,
+    editing: Income? = null,
 ) {
-    // 毎月の入力が数秒で済むよう、前回のバイト先と金額を最初から入れておく
-    val lastJob = jobs.firstOrNull { it.id == last?.jobId } ?: jobs.lastOrNull()
-    var jobName by rememberSaveable { mutableStateOf(lastJob?.name.orEmpty()) }
-    var wage by rememberSaveable { mutableStateOf(lastJob?.hourlyWage?.toString().orEmpty()) }
-    var colorIndex by rememberSaveable { mutableIntStateOf(lastJob?.colorIndex ?: newJobColorIndex) }
-    var amount by rememberSaveable { mutableStateOf(last?.amount?.toString().orEmpty()) }
-    // 天引きの所得税は月ごとに変わるので、前回の値は入れない
-    var withheld by rememberSaveable { mutableStateOf("") }
-    var date by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
+    // 追加のときは、毎月の入力が数秒で済むよう、前回のバイト先と金額を最初から入れておく
+    val source = editing ?: last
+    val sourceJob = allJobs.firstOrNull { it.id == source?.jobId } ?: jobs.lastOrNull()
+    var jobName by rememberSaveable { mutableStateOf(sourceJob?.name.orEmpty()) }
+    var wage by rememberSaveable { mutableStateOf(sourceJob?.hourlyWage?.toString().orEmpty()) }
+    var colorIndex by rememberSaveable { mutableIntStateOf(sourceJob?.colorIndex ?: newJobColorIndex) }
+    var amount by rememberSaveable { mutableStateOf(source?.amount?.toString().orEmpty()) }
+    // 天引きの所得税は月ごとに変わるので、追加のときは前回の値を入れない
+    var withheld by rememberSaveable { mutableStateOf(editing?.withheldTax?.takeIf { it > 0 }?.toString().orEmpty()) }
+    var date by rememberSaveable { mutableStateOf(editing?.paidOn ?: LocalDate.now().toString()) }
     var pickDate by remember { mutableStateOf(false) }
     val amountValue = amount.toLongOrNull()?.takeIf { it > 0 }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("給料を追加") },
+        title = { Text(if (editing != null) "給料を編集" else "給料を追加") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(onClick = { pickDate = true }, modifier = Modifier.fillMaxWidth()) {
@@ -451,7 +503,7 @@ private fun AddIncomeDialog(
                     onValueChange = { text ->
                         jobName = text
                         // 新しい名前なら、まだ使っていない色にする
-                        colorIndex = jobs.firstOrNull { it.name == text.trim() }?.colorIndex ?: newJobColorIndex
+                        colorIndex = allJobs.firstOrNull { it.name == text.trim() }?.colorIndex ?: newJobColorIndex
                     },
                     label = { Text("バイト先") },
                     singleLine = true,
@@ -548,7 +600,7 @@ private fun AddIncomeDialog(
                     amountValue?.let { onSave(jobName, wage.toIntOrNull(), colorIndex, LocalDate.parse(date), it, withheld.toLongOrNull() ?: 0L) }
                 },
                 enabled = jobName.isNotBlank() && amountValue != null,
-            ) { Text("追加") }
+            ) { Text(if (editing != null) "保存" else "追加") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("キャンセル") } },
     )

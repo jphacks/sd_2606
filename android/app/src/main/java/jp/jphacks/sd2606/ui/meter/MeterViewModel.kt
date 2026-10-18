@@ -117,21 +117,34 @@ class MeterViewModel(app: Application) : AndroidViewModel(app) {
 
     fun nextYear() = year.update { it + 1 }
 
-    /** バイト先は名前で探し、無ければ作る。時給・色が変わっていればバイト先も更新する。 */
     fun addIncome(jobName: String, hourlyWage: Int?, colorIndex: Int, paidOn: LocalDate, amount: Long, withheldTax: Long) {
         viewModelScope.launch {
-            val name = jobName.trim()
-            val existing = state.value.jobs.firstOrNull { it.name == name }
-            val jobId = if (existing == null) {
-                dao.insertJob(Job(name = name, hourlyWage = hourlyWage, colorIndex = colorIndex))
-            } else {
-                // 一覧から外したバイト先でも、名前を入れて追加したらまた一覧に出す
-                val updated = existing.copy(hourlyWage = hourlyWage ?: existing.hourlyWage, colorIndex = colorIndex, hidden = false)
-                if (updated != existing) dao.updateJob(updated)
-                existing.id
-            }
+            // 一覧から外したバイト先でも、名前を入れて追加したらまた一覧に出す
+            val jobId = jobIdFor(jobName, hourlyWage, colorIndex, unhide = true)
             dao.insertIncome(Income(jobId = jobId, paidOn = paidOn.toString(), amount = amount, withheldTax = withheldTax))
         }
+    }
+
+    /** 記録を直す。昔の記録を直しただけでは、一覧から外したバイト先を戻さない */
+    fun updateIncome(income: Income, jobName: String, hourlyWage: Int?, colorIndex: Int, paidOn: LocalDate, amount: Long, withheldTax: Long) {
+        viewModelScope.launch {
+            val jobId = jobIdFor(jobName, hourlyWage, colorIndex, unhide = false)
+            dao.updateIncome(income.copy(jobId = jobId, paidOn = paidOn.toString(), amount = amount, withheldTax = withheldTax))
+        }
+    }
+
+    /** バイト先は名前で探し、無ければ作る。時給・色が変わっていればバイト先も更新する。 */
+    private suspend fun jobIdFor(jobName: String, hourlyWage: Int?, colorIndex: Int, unhide: Boolean): Long {
+        val name = jobName.trim()
+        val existing = state.value.jobs.firstOrNull { it.name == name }
+            ?: return dao.insertJob(Job(name = name, hourlyWage = hourlyWage, colorIndex = colorIndex))
+        val updated = existing.copy(
+            hourlyWage = hourlyWage ?: existing.hourlyWage,
+            colorIndex = colorIndex,
+            hidden = existing.hidden && !unhide,
+        )
+        if (updated != existing) dao.updateJob(updated)
+        return existing.id
     }
 
     fun deleteIncome(income: Income) {
