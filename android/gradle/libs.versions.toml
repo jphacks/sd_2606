@@ -1,5 +1,5 @@
 [versions]
-agp = "9.3.3"
+agp = "9.4.1"
 # AGP 9 に内蔵の Kotlin と同じ版にする（Compose コンパイラはこの版と一致が必要）
 kotlin = "2.2.10"
 composeBom = "2026.09.00"
